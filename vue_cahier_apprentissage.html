@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cahier d'apprentissage Vue.js</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #42b883;
+    --dark-green: #35495e;
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #21253a;
+    --border: rgba(66,184,131,0.18);
+    --text: #e2e8f0;
+    --muted: #8892a4;
+    --code-bg: #12141f;
+    --accent: #42b883;
+    --yellow: #f0c040;
+    --blue: #61afef;
+    --orange: #e5a44b;
+    --purple: #c792ea;
+    --red: #e06c75;
+    --radius: 10px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Sora', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+
+  /* SIDEBAR */
+  #sidebar {
+    width: 270px; min-width: 270px; background: var(--surface); border-right: 1px solid var(--border);
+    height: 100vh; position: sticky; top: 0; overflow-y: auto; padding: 24px 0;
+  }
+  .logo { padding: 0 24px 20px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .logo h1 { font-size: 20px; font-weight: 700; color: var(--green); letter-spacing: -0.5px; }
+  .logo p { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .nav-section { padding: 4px 12px; }
+  .nav-title { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; padding: 8px 12px 4px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 7px;
+    cursor: pointer; font-size: 13px; color: var(--muted); transition: all 0.15s; margin-bottom: 2px;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(66,184,131,0.12); color: var(--green); font-weight: 500; }
+  .nav-item .num { font-size: 10px; background: var(--surface2); color: var(--muted); border-radius: 4px; padding: 1px 6px; font-family: 'JetBrains Mono', monospace; min-width: 22px; text-align: center; }
+  .nav-item.active .num { background: rgba(66,184,131,0.2); color: var(--green); }
+
+  /* MAIN */
+  #main { flex: 1; overflow-y: auto; }
+  .content { max-width: 900px; padding: 48px 48px 80px; margin: 0 auto; }
+
+  /* SECTIONS */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* HERO */
+  .hero { background: linear-gradient(135deg, rgba(66,184,131,0.08) 0%, rgba(53,73,94,0.15) 100%); border: 1px solid var(--border); border-radius: 14px; padding: 40px; margin-bottom: 40px; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(66,184,131,0.15); color: var(--green); border: 1px solid rgba(66,184,131,0.3); border-radius: 20px; padding: 4px 14px; font-size: 12px; font-weight: 500; margin-bottom: 16px; }
+  .hero h2 { font-size: 32px; font-weight: 700; color: var(--text); line-height: 1.2; margin-bottom: 12px; }
+  .hero h2 span { color: var(--green); }
+  .hero p { font-size: 15px; color: var(--muted); line-height: 1.7; max-width: 600px; }
+
+  /* CARDS GRID */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 24px 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card-icon { font-size: 22px; margin-bottom: 10px; }
+  .card h4 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .card p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* HEADINGS */
+  h2.sec-title { font-size: 26px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  h3.sub-title { font-size: 17px; font-weight: 600; color: var(--text); margin: 32px 0 12px; padding-left: 12px; border-left: 3px solid var(--green); }
+  h4.mini-title { font-size: 14px; font-weight: 600; color: var(--green); margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sec-desc { font-size: 15px; color: var(--muted); line-height: 1.7; margin-bottom: 28px; }
+
+  /* CODE BLOCKS */
+  .code-block { background: var(--code-bg); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius); overflow: hidden; margin: 16px 0; }
+  .code-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .code-lang { font-size: 11px; color: var(--green); font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+  .code-label { font-size: 11px; color: var(--muted); }
+  .code-block pre { padding: 20px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; }
+
+  /* SYNTAX COLORS */
+  .kw { color: var(--purple); } /* keywords */
+  .fn { color: var(--blue); }   /* functions */
+  .str { color: var(--yellow); } /* strings */
+  .num { color: var(--orange); } /* numbers */
+  .cm { color: #5c6a82; font-style: italic; } /* comments */
+  .tag { color: var(--red); }    /* html tags */
+  .attr { color: var(--orange); } /* attributes */
+  .var { color: var(--text); }   /* variables */
+  .op { color: var(--muted); }   /* operators */
+  .sp { color: var(--green); }   /* special/directives */
+  .prop { color: #61afef; }      /* properties */
+
+  /* TIPS & NOTES */
+  .tip { background: rgba(66,184,131,0.07); border: 1px solid rgba(66,184,131,0.25); border-radius: var(--radius); padding: 14px 18px; margin: 16px 0; }
+  .tip-label { font-size: 11px; font-weight: 600; color: var(--green); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .tip p { font-size: 14px; color: var(--text); line-height: 1.6; }
+  .warn { background: rgba(240,192,64,0.06); border: 1px solid rgba(240,192,64,0.25); border-radius: var(--radius); padding: 14px 18px; margin: 16px 0; }
+  .warn-label { font-size: 11px; font-weight: 600; color: var(--yellow); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .warn p { font-size: 14px; color: var(--text); line-height: 1.6; }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th { background: var(--surface); color: var(--green); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--code-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 1px 6px; color: var(--green); }
+
+  /* PROGRESS */
+  .progress-bar { background: rgba(66,184,131,0.1); border-radius: 4px; height: 4px; margin-bottom: 32px; }
+  .progress-fill { background: var(--green); height: 4px; border-radius: 4px; transition: width 0.4s; }
+
+  /* BADGE */
+  .badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 500; border-radius: 4px; padding: 2px 8px; }
+  .badge-green { background: rgba(66,184,131,0.15); color: var(--green); }
+  .badge-blue { background: rgba(97,175,239,0.15); color: var(--blue); }
+  .badge-yellow { background: rgba(240,192,64,0.15); color: var(--yellow); }
+  .badge-red { background: rgba(224,108,117,0.15); color: var(--red); }
+
+  /* STEP LIST */
+  .step-list { list-style: none; padding: 0; }
+  .step-list li { display: flex; gap: 14px; margin-bottom: 16px; align-items: flex-start; }
+  .step-num { min-width: 28px; height: 28px; border-radius: 50%; background: rgba(66,184,131,0.15); color: var(--green); font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+  .step-content h4 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .step-content p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* COMPARE */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  .compare-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .compare-box h4 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+
+  /* NAV BUTTONS */
+  .nav-btns { display: flex; gap: 12px; margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); }
+  .nav-btn { flex: 1; padding: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 500; border-radius: var(--radius); cursor: pointer; transition: all 0.15s; }
+  .nav-btn:hover { border-color: var(--green); color: var(--green); }
+  .nav-btn.primary { background: rgba(66,184,131,0.12); border-color: rgba(66,184,131,0.4); color: var(--green); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 768px) {
+    #sidebar { display: none; }
+    .content { padding: 24px 20px 60px; }
+    .compare { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="logo">
+    <h1>&#9670; Vue.js</h1>
+    <p>Cahier d'apprentissage complet</p>
+  </div>
+  <div class="nav-section">
+    <div class="nav-title">Fondamentaux</div>
+    <div class="nav-item active" onclick="goTo(0)"><span class="num">00</span> Introduction</div>
+    <div class="nav-item" onclick="goTo(1)"><span class="num">01</span> Installation & Setup</div>
+    <div class="nav-item" onclick="goTo(2)"><span class="num">02</span> Template & Directives</div>
+    <div class="nav-item" onclick="goTo(3)"><span class="num">03</span> Réactivité</div>
+    <div class="nav-item" onclick="goTo(4)"><span class="num">04</span> Computed & Watch</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-title">Composants</div>
+    <div class="nav-item" onclick="goTo(5)"><span class="num">05</span> Composants</div>
+    <div class="nav-item" onclick="goTo(6)"><span class="num">06</span> Props & Emits</div>
+    <div class="nav-item" onclick="goTo(7)"><span class="num">07</span> Slots</div>
+    <div class="nav-item" onclick="goTo(8)"><span class="num">08</span> Lifecycle Hooks</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-title">API Avancée</div>
+    <div class="nav-item" onclick="goTo(9)"><span class="num">09</span> Composition API</div>
+    <div class="nav-item" onclick="goTo(10)"><span class="num">10</span> Formulaires</div>
+    <div class="nav-item" onclick="goTo(11)"><span class="num">11</span> Vue Router</div>
+    <div class="nav-item" onclick="goTo(12)"><span class="num">12</span> Pinia</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-title">Maîtrise</div>
+    <div class="nav-item" onclick="goTo(13)"><span class="num">13</span> Requêtes HTTP</div>
+    <div class="nav-item" onclick="goTo(14)"><span class="num">14</span> Performance</div>
+    <div class="nav-item" onclick="goTo(15)"><span class="num">15</span> Bonnes pratiques</div>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main id="main">
+<div class="content">
+  <div class="progress-bar"><div class="progress-fill" id="progress" style="width:6%"></div></div>
+
+  <!-- SECTION 0: Introduction -->
+  <section class="section active" id="s0">
+    <div class="hero">
+      <div class="hero-badge">&#9670; Roadmap Officielle 2026</div>
+      <h2>Apprendre <span>Vue.js</span> de zéro à expert</h2>
+      <p>Ce cahier couvre tout ce dont vous avez besoin pour devenir un développeur Vue.js compétent — des bases de la réactivité à la gestion d'état avancée avec Pinia.</p>
+    </div>
+    <h2 class="sec-title">Qu'est-ce que Vue.js ?</h2>
+    <p class="sec-desc">Vue.js est un framework JavaScript progressif pour construire des interfaces utilisateur. Il est conçu pour être adopté progressivement — vous pouvez l'utiliser pour une seule page ou pour toute une application complexe.</p>
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-icon">&#9889;</div>
+        <h4>Réactif</h4>
+        <p>Le DOM se met à jour automatiquement quand les données changent.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#9679;</div>
+        <h4>Composants</h4>
+        <p>Construisez des UIs en combinant de petits composants réutilisables.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#8594;</div>
+        <h4>Progressif</h4>
+        <p>Intégrez Vue dans un projet existant ou construisez une SPA complète.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#9670;</div>
+        <h4>Composition API</h4>
+        <p>Organisez votre logique par fonctionnalité, pas par option.</p>
+      </div>
+    </div>
+    <h3 class="sub-title">Vue 3 vs Vue 2 — Les grandes différences</h3>
+    <table>
+      <tr><th>Fonctionnalité</th><th>Vue 2</th><th>Vue 3</th></tr>
+      <tr><td>API principale</td><td>Options API</td><td>Composition API (recommandée)</td></tr>
+      <tr><td>Réactivité</td><td>Object.defineProperty</td><td>Proxy ES6 — plus puissant</td></tr>
+      <tr><td>TypeScript</td><td>Support basique</td><td>Support natif complet</td></tr>
+      <tr><td>Performance</td><td>Bonne</td><td>+55% plus rapide, bundle -41%</td></tr>
+      <tr><td>Gestion d'état</td><td>Vuex</td><td>Pinia (officiel)</td></tr>
+    </table>
+    <div class="nav-btns">
+      <button class="nav-btn primary" onclick="goTo(1)">Commencer : Installation &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 1: Installation -->
+  <section class="section" id="s1">
+    <h2 class="sec-title">Installation & Setup</h2>
+    <p class="sec-desc">Créez votre premier projet Vue en moins de 2 minutes avec Vite — le bundler recommandé pour Vue 3.</p>
+
+    <h3 class="sub-title">Méthode recommandée : Vite + Vue</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">TERMINAL</span><span class="code-label">Créer un projet</span></div>
+      <pre><code><span class="cm"># Créer un nouveau projet Vue</span>
+<span class="fn">npm</span> create vue@latest
+
+<span class="cm"># L'assistant vous demandera :</span>
+<span class="sp">✔</span> Project name: <span class="str">mon-app</span>
+<span class="sp">✔</span> Add TypeScript? <span class="str">No</span>
+<span class="sp">✔</span> Add Vue Router? <span class="str">Yes</span>
+<span class="sp">✔</span> Add Pinia? <span class="str">Yes</span>
+<span class="sp">✔</span> Add ESLint? <span class="str">Yes</span>
+
+<span class="cm"># Ensuite :</span>
+<span class="fn">cd</span> mon-app
+<span class="fn">npm</span> install
+<span class="fn">npm</span> run dev</code></pre>
+    </div>
+
+    <h3 class="sub-title">Structure d'un projet Vue</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">ARBORESCENCE</span><span class="code-label">Structure du projet</span></div>
+      <pre><code>mon-app/
+├── <span class="sp">src/</span>
+│   ├── <span class="fn">assets/</span>          <span class="cm"># Images, CSS globaux</span>
+│   ├── <span class="fn">components/</span>      <span class="cm"># Composants réutilisables</span>
+│   ├── <span class="fn">views/</span>           <span class="cm"># Pages (avec Vue Router)</span>
+│   ├── <span class="fn">stores/</span>          <span class="cm"># State Pinia</span>
+│   ├── <span class="fn">router/</span>
+│   │   └── <span class="str">index.js</span>     <span class="cm"># Configuration des routes</span>
+│   ├── <span class="str">App.vue</span>          <span class="cm"># Composant racine</span>
+│   └── <span class="str">main.js</span>          <span class="cm"># Point d'entrée</span>
+├── <span class="str">index.html</span>
+└── <span class="str">vite.config.js</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">Anatomie d'un fichier .vue (SFC)</h3>
+    <p class="sec-desc">Un Single File Component (SFC) regroupe le template HTML, le script JS et le style CSS dans un seul fichier.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">MonComposant.vue</span></div>
+      <pre><code><span class="cm">&lt;!-- 1. TEMPLATE : ce qui s'affiche --&gt;</span>
+<span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="str">"hello"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;h1&gt;</span>{{ message }}<span class="tag">&lt;/h1&gt;</span>
+    <span class="tag">&lt;button</span> <span class="sp">@click</span>=<span class="str">"changerMessage"</span><span class="tag">&gt;</span>Changer<span class="tag">&lt;/button&gt;</span>
+  <span class="tag">&lt;/div&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="cm">&lt;!-- 2. SCRIPT : la logique --&gt;</span>
+<span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">ref</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="kw">const</span> <span class="var">message</span> = <span class="fn">ref</span>(<span class="str">'Bonjour Vue !'</span>)
+
+<span class="kw">function</span> <span class="fn">changerMessage</span>() {
+  <span class="var">message</span>.value = <span class="str">'Message changé !'</span>
+}
+<span class="tag">&lt;/script&gt;</span>
+
+<span class="cm">&lt;!-- 3. STYLE : la mise en forme --&gt;</span>
+<span class="tag">&lt;style scoped&gt;</span>
+<span class="prop">.hello</span> {
+  <span class="attr">text-align</span>: <span class="str">center</span>;
+  <span class="attr">color</span>: <span class="str">#42b883</span>;
+}
+<span class="tag">&lt;/style&gt;</span></code></pre>
+    </div>
+    <div class="tip"><div class="tip-label">&#9670; Bonne pratique</div><p><code>&lt;script setup&gt;</code> est la syntaxe recommandée pour la Composition API — tout ce que vous déclarez est automatiquement accessible dans le template, sans besoin de <code>return</code>.</p></div>
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(0)">&#8592; Introduction</button>
+      <button class="nav-btn primary" onclick="goTo(2)">Templates & Directives &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 2: Templates & Directives -->
+  <section class="section" id="s2">
+    <h2 class="sec-title">Template & Directives</h2>
+    <p class="sec-desc">Vue utilise une syntaxe de template HTML enrichie de directives (préfixées par <code>v-</code>) pour lier dynamiquement les données au DOM.</p>
+
+    <h3 class="sub-title">Interpolation — Afficher des données</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE TEMPLATE</span><span class="code-label">Affichage dynamique</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="cm">&lt;!-- Texte simple --&gt;</span>
+  <span class="tag">&lt;p&gt;</span>{{ nom }}<span class="tag">&lt;/p&gt;</span>                      <span class="cm">&lt;!-- "Alice" --&gt;</span>
+  <span class="tag">&lt;p&gt;</span>{{ age + 1 }}<span class="tag">&lt;/p&gt;</span>                 <span class="cm">&lt;!-- "26" --&gt;</span>
+  <span class="tag">&lt;p&gt;</span>{{ ok ? 'Oui' : 'Non' }}<span class="tag">&lt;/p&gt;</span>     <span class="cm">&lt;!-- Expression JS --&gt;</span>
+
+  <span class="cm">&lt;!-- HTML brut (attention aux XSS !) --&gt;</span>
+  <span class="tag">&lt;div</span> <span class="sp">v-html</span>=<span class="str">"htmlContent"</span><span class="tag">&gt;&lt;/div&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="tag">&lt;script setup&gt;</span>
+<span class="kw">const</span> <span class="var">nom</span> = <span class="str">'Alice'</span>
+<span class="kw">const</span> <span class="var">age</span> = <span class="num">25</span>
+<span class="kw">const</span> <span class="var">ok</span> = <span class="kw">true</span>
+<span class="kw">const</span> <span class="var">htmlContent</span> = <span class="str">'&lt;strong&gt;Texte en gras&lt;/strong&gt;'</span>
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">v-bind — Lier des attributs HTML</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE TEMPLATE</span><span class="code-label">v-bind (:)</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="cm">&lt;!-- Syntaxe complète --&gt;</span>
+  <span class="tag">&lt;img</span> <span class="sp">v-bind:src</span>=<span class="str">"imageUrl"</span> <span class="sp">v-bind:alt</span>=<span class="str">"imageAlt"</span> <span class="tag">/&gt;</span>
+
+  <span class="cm">&lt;!-- Syntaxe raccourcie (recommandée) --&gt;</span>
+  <span class="tag">&lt;img</span> <span class="sp">:src</span>=<span class="str">"imageUrl"</span> <span class="sp">:alt</span>=<span class="str">"imageAlt"</span> <span class="tag">/&gt;</span>
+
+  <span class="cm">&lt;!-- Lier des classes dynamiquement --&gt;</span>
+  <span class="tag">&lt;div</span> <span class="sp">:class</span>=<span class="str">"{ actif: estActif, erreur: aErreur }"</span><span class="tag">&gt;</span>...<span class="tag">&lt;/div&gt;</span>
+  <span class="tag">&lt;div</span> <span class="sp">:class</span>=<span class="str">"[classeBase, estActif ? 'actif' : '']"</span><span class="tag">&gt;</span>...<span class="tag">&lt;/div&gt;</span>
+
+  <span class="cm">&lt;!-- Lier des styles dynamiquement --&gt;</span>
+  <span class="tag">&lt;div</span> <span class="sp">:style</span>=<span class="str">"{ color: couleur, fontSize: taille + 'px' }"</span><span class="tag">&gt;</span>...<span class="tag">&lt;/div&gt;</span>
+
+  <span class="cm">&lt;!-- Bouton désactivé conditionnellement --&gt;</span>
+  <span class="tag">&lt;button</span> <span class="sp">:disabled</span>=<span class="str">"chargement"</span><span class="tag">&gt;</span>Envoyer<span class="tag">&lt;/button&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">v-if / v-else-if / v-else — Rendu conditionnel</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE TEMPLATE</span><span class="code-label">Conditions</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="cm">&lt;!-- v-if crée/détruit l'élément dans le DOM --&gt;</span>
+  <span class="tag">&lt;div</span> <span class="sp">v-if</span>=<span class="str">"score >= 90"</span><span class="tag">&gt;</span>🏆 Excellent !<span class="tag">&lt;/div&gt;</span>
+  <span class="tag">&lt;div</span> <span class="sp">v-else-if</span>=<span class="str">"score >= 60"</span><span class="tag">&gt;</span>✅ Bien<span class="tag">&lt;/div&gt;</span>
+  <span class="tag">&lt;div</span> <span class="sp">v-else</span><span class="tag">&gt;</span>❌ À améliorer<span class="tag">&lt;/div&gt;</span>
+
+  <span class="cm">&lt;!-- v-show : garde dans le DOM, change display --&gt;</span>
+  <span class="cm">&lt;!-- Préférer v-show pour des bascules fréquentes --&gt;</span>
+  <span class="tag">&lt;div</span> <span class="sp">v-show</span>=<span class="str">"menuOuvert"</span><span class="tag">&gt;</span>Menu contextuel<span class="tag">&lt;/div&gt;</span>
+
+  <span class="cm">&lt;!-- &lt;template&gt; pour grouper sans ajouter de div --&gt;</span>
+  <span class="tag">&lt;template</span> <span class="sp">v-if</span>=<span class="str">"connecte"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;p&gt;</span>Bienvenue !<span class="tag">&lt;/p&gt;</span>
+    <span class="tag">&lt;button&gt;</span>Se déconnecter<span class="tag">&lt;/button&gt;</span>
+  <span class="tag">&lt;/template&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">v-for — Rendu de listes</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE TEMPLATE</span><span class="code-label">Boucles</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="cm">&lt;!-- Tableau simple — TOUJOURS ajouter :key --&gt;</span>
+  <span class="tag">&lt;ul&gt;</span>
+    <span class="tag">&lt;li</span> <span class="sp">v-for</span>=<span class="str">"fruit in fruits"</span> <span class="sp">:key</span>=<span class="str">"fruit"</span><span class="tag">&gt;</span>{{ fruit }}<span class="tag">&lt;/li&gt;</span>
+  <span class="tag">&lt;/ul&gt;</span>
+
+  <span class="cm">&lt;!-- Avec l'index --&gt;</span>
+  <span class="tag">&lt;li</span> <span class="sp">v-for</span>=<span class="str">"(fruit, index) in fruits"</span> <span class="sp">:key</span>=<span class="str">"index"</span><span class="tag">&gt;</span>
+    {{ index + 1 }}. {{ fruit }}
+  <span class="tag">&lt;/li&gt;</span>
+
+  <span class="cm">&lt;!-- Tableau d'objets --&gt;</span>
+  <span class="tag">&lt;div</span> <span class="sp">v-for</span>=<span class="str">"user in users"</span> <span class="sp">:key</span>=<span class="str">"user.id"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;h3&gt;</span>{{ user.nom }}<span class="tag">&lt;/h3&gt;</span>
+    <span class="tag">&lt;p&gt;</span>{{ user.email }}<span class="tag">&lt;/p&gt;</span>
+  <span class="tag">&lt;/div&gt;</span>
+
+  <span class="cm">&lt;!-- Plage de nombres --&gt;</span>
+  <span class="tag">&lt;span</span> <span class="sp">v-for</span>=<span class="str">"n in 5"</span> <span class="sp">:key</span>=<span class="str">"n"</span><span class="tag">&gt;</span>&#9733;<span class="tag">&lt;/span&gt;</span>  <span class="cm">&lt;!-- ★★★★★ --&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="tag">&lt;script setup&gt;</span>
+<span class="kw">const</span> <span class="var">fruits</span> = [<span class="str">'Mangue'</span>, <span class="str">'Litchi'</span>, <span class="str">'Ananas'</span>]
+<span class="kw">const</span> <span class="var">users</span> = [
+  { <span class="prop">id</span>: <span class="num">1</span>, <span class="prop">nom</span>: <span class="str">'Alice'</span>, <span class="prop">email</span>: <span class="str">'alice@mail.com'</span> },
+  { <span class="prop">id</span>: <span class="num">2</span>, <span class="prop">nom</span>: <span class="str">'Bob'</span>, <span class="prop">email</span>: <span class="str">'bob@mail.com'</span> }
+]
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">v-on — Écouter les événements</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE TEMPLATE</span><span class="code-label">v-on (@)</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="cm">&lt;!-- Syntaxe raccourcie @ --&gt;</span>
+  <span class="tag">&lt;button</span> <span class="sp">@click</span>=<span class="str">"incrementer"</span><span class="tag">&gt;</span>+1<span class="tag">&lt;/button&gt;</span>
+  <span class="tag">&lt;button</span> <span class="sp">@click</span>=<span class="str">"compteur++"</span><span class="tag">&gt;</span>Inline<span class="tag">&lt;/button&gt;</span>
+
+  <span class="cm">&lt;!-- Passer l'événement natif --&gt;</span>
+  <span class="tag">&lt;input</span> <span class="sp">@input</span>=<span class="str">"onInput($event)"</span> <span class="tag">/&gt;</span>
+  <span class="tag">&lt;input</span> <span class="sp">@keyup.enter</span>=<span class="str">"soumettre"</span> <span class="tag">/&gt;</span>  <span class="cm">&lt;!-- Modificateur --&gt;</span>
+
+  <span class="cm">&lt;!-- Modificateurs d'événements --&gt;</span>
+  <span class="tag">&lt;a</span> <span class="sp">@click.prevent</span>=<span class="str">"naviguer"</span><span class="tag">&gt;</span>Lien<span class="tag">&lt;/a&gt;</span>         <span class="cm">&lt;!-- preventDefault --&gt;</span>
+  <span class="tag">&lt;div</span> <span class="sp">@click.stop</span>=<span class="str">"action"</span><span class="tag">&gt;</span>Div<span class="tag">&lt;/div&gt;</span>              <span class="cm">&lt;!-- stopPropagation --&gt;</span>
+  <span class="tag">&lt;button</span> <span class="sp">@click.once</span>=<span class="str">"uneSeuleFois"</span><span class="tag">&gt;</span>Click<span class="tag">&lt;/button&gt;</span>  <span class="cm">&lt;!-- déclenche une fois --&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+
+    <table>
+      <tr><th>Directive</th><th>Raccourci</th><th>Usage</th></tr>
+      <tr><td><code>v-bind:attr</code></td><td><code>:attr</code></td><td>Lier un attribut HTML</td></tr>
+      <tr><td><code>v-on:event</code></td><td><code>@event</code></td><td>Écouter un événement</td></tr>
+      <tr><td><code>v-model</code></td><td>—</td><td>Liaison bidirectionnelle (formulaires)</td></tr>
+      <tr><td><code>v-if / v-else</code></td><td>—</td><td>Rendu conditionnel</td></tr>
+      <tr><td><code>v-show</code></td><td>—</td><td>Visibilité CSS</td></tr>
+      <tr><td><code>v-for</code></td><td>—</td><td>Rendu de liste</td></tr>
+      <tr><td><code>v-html</code></td><td>—</td><td>HTML brut (attention XSS)</td></tr>
+      <tr><td><code>v-once</code></td><td>—</td><td>Rendu statique (optimisation)</td></tr>
+    </table>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(1)">&#8592; Installation</button>
+      <button class="nav-btn primary" onclick="goTo(3)">Réactivité &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 3: Réactivité -->
+  <section class="section" id="s3">
+    <h2 class="sec-title">Réactivité</h2>
+    <p class="sec-desc">Le système de réactivité de Vue 3 est le cœur du framework. Quand les données réactives changent, le DOM se met à jour automatiquement.</p>
+
+    <h3 class="sub-title">ref() — Pour les valeurs primitives</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JAVASCRIPT</span><span class="code-label">ref()</span></div>
+      <pre><code><span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">ref</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="cm">// ref() pour : string, number, boolean, null, undefined</span>
+<span class="kw">const</span> <span class="var">nom</span> = <span class="fn">ref</span>(<span class="str">'Alice'</span>)
+<span class="kw">const</span> <span class="var">age</span> = <span class="fn">ref</span>(<span class="num">25</span>)
+<span class="kw">const</span> <span class="var">connecte</span> = <span class="fn">ref</span>(<span class="kw">false</span>)
+<span class="kw">const</span> <span class="var">liste</span> = <span class="fn">ref</span>([]) <span class="cm">// fonctionne aussi avec tableaux/objets</span>
+
+<span class="cm">// Dans le script : accès via .value</span>
+<span class="var">nom</span>.value = <span class="str">'Bob'</span>
+<span class="var">age</span>.value++
+<span class="var">connecte</span>.value = <span class="kw">true</span>
+<span class="var">liste</span>.value.<span class="fn">push</span>({ <span class="prop">id</span>: <span class="num">1</span>, <span class="prop">titre</span>: <span class="str">'Tâche 1'</span> })
+
+<span class="cm">// Dans le template : pas besoin de .value !</span>
+<span class="cm">// {{ nom }}  ✓    {{ nom.value }}  ✗</span>
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">reactive() — Pour les objets et tableaux</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JAVASCRIPT</span><span class="code-label">reactive()</span></div>
+      <pre><code><span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">reactive</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="cm">// reactive() pour les objets</span>
+<span class="kw">const</span> <span class="var">utilisateur</span> = <span class="fn">reactive</span>({
+  <span class="prop">nom</span>: <span class="str">'Alice'</span>,
+  <span class="prop">age</span>: <span class="num">25</span>,
+  <span class="prop">adresse</span>: {
+    <span class="prop">ville</span>: <span class="str">'Antananarivo'</span>,
+    <span class="prop">pays</span>: <span class="str">'Madagascar'</span>
+  }
+})
+
+<span class="cm">// Modification : sans .value !</span>
+<span class="var">utilisateur</span>.nom = <span class="str">'Bob'</span>
+<span class="var">utilisateur</span>.adresse.ville = <span class="str">'Toamasina'</span>
+
+<span class="cm">// ⚠️ Attention : ne jamais réassigner l'objet entier !</span>
+<span class="cm">// utilisateur = { nom: 'Carol' }  // ❌ perd la réactivité</span>
+<span class="var">utilisateur</span>.nom = <span class="str">'Carol'</span>         <span class="cm">// ✅ modifier les propriétés</span>
+<span class="tag">&lt;/script&gt;</span>
+
+<span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;p&gt;</span>{{ utilisateur.nom }} habite à {{ utilisateur.adresse.ville }}<span class="tag">&lt;/p&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+
+    <div class="compare">
+      <div class="compare-box">
+        <h4 style="color: var(--green);">ref() — Quand l'utiliser</h4>
+        <div class="code-block" style="margin:0">
+          <pre style="padding:12px"><code><span class="cm">// Primitives</span>
+<span class="kw">const</span> <span class="var">compteur</span> = <span class="fn">ref</span>(<span class="num">0</span>)
+<span class="kw">const</span> <span class="var">titre</span> = <span class="fn">ref</span>(<span class="str">''</span>)
+<span class="kw">const</span> <span class="var">visible</span> = <span class="fn">ref</span>(<span class="kw">true</span>)
+
+<span class="cm">// Accès dans le script</span>
+<span class="var">compteur</span>.value++</code></pre>
+        </div>
+      </div>
+      <div class="compare-box">
+        <h4 style="color: var(--blue);">reactive() — Quand l'utiliser</h4>
+        <div class="code-block" style="margin:0">
+          <pre style="padding:12px"><code><span class="cm">// Objets complexes</span>
+<span class="kw">const</span> <span class="var">form</span> = <span class="fn">reactive</span>({
+  <span class="prop">nom</span>: <span class="str">''</span>,
+  <span class="prop">email</span>: <span class="str">''</span>,
+  <span class="prop">age</span>: <span class="num">0</span>
+})
+
+<span class="cm">// Accès direct</span>
+<span class="var">form</span>.nom = <span class="str">'Alice'</span></code></pre>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="sub-title">Exemple complet : Compteur réactif</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">Compteur.vue</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="str">"compteur"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;h2&gt;</span>Compteur : {{ valeur }}<span class="tag">&lt;/h2&gt;</span>
+    <span class="tag">&lt;button</span> <span class="sp">@click</span>=<span class="str">"decrementer"</span> <span class="sp">:disabled</span>=<span class="str">"valeur === 0"</span><span class="tag">&gt;</span>-<span class="tag">&lt;/button&gt;</span>
+    <span class="tag">&lt;button</span> <span class="sp">@click</span>=<span class="str">"incrementer"</span><span class="tag">&gt;</span>+<span class="tag">&lt;/button&gt;</span>
+    <span class="tag">&lt;button</span> <span class="sp">@click</span>=<span class="str">"reinitialiser"</span><span class="tag">&gt;</span>Reset<span class="tag">&lt;/button&gt;</span>
+    <span class="tag">&lt;p</span> <span class="sp">v-if</span>=<span class="str">"valeur > 10"</span> <span class="attr">style</span>=<span class="str">"color:orange"</span><span class="tag">&gt;</span>Valeur élevée !<span class="tag">&lt;/p&gt;</span>
+  <span class="tag">&lt;/div&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">ref</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="kw">const</span> <span class="var">valeur</span> = <span class="fn">ref</span>(<span class="num">0</span>)
+
+<span class="kw">function</span> <span class="fn">incrementer</span>() { <span class="var">valeur</span>.value++ }
+<span class="kw">function</span> <span class="fn">decrementer</span>() { <span class="kw">if</span> (<span class="var">valeur</span>.value > <span class="num">0</span>) <span class="var">valeur</span>.value-- }
+<span class="kw">function</span> <span class="fn">reinitialiser</span>() { <span class="var">valeur</span>.value = <span class="num">0</span> }
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(2)">&#8592; Templates</button>
+      <button class="nav-btn primary" onclick="goTo(4)">Computed & Watch &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 4: Computed & Watch -->
+  <section class="section" id="s4">
+    <h2 class="sec-title">Computed & Watchers</h2>
+    <p class="sec-desc">Les propriétés calculées (computed) et les observateurs (watch) permettent de réagir aux changements de données.</p>
+
+    <h3 class="sub-title">computed() — Valeurs dérivées</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JAVASCRIPT</span><span class="code-label">computed()</span></div>
+      <pre><code><span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">ref</span>, <span class="fn">computed</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="kw">const</span> <span class="var">prenom</span> = <span class="fn">ref</span>(<span class="str">'Alice'</span>)
+<span class="kw">const</span> <span class="var">nom</span> = <span class="fn">ref</span>(<span class="str">'Dupont'</span>)
+<span class="kw">const</span> <span class="var">prix</span> = <span class="fn">ref</span>(<span class="num">100</span>)
+<span class="kw">const</span> <span class="var">tva</span> = <span class="fn">ref</span>(<span class="num">0.2</span>)
+<span class="kw">const</span> <span class="var">panier</span> = <span class="fn">ref</span>([
+  { <span class="prop">nom</span>: <span class="str">'Livre'</span>, <span class="prop">prix</span>: <span class="num">20</span> },
+  { <span class="prop">nom</span>: <span class="str">'Stylo'</span>, <span class="prop">prix</span>: <span class="num">5</span> },
+  { <span class="prop">nom</span>: <span class="str">'Cahier'</span>, <span class="prop">prix</span>: <span class="num">8</span> }
+])
+
+<span class="cm">// computed : se recalcule SEULEMENT si dépendances changent</span>
+<span class="kw">const</span> <span class="var">nomComplet</span> = <span class="fn">computed</span>(() => `${<span class="var">prenom</span>.value} ${<span class="var">nom</span>.value}`)
+<span class="kw">const</span> <span class="var">prixTTC</span> = <span class="fn">computed</span>(() => (<span class="var">prix</span>.value * (<span class="num">1</span> + <span class="var">tva</span>.value)).<span class="fn">toFixed</span>(<span class="num">2</span>))
+<span class="kw">const</span> <span class="var">totalPanier</span> = <span class="fn">computed</span>(() =>
+  <span class="var">panier</span>.value.<span class="fn">reduce</span>((<span class="var">acc</span>, <span class="var">item</span>) => <span class="var">acc</span> + <span class="var">item</span>.prix, <span class="num">0</span>)
+)
+<span class="kw">const</span> <span class="var">nbArticles</span> = <span class="fn">computed</span>(() => <span class="var">panier</span>.value.length)
+<span class="tag">&lt;/script&gt;</span>
+
+<span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;p&gt;</span>{{ nomComplet }} <span class="cm">&lt;!-- "Alice Dupont" --&gt;</span><span class="tag">&lt;/p&gt;</span>
+  <span class="tag">&lt;p&gt;</span>Prix TTC : {{ prixTTC }} € <span class="cm">&lt;!-- "120.00 €" --&gt;</span><span class="tag">&lt;/p&gt;</span>
+  <span class="tag">&lt;p&gt;</span>{{ nbArticles }} articles — Total : {{ totalPanier }} €<span class="tag">&lt;/p&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+
+    <div class="tip">
+      <div class="tip-label">&#9670; Computed vs Méthode</div>
+      <p>Un <code>computed</code> est mis en cache et ne se recalcule que si ses dépendances changent. Une méthode recalcule à chaque rendu. Utilisez <code>computed</code> pour des valeurs dérivées, les méthodes pour des actions avec effets de bord.</p>
+    </div>
+
+    <h3 class="sub-title">watch() — Observer les changements</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JAVASCRIPT</span><span class="code-label">watch()</span></div>
+      <pre><code><span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">ref</span>, <span class="fn">watch</span>, <span class="fn">watchEffect</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="kw">const</span> <span class="var">recherche</span> = <span class="fn">ref</span>(<span class="str">''</span>)
+<span class="kw">const</span> <span class="var">userId</span> = <span class="fn">ref</span>(<span class="num">1</span>)
+<span class="kw">const</span> <span class="var">parametres</span> = <span class="fn">ref</span>({ <span class="prop">page</span>: <span class="num">1</span>, <span class="prop">tri</span>: <span class="str">'asc'</span> })
+
+<span class="cm">// watch : observe une source précise</span>
+<span class="fn">watch</span>(<span class="var">recherche</span>, (<span class="var">nouvelleVal</span>, <span class="var">ancienneVal</span>) => {
+  console.<span class="fn">log</span>(<span class="str">`Recherche : "${ancienneVal}" → "${nouvelleVal}"`</span>)
+  <span class="fn">rechercherAPI</span>(<span class="var">nouvelleVal</span>)
+})
+
+<span class="cm">// watch avec options</span>
+<span class="fn">watch</span>(<span class="var">userId</span>, <span class="kw">async</span> (<span class="var">id</span>) => {
+  <span class="var">userData</span>.value = <span class="kw">await</span> <span class="fn">fetchUser</span>(<span class="var">id</span>)
+}, {
+  <span class="prop">immediate</span>: <span class="kw">true</span>,  <span class="cm">// déclencher immédiatement au montage</span>
+})
+
+<span class="cm">// Observer un objet profond</span>
+<span class="fn">watch</span>(<span class="var">parametres</span>, (<span class="var">val</span>) => {
+  <span class="fn">chargerDonnees</span>(<span class="var">val</span>)
+}, { <span class="prop">deep</span>: <span class="kw">true</span> })  <span class="cm">// surveille les propriétés imbriquées</span>
+
+<span class="cm">// watchEffect : observe toutes les dépendances automatiquement</span>
+<span class="fn">watchEffect</span>(() => {
+  console.<span class="fn">log</span>(<span class="str">`User ${userId.value} recherche "${recherche.value}"`</span>)
+  <span class="cm">// Déclenché automatiquement si userId OU recherche change</span>
+})
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+
+    <table>
+      <tr><th>Feature</th><th>watch</th><th>watchEffect</th></tr>
+      <tr><td>Source explicite</td><td>Oui</td><td>Non (auto-detect)</td></tr>
+      <tr><td>Valeur précédente</td><td>Oui</td><td>Non</td></tr>
+      <tr><td>Exécution immédiate</td><td>Option <code>immediate</code></td><td>Toujours</td></tr>
+      <tr><td>Usage typique</td><td>Requêtes API, effets ciblés</td><td>Synchronisation réactive</td></tr>
+    </table>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(3)">&#8592; Réactivité</button>
+      <button class="nav-btn primary" onclick="goTo(5)">Composants &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 5: Composants -->
+  <section class="section" id="s5">
+    <h2 class="sec-title">Composants</h2>
+    <p class="sec-desc">Les composants sont les blocs de construction de Vue. Chaque composant encapsule son propre template, logique et style.</p>
+
+    <h3 class="sub-title">Créer et utiliser un composant</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">CarteUtilisateur.vue</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="str">"carte"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;img</span> <span class="sp">:src</span>=<span class="str">"avatar"</span> <span class="sp">:alt</span>=<span class="str">"nom"</span> <span class="tag">/&gt;</span>
+    <span class="tag">&lt;h3&gt;</span>{{ nom }}<span class="tag">&lt;/h3&gt;</span>
+    <span class="tag">&lt;p&gt;</span>{{ role }}<span class="tag">&lt;/p&gt;</span>
+    <span class="tag">&lt;span</span> <span class="sp">:class</span>=<span class="str">"['badge', actif ? 'actif' : 'inactif']"</span><span class="tag">&gt;</span>
+      {{ actif ? 'En ligne' : 'Hors ligne' }}
+    <span class="tag">&lt;/span&gt;</span>
+  <span class="tag">&lt;/div&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="tag">&lt;script setup&gt;</span>
+<span class="fn">defineProps</span>({
+  <span class="prop">nom</span>: <span class="fn">String</span>,
+  <span class="prop">role</span>: <span class="fn">String</span>,
+  <span class="prop">avatar</span>: <span class="fn">String</span>,
+  <span class="prop">actif</span>: { <span class="prop">type</span>: <span class="fn">Boolean</span>, <span class="prop">default</span>: <span class="kw">false</span> }
+})
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">App.vue — Utilisation</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;div&gt;</span>
+    <span class="cm">&lt;!-- Utilisation du composant --&gt;</span>
+    <span class="tag">&lt;CarteUtilisateur</span>
+      <span class="sp">:nom</span>=<span class="str">"'Alice Martin'"</span>
+      <span class="sp">:role</span>=<span class="str">"'Développeuse'"</span>
+      <span class="sp">:avatar</span>=<span class="str">"'/img/alice.jpg'"</span>
+      <span class="sp">:actif</span>=<span class="str">"true"</span>
+    <span class="tag">/&gt;</span>
+
+    <span class="cm">&lt;!-- Rendu dynamique avec v-for --&gt;</span>
+    <span class="tag">&lt;CarteUtilisateur</span>
+      <span class="sp">v-for</span>=<span class="str">"user in equipe"</span>
+      <span class="sp">:key</span>=<span class="str">"user.id"</span>
+      <span class="sp">v-bind</span>=<span class="str">"user"</span>
+    <span class="tag">/&gt;</span>
+  <span class="tag">&lt;/div&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> <span class="var">CarteUtilisateur</span> <span class="kw">from</span> <span class="str">'./components/CarteUtilisateur.vue'</span>
+
+<span class="kw">const</span> <span class="var">equipe</span> = [
+  { <span class="prop">id</span>: <span class="num">1</span>, <span class="prop">nom</span>: <span class="str">'Alice'</span>, <span class="prop">role</span>: <span class="str">'Dev'</span>, <span class="prop">actif</span>: <span class="kw">true</span> },
+  { <span class="prop">id</span>: <span class="num">2</span>, <span class="prop">nom</span>: <span class="str">'Bob'</span>, <span class="prop">role</span>: <span class="str">'Designer'</span>, <span class="prop">actif</span>: <span class="kw">false</span> }
+]
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(4)">&#8592; Computed</button>
+      <button class="nav-btn primary" onclick="goTo(6)">Props & Emits &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 6: Props & Emits -->
+  <section class="section" id="s6">
+    <h2 class="sec-title">Props & Emits</h2>
+    <p class="sec-desc">Les props permettent de passer des données du parent à l'enfant. Les emits permettent à l'enfant de communiquer avec le parent.</p>
+
+    <h3 class="sub-title">Props — Du parent vers l'enfant</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">BoutonAction.vue — Enfant</span></div>
+      <pre><code><span class="tag">&lt;script setup&gt;</span>
+<span class="cm">// Définition des props avec validation</span>
+<span class="kw">const</span> <span class="var">props</span> = <span class="fn">defineProps</span>({
+  <span class="prop">label</span>: {
+    <span class="prop">type</span>: <span class="fn">String</span>,
+    <span class="prop">required</span>: <span class="kw">true</span>
+  },
+  <span class="prop">variante</span>: {
+    <span class="prop">type</span>: <span class="fn">String</span>,
+    <span class="prop">default</span>: <span class="str">'primaire'</span>,
+    <span class="prop">validator</span>: (<span class="var">val</span>) => [<span class="str">'primaire'</span>, <span class="str">'secondaire'</span>, <span class="str">'danger'</span>].<span class="fn">includes</span>(<span class="var">val</span>)
+  },
+  <span class="prop">desactive</span>: {
+    <span class="prop">type</span>: <span class="fn">Boolean</span>,
+    <span class="prop">default</span>: <span class="kw">false</span>
+  },
+  <span class="prop">taille</span>: {
+    <span class="prop">type</span>: <span class="fn">Number</span>,
+    <span class="prop">default</span>: <span class="num">14</span>
+  }
+})
+
+console.<span class="fn">log</span>(<span class="var">props</span>.label) <span class="cm">// Accès dans le script</span>
+<span class="tag">&lt;/script&gt;</span>
+
+<span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;button</span>
+    <span class="sp">:class</span>=<span class="str">`btn btn-${variante}`</span>
+    <span class="sp">:disabled</span>=<span class="str">"desactive"</span>
+    <span class="sp">:style</span>=<span class="str">"{ fontSize: taille + 'px' }"</span>
+  <span class="tag">&gt;</span>
+    {{ label }}
+  <span class="tag">&lt;/button&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">Emits — De l'enfant vers le parent</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">FormulaireLogin.vue — Enfant</span></div>
+      <pre><code><span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">ref</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="cm">// Déclarer les événements émis</span>
+<span class="kw">const</span> <span class="var">emit</span> = <span class="fn">defineEmits</span>([<span class="str">'connexion'</span>, <span class="str">'annuler'</span>])
+
+<span class="cm">// Avec validation</span>
+<span class="cm">// const emit = defineEmits({</span>
+<span class="cm">//   connexion: ({ email, mdp }) => email && mdp,</span>
+<span class="cm">// })</span>
+
+<span class="kw">const</span> <span class="var">email</span> = <span class="fn">ref</span>(<span class="str">''</span>)
+<span class="kw">const</span> <span class="var">mdp</span> = <span class="fn">ref</span>(<span class="str">''</span>)
+
+<span class="kw">function</span> <span class="fn">soumettre</span>() {
+  <span class="cm">// Émettre un événement avec des données</span>
+  <span class="fn">emit</span>(<span class="str">'connexion'</span>, { <span class="prop">email</span>: <span class="var">email</span>.value, <span class="prop">mdp</span>: <span class="var">mdp</span>.value })
+}
+<span class="tag">&lt;/script&gt;</span>
+
+<span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;form</span> <span class="sp">@submit.prevent</span>=<span class="str">"soumettre"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;input</span> <span class="sp">v-model</span>=<span class="str">"email"</span> <span class="attr">type</span>=<span class="str">"email"</span> <span class="tag">/&gt;</span>
+    <span class="tag">&lt;input</span> <span class="sp">v-model</span>=<span class="str">"mdp"</span> <span class="attr">type</span>=<span class="str">"password"</span> <span class="tag">/&gt;</span>
+    <span class="tag">&lt;button</span> <span class="attr">type</span>=<span class="str">"submit"</span><span class="tag">&gt;</span>Se connecter<span class="tag">&lt;/button&gt;</span>
+    <span class="tag">&lt;button</span> <span class="attr">type</span>=<span class="str">"button"</span> <span class="sp">@click</span>=<span class="str">"emit('annuler')"</span><span class="tag">&gt;</span>Annuler<span class="tag">&lt;/button&gt;</span>
+  <span class="tag">&lt;/form&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">App.vue — Parent</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;FormulaireLogin</span>
+    <span class="sp">@connexion</span>=<span class="str">"onConnexion"</span>
+    <span class="sp">@annuler</span>=<span class="str">"afficherAnnulation"</span>
+  <span class="tag">/&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="tag">&lt;script setup&gt;</span>
+<span class="kw">function</span> <span class="fn">onConnexion</span>({ <span class="var">email</span>, <span class="var">mdp</span> }) {
+  console.<span class="fn">log</span>(<span class="str">'Connexion :'</span>, <span class="var">email</span>, <span class="var">mdp</span>)
+  <span class="cm">// Appel API, redirection, etc.</span>
+}
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(5)">&#8592; Composants</button>
+      <button class="nav-btn primary" onclick="goTo(7)">Slots &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 7: Slots -->
+  <section class="section" id="s7">
+    <h2 class="sec-title">Slots</h2>
+    <p class="sec-desc">Les slots permettent aux composants parents d'injecter du contenu HTML dans un composant enfant — comme des "trous" à remplir.</p>
+
+    <h3 class="sub-title">Slot par défaut</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">CarteBordure.vue — Composant réutilisable</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="str">"carte-bordure"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;slot&gt;</span>
+      <span class="cm">&lt;!-- Contenu par défaut si rien n'est fourni --&gt;</span>
+      <span class="tag">&lt;p</span><span class="tag">&gt;</span>Aucun contenu fourni.<span class="tag">&lt;/p&gt;</span>
+    <span class="tag">&lt;/slot&gt;</span>
+  <span class="tag">&lt;/div&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="cm">&lt;!-- Utilisation dans le parent --&gt;</span>
+<span class="tag">&lt;CarteBordure&gt;</span>
+  <span class="tag">&lt;h2&gt;</span>Mon titre<span class="tag">&lt;/h2&gt;</span>
+  <span class="tag">&lt;p&gt;</span>Mon contenu personnalisé<span class="tag">&lt;/p&gt;</span>
+<span class="tag">&lt;/CarteBordure&gt;</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">Slots nommés</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">Panneau.vue</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="str">"panneau"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;header&gt;&lt;slot</span> <span class="attr">name</span>=<span class="str">"entete"</span><span class="tag">&gt;</span>Titre par défaut<span class="tag">&lt;/slot&gt;&lt;/header&gt;</span>
+    <span class="tag">&lt;main&gt;&lt;slot</span><span class="tag">&gt;&lt;/slot&gt;&lt;/main&gt;</span>  <span class="cm">&lt;!-- slot par défaut --&gt;</span>
+    <span class="tag">&lt;footer&gt;&lt;slot</span> <span class="attr">name</span>=<span class="str">"pied"</span><span class="tag">&gt;&lt;/slot&gt;&lt;/footer&gt;</span>
+  <span class="tag">&lt;/div&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="cm">&lt;!-- UTILISATION --&gt;</span>
+<span class="tag">&lt;Panneau&gt;</span>
+  <span class="tag">&lt;template</span> <span class="sp">#entete</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;h1&gt;</span>&#9650; Mon titre personnalisé<span class="tag">&lt;/h1&gt;</span>
+  <span class="tag">&lt;/template&gt;</span>
+
+  <span class="cm">&lt;!-- Contenu par défaut sans template --&gt;</span>
+  <span class="tag">&lt;p&gt;</span>Contenu principal du panneau...<span class="tag">&lt;/p&gt;</span>
+
+  <span class="tag">&lt;template</span> <span class="sp">#pied</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;button&gt;</span>Fermer<span class="tag">&lt;/button&gt;</span>
+  <span class="tag">&lt;/template&gt;</span>
+<span class="tag">&lt;/Panneau&gt;</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">Scoped Slots — Slots avec données</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">ListeItems.vue — Slot avec données</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;ul&gt;</span>
+    <span class="tag">&lt;li</span> <span class="sp">v-for</span>=<span class="str">"item in items"</span> <span class="sp">:key</span>=<span class="str">"item.id"</span><span class="tag">&gt;</span>
+      <span class="cm">&lt;!-- Passer item au parent via slot --&gt;</span>
+      <span class="tag">&lt;slot</span> <span class="sp">:item</span>=<span class="str">"item"</span> <span class="sp">:index</span>=<span class="str">"index"</span><span class="tag">&gt;</span>
+        {{ item.nom }} <span class="cm">&lt;!-- Rendu par défaut --&gt;</span>
+      <span class="tag">&lt;/slot&gt;</span>
+    <span class="tag">&lt;/li&gt;</span>
+  <span class="tag">&lt;/ul&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="cm">&lt;!-- UTILISATION : le parent contrôle l'affichage de chaque item --&gt;</span>
+<span class="tag">&lt;ListeItems</span> <span class="sp">:items</span>=<span class="str">"produits"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;template</span> <span class="sp">#default</span>=<span class="str">"{ item }"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="str">"produit-carte"</span><span class="tag">&gt;</span>
+      <span class="tag">&lt;h3&gt;</span>{{ item.nom }}<span class="tag">&lt;/h3&gt;</span>
+      <span class="tag">&lt;span&gt;</span>{{ item.prix }} Ar<span class="tag">&lt;/span&gt;</span>
+      <span class="tag">&lt;button&gt;</span>Ajouter au panier<span class="tag">&lt;/button&gt;</span>
+    <span class="tag">&lt;/div&gt;</span>
+  <span class="tag">&lt;/template&gt;</span>
+<span class="tag">&lt;/ListeItems&gt;</span></code></pre>
+    </div>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(6)">&#8592; Props & Emits</button>
+      <button class="nav-btn primary" onclick="goTo(8)">Lifecycle Hooks &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 8: Lifecycle Hooks -->
+  <section class="section" id="s8">
+    <h2 class="sec-title">Lifecycle Hooks</h2>
+    <p class="sec-desc">Les hooks de cycle de vie permettent d'exécuter du code à des moments précis de la vie d'un composant.</p>
+
+    <div class="cards-grid">
+      <div class="card"><h4 style="color:var(--green)">onBeforeMount</h4><p>Avant l'insertion dans le DOM. Composant compilé mais pas encore affiché.</p></div>
+      <div class="card"><h4 style="color:var(--green)">onMounted</h4><p>Composant inséré dans le DOM. Idéal pour les requêtes API et manipulations DOM.</p></div>
+      <div class="card"><h4 style="color:var(--blue)">onBeforeUpdate</h4><p>Avant une mise à jour réactive du DOM.</p></div>
+      <div class="card"><h4 style="color:var(--blue)">onUpdated</h4><p>Après chaque mise à jour du DOM. Éviter les modifications d'état ici.</p></div>
+      <div class="card"><h4 style="color:var(--red)">onBeforeUnmount</h4><p>Avant que le composant soit retiré. Nettoyer les timers, listeners.</p></div>
+      <div class="card"><h4 style="color:var(--red)">onUnmounted</h4><p>Composant retiré. Tout nettoyage final ici.</p></div>
+    </div>
+
+    <h3 class="sub-title">Exemple concret : Minuteur avec nettoyage</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">Minuteur.vue</span></div>
+      <pre><code><span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">ref</span>, <span class="fn">onMounted</span>, <span class="fn">onUnmounted</span>, <span class="fn">onBeforeUnmount</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="kw">const</span> <span class="var">secondes</span> = <span class="fn">ref</span>(<span class="num">0</span>)
+<span class="kw">const</span> <span class="var">utilisateur</span> = <span class="fn">ref</span>(<span class="kw">null</span>)
+<span class="kw">let</span> <span class="var">timer</span> = <span class="kw">null</span>
+
+<span class="cm">// Démarre le timer et charge les données au montage</span>
+<span class="fn">onMounted</span>(<span class="kw">async</span> () => {
+  console.<span class="fn">log</span>(<span class="str">'Composant monté !'</span>)
+
+  <span class="cm">// Démarrer un timer</span>
+  <span class="var">timer</span> = <span class="fn">setInterval</span>(() => {
+    <span class="var">secondes</span>.value++
+  }, <span class="num">1000</span>)
+
+  <span class="cm">// Charger des données</span>
+  <span class="var">utilisateur</span>.value = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/user'</span>).<span class="fn">then</span>(<span class="var">r</span> => <span class="var">r</span>.<span class="fn">json</span>())
+
+  <span class="cm">// Accès DOM direct avec ref template</span>
+  <span class="cm">// monInput.value.focus()</span>
+})
+
+<span class="cm">// Nettoyage CRUCIAL avant le démontage</span>
+<span class="fn">onBeforeUnmount</span>(() => {
+  console.<span class="fn">log</span>(<span class="str">'Nettoyage...'</span>)
+  <span class="fn">clearInterval</span>(<span class="var">timer</span>)  <span class="cm">// Évite les fuites mémoire !</span>
+})
+<span class="tag">&lt;/script&gt;</span>
+
+<span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;div&gt;</span>
+    <span class="tag">&lt;p&gt;</span>Temps écoulé : {{ secondes }}s<span class="tag">&lt;/p&gt;</span>
+    <span class="tag">&lt;p</span> <span class="sp">v-if</span>=<span class="str">"utilisateur"</span><span class="tag">&gt;</span>Bienvenue {{ utilisateur.nom }}<span class="tag">&lt;/p&gt;</span>
+  <span class="tag">&lt;/div&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+    <div class="warn"><div class="warn-label">&#9888; Important</div><p>Toujours nettoyer les timers (<code>setInterval</code>/<code>setTimeout</code>), les event listeners (<code>addEventListener</code>) et les subscriptions dans <code>onBeforeUnmount</code> pour éviter les fuites mémoire.</p></div>
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(7)">&#8592; Slots</button>
+      <button class="nav-btn primary" onclick="goTo(9)">Composition API &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 9: Composition API -->
+  <section class="section" id="s9">
+    <h2 class="sec-title">Composition API</h2>
+    <p class="sec-desc">La Composition API permet d'organiser la logique par fonctionnalité (pas par option) et de la réutiliser via des "composables".</p>
+
+    <h3 class="sub-title">Composables — Logique réutilisable</h3>
+    <p class="sec-desc">Un composable est une fonction qui encapsule de la logique réactive et peut être partagée entre plusieurs composants.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JAVASCRIPT</span><span class="code-label">composables/useCompteur.js</span></div>
+      <pre><code><span class="kw">import</span> { <span class="fn">ref</span>, <span class="fn">computed</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="cm">// Convention : nom commence par "use"</span>
+<span class="kw">export function</span> <span class="fn">useCompteur</span>(<span class="var">valeurInitiale</span> = <span class="num">0</span>) {
+  <span class="kw">const</span> <span class="var">compteur</span> = <span class="fn">ref</span>(<span class="var">valeurInitiale</span>)
+  <span class="kw">const</span> <span class="var">estPositif</span> = <span class="fn">computed</span>(() => <span class="var">compteur</span>.value > <span class="num">0</span>)
+
+  <span class="kw">function</span> <span class="fn">incrementer</span>(<span class="var">n</span> = <span class="num">1</span>) { <span class="var">compteur</span>.value += <span class="var">n</span> }
+  <span class="kw">function</span> <span class="fn">decrementer</span>(<span class="var">n</span> = <span class="num">1</span>) { <span class="var">compteur</span>.value -= <span class="var">n</span> }
+  <span class="kw">function</span> <span class="fn">reinitialiser</span>() { <span class="var">compteur</span>.value = <span class="var">valeurInitiale</span> }
+
+  <span class="kw">return</span> { <span class="var">compteur</span>, <span class="var">estPositif</span>, <span class="var">incrementer</span>, <span class="var">decrementer</span>, <span class="var">reinitialiser</span> }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JAVASCRIPT</span><span class="code-label">composables/useFetch.js — Exemple avancé</span></div>
+      <pre><code><span class="kw">import</span> { <span class="fn">ref</span>, <span class="fn">watch</span>, <span class="fn">toValue</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="kw">export function</span> <span class="fn">useFetch</span>(<span class="var">url</span>) {
+  <span class="kw">const</span> <span class="var">data</span> = <span class="fn">ref</span>(<span class="kw">null</span>)
+  <span class="kw">const</span> <span class="var">chargement</span> = <span class="fn">ref</span>(<span class="kw">false</span>)
+  <span class="kw">const</span> <span class="var">erreur</span> = <span class="fn">ref</span>(<span class="kw">null</span>)
+
+  <span class="kw">async function</span> <span class="fn">charger</span>() {
+    <span class="var">chargement</span>.value = <span class="kw">true</span>
+    <span class="var">erreur</span>.value = <span class="kw">null</span>
+    <span class="kw">try</span> {
+      <span class="kw">const</span> <span class="var">res</span> = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="fn">toValue</span>(<span class="var">url</span>))
+      <span class="kw">if</span> (!<span class="var">res</span>.ok) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">`HTTP ${res.status}`</span>)
+      <span class="var">data</span>.value = <span class="kw">await</span> <span class="var">res</span>.<span class="fn">json</span>()
+    } <span class="kw">catch</span> (<span class="var">e</span>) {
+      <span class="var">erreur</span>.value = <span class="var">e</span>.message
+    } <span class="kw">finally</span> {
+      <span class="var">chargement</span>.value = <span class="kw">false</span>
+    }
+  }
+
+  <span class="cm">// Se recharge si l'URL change</span>
+  <span class="fn">watch</span>(() => <span class="fn">toValue</span>(<span class="var">url</span>), <span class="var">charger</span>, { <span class="prop">immediate</span>: <span class="kw">true</span> })
+
+  <span class="kw">return</span> { <span class="var">data</span>, <span class="var">chargement</span>, <span class="var">erreur</span>, <span class="var">charger</span> }
+}
+
+<span class="cm">// ---- Utilisation dans un composant ----</span>
+<span class="cm">// import { useFetch } from '@/composables/useFetch'</span>
+<span class="cm">// const { data: users, chargement } = useFetch('/api/users')</span></code></pre>
+    </div>
+
+    <div class="tip"><div class="tip-label">&#9670; Règle de nommage</div><p>Tous les composables commencent par <code>use</code> — <code>useCompteur</code>, <code>useFetch</code>, <code>useAuth</code>, <code>useLocalStorage</code>. Rangez-les dans <code>src/composables/</code>.</p></div>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(8)">&#8592; Lifecycle</button>
+      <button class="nav-btn primary" onclick="goTo(10)">Formulaires &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 10: Formulaires -->
+  <section class="section" id="s10">
+    <h2 class="sec-title">Formulaires & v-model</h2>
+    <p class="sec-desc"><code>v-model</code> crée une liaison bidirectionnelle entre un champ de formulaire et une variable réactive.</p>
+
+    <h3 class="sub-title">v-model sur différents types de champs</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">Formulaire complet</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;form</span> <span class="sp">@submit.prevent</span>=<span class="str">"soumettre"</span><span class="tag">&gt;</span>
+    <span class="cm">&lt;!-- Texte --&gt;</span>
+    <span class="tag">&lt;input</span> <span class="sp">v-model</span>=<span class="str">"form.nom"</span> <span class="attr">type</span>=<span class="str">"text"</span> <span class="attr">placeholder</span>=<span class="str">"Nom"</span> <span class="tag">/&gt;</span>
+
+    <span class="cm">&lt;!-- Email --&gt;</span>
+    <span class="tag">&lt;input</span> <span class="sp">v-model</span>=<span class="str">"form.email"</span> <span class="attr">type</span>=<span class="str">"email"</span> <span class="tag">/&gt;</span>
+
+    <span class="cm">&lt;!-- Nombre --&gt;</span>
+    <span class="tag">&lt;input</span> <span class="sp">v-model.number</span>=<span class="str">"form.age"</span> <span class="attr">type</span>=<span class="str">"number"</span> <span class="tag">/&gt;</span>
+
+    <span class="cm">&lt;!-- Textarea --&gt;</span>
+    <span class="tag">&lt;textarea</span> <span class="sp">v-model</span>=<span class="str">"form.message"</span><span class="tag">&gt;&lt;/textarea&gt;</span>
+
+    <span class="cm">&lt;!-- Select --&gt;</span>
+    <span class="tag">&lt;select</span> <span class="sp">v-model</span>=<span class="str">"form.pays"</span><span class="tag">&gt;</span>
+      <span class="tag">&lt;option</span> <span class="sp">v-for</span>=<span class="str">"p in pays"</span> <span class="sp">:key</span>=<span class="str">"p.code"</span> <span class="sp">:value</span>=<span class="str">"p.code"</span><span class="tag">&gt;</span>
+        {{ p.nom }}
+      <span class="tag">&lt;/option&gt;</span>
+    <span class="tag">&lt;/select&gt;</span>
+
+    <span class="cm">&lt;!-- Checkbox unique --&gt;</span>
+    <span class="tag">&lt;input</span> <span class="sp">v-model</span>=<span class="str">"form.conditions"</span> <span class="attr">type</span>=<span class="str">"checkbox"</span> <span class="tag">/&gt;</span>
+    <span class="tag">&lt;label&gt;</span>J'accepte les conditions<span class="tag">&lt;/label&gt;</span>
+
+    <span class="cm">&lt;!-- Checkboxes multiples → tableau --&gt;</span>
+    <span class="tag">&lt;input</span> <span class="sp">v-model</span>=<span class="str">"form.langues"</span> <span class="attr">type</span>=<span class="str">"checkbox"</span> <span class="attr">value</span>=<span class="str">"fr"</span> <span class="tag">/&gt;</span> Français
+    <span class="tag">&lt;input</span> <span class="sp">v-model</span>=<span class="str">"form.langues"</span> <span class="attr">type</span>=<span class="str">"checkbox"</span> <span class="attr">value</span>=<span class="str">"en"</span> <span class="tag">/&gt;</span> Anglais
+
+    <span class="cm">&lt;!-- Radio --&gt;</span>
+    <span class="tag">&lt;input</span> <span class="sp">v-model</span>=<span class="str">"form.genre"</span> <span class="attr">type</span>=<span class="str">"radio"</span> <span class="attr">value</span>=<span class="str">"h"</span> <span class="tag">/&gt;</span> Homme
+    <span class="tag">&lt;input</span> <span class="sp">v-model</span>=<span class="str">"form.genre"</span> <span class="attr">type</span>=<span class="str">"radio"</span> <span class="attr">value</span>=<span class="str">"f"</span> <span class="tag">/&gt;</span> Femme
+
+    <span class="tag">&lt;button</span> <span class="attr">type</span>=<span class="str">"submit"</span><span class="tag">&gt;</span>Envoyer<span class="tag">&lt;/button&gt;</span>
+  <span class="tag">&lt;/form&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">reactive</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="kw">const</span> <span class="var">form</span> = <span class="fn">reactive</span>({
+  <span class="prop">nom</span>: <span class="str">''</span>, <span class="prop">email</span>: <span class="str">''</span>, <span class="prop">age</span>: <span class="num">0</span>,
+  <span class="prop">message</span>: <span class="str">''</span>, <span class="prop">pays</span>: <span class="str">'mg'</span>,
+  <span class="prop">conditions</span>: <span class="kw">false</span>,
+  <span class="prop">langues</span>: [], <span class="cm">// tableau pour checkboxes multiples</span>
+  <span class="prop">genre</span>: <span class="str">''</span>
+})
+
+<span class="kw">const</span> <span class="var">pays</span> = [
+  { <span class="prop">code</span>: <span class="str">'mg'</span>, <span class="prop">nom</span>: <span class="str">'Madagascar'</span> },
+  { <span class="prop">code</span>: <span class="str">'fr'</span>, <span class="prop">nom</span>: <span class="str">'France'</span> },
+  { <span class="prop">code</span>: <span class="str">'us'</span>, <span class="prop">nom</span>: <span class="str">'États-Unis'</span> }
+]
+
+<span class="kw">function</span> <span class="fn">soumettre</span>() {
+  console.<span class="fn">log</span>(<span class="str">'Données soumises :'</span>, { ...<span class="var">form</span> })
+}
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+
+    <table>
+      <tr><th>Modificateur</th><th>Effet</th><th>Exemple</th></tr>
+      <tr><td><code>.lazy</code></td><td>Sync sur change (pas input)</td><td><code>v-model.lazy="val"</code></td></tr>
+      <tr><td><code>.number</code></td><td>Convertit en nombre</td><td><code>v-model.number="age"</code></td></tr>
+      <tr><td><code>.trim</code></td><td>Supprime espaces début/fin</td><td><code>v-model.trim="nom"</code></td></tr>
+    </table>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(9)">&#8592; Composition API</button>
+      <button class="nav-btn primary" onclick="goTo(11)">Vue Router &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 11: Vue Router -->
+  <section class="section" id="s11">
+    <h2 class="sec-title">Vue Router</h2>
+    <p class="sec-desc">Vue Router est le routeur officiel de Vue.js pour créer des applications SPA (Single Page Application) avec navigation entre pages.</p>
+
+    <h3 class="sub-title">Configuration du routeur</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JAVASCRIPT</span><span class="code-label">src/router/index.js</span></div>
+      <pre><code><span class="kw">import</span> { <span class="fn">createRouter</span>, <span class="fn">createWebHistory</span> } <span class="kw">from</span> <span class="str">'vue-router'</span>
+<span class="kw">import</span> <span class="var">Accueil</span> <span class="kw">from</span> <span class="str">'@/views/Accueil.vue'</span>
+
+<span class="kw">const</span> <span class="var">router</span> = <span class="fn">createRouter</span>({
+  <span class="prop">history</span>: <span class="fn">createWebHistory</span>(),
+  <span class="prop">routes</span>: [
+    <span class="cm">// Route simple</span>
+    { <span class="prop">path</span>: <span class="str">'/'</span>, <span class="prop">name</span>: <span class="str">'accueil'</span>, <span class="prop">component</span>: <span class="var">Accueil</span> },
+
+    <span class="cm">// Lazy loading (chargement à la demande)</span>
+    {
+      <span class="prop">path</span>: <span class="str">'/articles'</span>,
+      <span class="prop">name</span>: <span class="str">'articles'</span>,
+      <span class="prop">component</span>: () => <span class="kw">import</span>(<span class="str">'@/views/Articles.vue'</span>)
+    },
+
+    <span class="cm">// Route avec paramètre dynamique</span>
+    {
+      <span class="prop">path</span>: <span class="str">'/articles/:id'</span>,
+      <span class="prop">name</span>: <span class="str">'article-detail'</span>,
+      <span class="prop">component</span>: () => <span class="kw">import</span>(<span class="str">'@/views/ArticleDetail.vue'</span>),
+      <span class="prop">props</span>: <span class="kw">true</span>  <span class="cm">// passe :id comme prop</span>
+    },
+
+    <span class="cm">// Routes imbriquées</span>
+    {
+      <span class="prop">path</span>: <span class="str">'/admin'</span>,
+      <span class="prop">component</span>: () => <span class="kw">import</span>(<span class="str">'@/layouts/AdminLayout.vue'</span>),
+      <span class="prop">meta</span>: { <span class="prop">requiresAuth</span>: <span class="kw">true</span> },
+      <span class="prop">children</span>: [
+        { <span class="prop">path</span>: <span class="str">''</span>, <span class="prop">component</span>: () => <span class="kw">import</span>(<span class="str">'@/views/admin/Dashboard.vue'</span>) },
+        { <span class="prop">path</span>: <span class="str">'users'</span>, <span class="prop">component</span>: () => <span class="kw">import</span>(<span class="str">'@/views/admin/Users.vue'</span>) }
+      ]
+    },
+
+    <span class="cm">// Redirect & 404</span>
+    { <span class="prop">path</span>: <span class="str">'/ancienne-url'</span>, <span class="prop">redirect</span>: <span class="str">'/articles'</span> },
+    { <span class="prop">path</span>: <span class="str">'/:pathMatch(.*)*'</span>, <span class="prop">component</span>: () => <span class="kw">import</span>(<span class="str">'@/views/NotFound.vue'</span>) }
+  ]
+})
+
+<span class="cm">// Navigation Guard global</span>
+<span class="var">router</span>.<span class="fn">beforeEach</span>((<span class="var">to</span>, <span class="var">from</span>) => {
+  <span class="kw">if</span> (<span class="var">to</span>.meta.requiresAuth && !<span class="fn">estConnecte</span>()) {
+    <span class="kw">return</span> { <span class="prop">name</span>: <span class="str">'login'</span> }
+  }
+})
+
+<span class="kw">export default</span> <span class="var">router</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">Navigation dans les composants</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">Navigation.vue</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="cm">&lt;!-- RouterLink : navigation déclarative --&gt;</span>
+  <span class="tag">&lt;RouterLink</span> <span class="sp">to</span>=<span class="str">"/"</span><span class="tag">&gt;</span>Accueil<span class="tag">&lt;/RouterLink&gt;</span>
+  <span class="tag">&lt;RouterLink</span> <span class="sp">:to</span>=<span class="str">"{ name: 'articles' }"</span><span class="tag">&gt;</span>Articles<span class="tag">&lt;/RouterLink&gt;</span>
+  <span class="tag">&lt;RouterLink</span>
+    <span class="sp">:to</span>=<span class="str">"{ name: 'article-detail', params: { id: 42 } }"</span>
+    <span class="attr">active-class</span>=<span class="str">"lien-actif"</span>
+  <span class="tag">&gt;</span>Article #42<span class="tag">&lt;/RouterLink&gt;</span>
+
+  <span class="cm">&lt;!-- RouterView : là où la page s'affiche --&gt;</span>
+  <span class="tag">&lt;RouterView</span> <span class="tag">/&gt;</span>
+<span class="tag">&lt;/template&gt;</span>
+
+<span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">useRouter</span>, <span class="fn">useRoute</span> } <span class="kw">from</span> <span class="str">'vue-router'</span>
+
+<span class="kw">const</span> <span class="var">router</span> = <span class="fn">useRouter</span>()  <span class="cm">// pour naviguer</span>
+<span class="kw">const</span> <span class="var">route</span> = <span class="fn">useRoute</span>()    <span class="cm">// pour lire la route actuelle</span>
+
+<span class="cm">// Lire les paramètres</span>
+console.<span class="fn">log</span>(<span class="var">route</span>.params.id)   <span class="cm">// "42"</span>
+console.<span class="fn">log</span>(<span class="var">route</span>.query.page)  <span class="cm">// "2" (de ?page=2)</span>
+console.<span class="fn">log</span>(<span class="var">route</span>.name)         <span class="cm">// "article-detail"</span>
+
+<span class="cm">// Naviguer programmatiquement</span>
+<span class="kw">function</span> <span class="fn">allerAccueil</span>() { <span class="var">router</span>.<span class="fn">push</span>(<span class="str">'/'</span>) }
+<span class="kw">function</span> <span class="fn">allerArticle</span>(<span class="var">id</span>) { <span class="var">router</span>.<span class="fn">push</span>({ <span class="prop">name</span>: <span class="str">'article-detail'</span>, <span class="prop">params</span>: { <span class="var">id</span> } }) }
+<span class="kw">function</span> <span class="fn">retour</span>() { <span class="var">router</span>.<span class="fn">back</span>() }
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(10)">&#8592; Formulaires</button>
+      <button class="nav-btn primary" onclick="goTo(12)">Pinia &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 12: Pinia -->
+  <section class="section" id="s12">
+    <h2 class="sec-title">Pinia — Gestion d'état</h2>
+    <p class="sec-desc">Pinia est le gestionnaire d'état officiel de Vue 3. Plus simple que Vuex, il suit le pattern store pour partager l'état entre composants.</p>
+
+    <h3 class="sub-title">Créer un store</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JAVASCRIPT</span><span class="code-label">stores/useUtilisateurStore.js</span></div>
+      <pre><code><span class="kw">import</span> { <span class="fn">defineStore</span> } <span class="kw">from</span> <span class="str">'pinia'</span>
+<span class="kw">import</span> { <span class="fn">ref</span>, <span class="fn">computed</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="cm">// Convention : "use" + nom + "Store"</span>
+<span class="kw">export const</span> <span class="var">useUtilisateurStore</span> = <span class="fn">defineStore</span>(<span class="str">'utilisateur'</span>, () => {
+  <span class="cm">// STATE — les données réactives</span>
+  <span class="kw">const</span> <span class="var">utilisateur</span> = <span class="fn">ref</span>(<span class="kw">null</span>)
+  <span class="kw">const</span> <span class="var">token</span> = <span class="fn">ref</span>(<span class="fn">localStorage</span>.<span class="fn">getItem</span>(<span class="str">'token'</span>))
+  <span class="kw">const</span> <span class="var">chargement</span> = <span class="fn">ref</span>(<span class="kw">false</span>)
+
+  <span class="cm">// GETTERS — computed properties</span>
+  <span class="kw">const</span> <span class="var">estConnecte</span> = <span class="fn">computed</span>(() => !!<span class="var">token</span>.value)
+  <span class="kw">const</span> <span class="var">nomComplet</span> = <span class="fn">computed</span>(() =>
+    <span class="var">utilisateur</span>.value ? `${utilisateur.value.prenom} ${utilisateur.value.nom}` : <span class="str">''</span>
+  )
+  <span class="kw">const</span> <span class="var">estAdmin</span> = <span class="fn">computed</span>(() => <span class="var">utilisateur</span>.value?.role === <span class="str">'admin'</span>)
+
+  <span class="cm">// ACTIONS — les fonctions</span>
+  <span class="kw">async function</span> <span class="fn">seConnecter</span>({ <span class="var">email</span>, <span class="var">mdp</span> }) {
+    <span class="var">chargement</span>.value = <span class="kw">true</span>
+    <span class="kw">try</span> {
+      <span class="kw">const</span> <span class="var">res</span> = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/login'</span>, {
+        <span class="prop">method</span>: <span class="str">'POST'</span>,
+        <span class="prop">body</span>: <span class="fn">JSON</span>.<span class="fn">stringify</span>({ <span class="var">email</span>, <span class="var">mdp</span> })
+      })
+      <span class="kw">const</span> { <span class="var">user</span>, <span class="var">accessToken</span> } = <span class="kw">await</span> <span class="var">res</span>.<span class="fn">json</span>()
+      <span class="var">utilisateur</span>.value = <span class="var">user</span>
+      <span class="var">token</span>.value = <span class="var">accessToken</span>
+      <span class="fn">localStorage</span>.<span class="fn">setItem</span>(<span class="str">'token'</span>, <span class="var">accessToken</span>)
+    } <span class="kw">finally</span> {
+      <span class="var">chargement</span>.value = <span class="kw">false</span>
+    }
+  }
+
+  <span class="kw">function</span> <span class="fn">seDeconnecter</span>() {
+    <span class="var">utilisateur</span>.value = <span class="kw">null</span>
+    <span class="var">token</span>.value = <span class="kw">null</span>
+    <span class="fn">localStorage</span>.<span class="fn">removeItem</span>(<span class="str">'token'</span>)
+  }
+
+  <span class="kw">return</span> {
+    <span class="var">utilisateur</span>, <span class="var">token</span>, <span class="var">chargement</span>,  <span class="cm">// state</span>
+    <span class="var">estConnecte</span>, <span class="var">nomComplet</span>, <span class="var">estAdmin</span>,  <span class="cm">// getters</span>
+    <span class="var">seConnecter</span>, <span class="var">seDeconnecter</span>            <span class="cm">// actions</span>
+  }
+})</code></pre>
+    </div>
+
+    <h3 class="sub-title">Utiliser le store dans les composants</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">NavBar.vue</span></div>
+      <pre><code><span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">useUtilisateurStore</span> } <span class="kw">from</span> <span class="str">'@/stores/useUtilisateurStore'</span>
+<span class="kw">import</span> { <span class="fn">storeToRefs</span> } <span class="kw">from</span> <span class="str">'pinia'</span>
+
+<span class="kw">const</span> <span class="var">store</span> = <span class="fn">useUtilisateurStore</span>()
+
+<span class="cm">// storeToRefs : préserve la réactivité lors de la déstructuration</span>
+<span class="kw">const</span> { <span class="var">estConnecte</span>, <span class="var">nomComplet</span>, <span class="var">estAdmin</span> } = <span class="fn">storeToRefs</span>(<span class="var">store</span>)
+
+<span class="cm">// Les actions sont déstructurables directement</span>
+<span class="kw">const</span> { <span class="var">seDeconnecter</span> } = <span class="var">store</span>
+<span class="tag">&lt;/script&gt;</span>
+
+<span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;nav&gt;</span>
+    <span class="tag">&lt;template</span> <span class="sp">v-if</span>=<span class="str">"estConnecte"</span><span class="tag">&gt;</span>
+      <span class="tag">&lt;span&gt;</span>Bonjour, {{ nomComplet }}<span class="tag">&lt;/span&gt;</span>
+      <span class="tag">&lt;RouterLink</span> <span class="sp">v-if</span>=<span class="str">"estAdmin"</span> <span class="sp">to</span>=<span class="str">"/admin"</span><span class="tag">&gt;</span>Admin<span class="tag">&lt;/RouterLink&gt;</span>
+      <span class="tag">&lt;button</span> <span class="sp">@click</span>=<span class="str">"seDeconnecter"</span><span class="tag">&gt;</span>Déconnexion<span class="tag">&lt;/button&gt;</span>
+    <span class="tag">&lt;/template&gt;</span>
+    <span class="tag">&lt;RouterLink</span> <span class="sp">v-else</span> <span class="sp">to</span>=<span class="str">"/login"</span><span class="tag">&gt;</span>Connexion<span class="tag">&lt;/RouterLink&gt;</span>
+  <span class="tag">&lt;/nav&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(11)">&#8592; Vue Router</button>
+      <button class="nav-btn primary" onclick="goTo(13)">Requêtes HTTP &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 13: HTTP -->
+  <section class="section" id="s13">
+    <h2 class="sec-title">Requêtes HTTP</h2>
+    <p class="sec-desc">Consommer des APIs REST dans Vue avec Axios ou le fetch natif.</p>
+
+    <h3 class="sub-title">Axios — Configuration recommandée</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JAVASCRIPT</span><span class="code-label">lib/axios.js — Instance configurée</span></div>
+      <pre><code><span class="kw">import</span> <span class="var">axios</span> <span class="kw">from</span> <span class="str">'axios'</span>
+
+<span class="kw">const</span> <span class="var">api</span> = <span class="var">axios</span>.<span class="fn">create</span>({
+  <span class="prop">baseURL</span>: <span class="kw">import</span>.meta.env.<span class="var">VITE_API_URL</span> || <span class="str">'https://api.exemple.com'</span>,
+  <span class="prop">timeout</span>: <span class="num">10000</span>,
+  <span class="prop">headers</span>: { <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> }
+})
+
+<span class="cm">// Intercepteur : ajouter le token automatiquement</span>
+<span class="var">api</span>.interceptors.request.<span class="fn">use</span>((<span class="var">config</span>) => {
+  <span class="kw">const</span> <span class="var">token</span> = <span class="fn">localStorage</span>.<span class="fn">getItem</span>(<span class="str">'token'</span>)
+  <span class="kw">if</span> (<span class="var">token</span>) <span class="var">config</span>.headers.Authorization = `Bearer ${token}`
+  <span class="kw">return</span> <span class="var">config</span>
+})
+
+<span class="cm">// Intercepteur : gérer les erreurs globalement</span>
+<span class="var">api</span>.interceptors.response.<span class="fn">use</span>(
+  (<span class="var">response</span>) => <span class="var">response</span>,
+  (<span class="var">erreur</span>) => {
+    <span class="kw">if</span> (<span class="var">erreur</span>.response?.status === <span class="num">401</span>) {
+      <span class="fn">localStorage</span>.<span class="fn">removeItem</span>(<span class="str">'token'</span>)
+      <span class="fn">window</span>.<span class="fn">location</span>.<span class="fn">href</span> = <span class="str">'/login'</span>
+    }
+    <span class="kw">return</span> <span class="fn">Promise</span>.<span class="fn">reject</span>(<span class="var">erreur</span>)
+  }
+)
+
+<span class="kw">export default</span> <span class="var">api</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">CRUD complet dans un composant</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">ListeArticles.vue</span></div>
+      <pre><code><span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">ref</span>, <span class="fn">onMounted</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+<span class="kw">import</span> <span class="var">api</span> <span class="kw">from</span> <span class="str">'@/lib/axios'</span>
+
+<span class="kw">const</span> <span class="var">articles</span> = <span class="fn">ref</span>([])
+<span class="kw">const</span> <span class="var">chargement</span> = <span class="fn">ref</span>(<span class="kw">false</span>)
+<span class="kw">const</span> <span class="var">erreur</span> = <span class="fn">ref</span>(<span class="kw">null</span>)
+
+<span class="cm">// GET — Lire</span>
+<span class="kw">async function</span> <span class="fn">chargerArticles</span>() {
+  <span class="var">chargement</span>.value = <span class="kw">true</span>
+  <span class="kw">try</span> {
+    <span class="kw">const</span> { <span class="var">data</span> } = <span class="kw">await</span> <span class="var">api</span>.<span class="fn">get</span>(<span class="str">'/articles'</span>, {
+      <span class="prop">params</span>: { <span class="prop">page</span>: <span class="num">1</span>, <span class="prop">limit</span>: <span class="num">10</span> }
+    })
+    <span class="var">articles</span>.value = <span class="var">data</span>
+  } <span class="kw">catch</span> (<span class="var">e</span>) {
+    <span class="var">erreur</span>.value = <span class="str">'Impossible de charger les articles'</span>
+  } <span class="kw">finally</span> {
+    <span class="var">chargement</span>.value = <span class="kw">false</span>
+  }
+}
+
+<span class="cm">// POST — Créer</span>
+<span class="kw">async function</span> <span class="fn">creerArticle</span>(<span class="var">donnees</span>) {
+  <span class="kw">const</span> { <span class="var">data</span> } = <span class="kw">await</span> <span class="var">api</span>.<span class="fn">post</span>(<span class="str">'/articles'</span>, <span class="var">donnees</span>)
+  <span class="var">articles</span>.value.<span class="fn">push</span>(<span class="var">data</span>)  <span class="cm">// mise à jour optimiste</span>
+}
+
+<span class="cm">// PUT — Modifier</span>
+<span class="kw">async function</span> <span class="fn">modifierArticle</span>(<span class="var">id</span>, <span class="var">donnees</span>) {
+  <span class="kw">const</span> { <span class="var">data</span> } = <span class="kw">await</span> <span class="var">api</span>.<span class="fn">put</span>(`/articles/${id}`, <span class="var">donnees</span>)
+  <span class="kw">const</span> <span class="var">index</span> = <span class="var">articles</span>.value.<span class="fn">findIndex</span>(<span class="var">a</span> => <span class="var">a</span>.id === <span class="var">id</span>)
+  <span class="kw">if</span> (<span class="var">index</span> !== -<span class="num">1</span>) <span class="var">articles</span>.value[<span class="var">index</span>] = <span class="var">data</span>
+}
+
+<span class="cm">// DELETE — Supprimer</span>
+<span class="kw">async function</span> <span class="fn">supprimerArticle</span>(<span class="var">id</span>) {
+  <span class="kw">await</span> <span class="var">api</span>.<span class="fn">delete</span>(`/articles/${id}`)
+  <span class="var">articles</span>.value = <span class="var">articles</span>.value.<span class="fn">filter</span>(<span class="var">a</span> => <span class="var">a</span>.id !== <span class="var">id</span>)
+}
+
+<span class="fn">onMounted</span>(<span class="var">chargerArticles</span>)
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(12)">&#8592; Pinia</button>
+      <button class="nav-btn primary" onclick="goTo(14)">Performance &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 14: Performance -->
+  <section class="section" id="s14">
+    <h2 class="sec-title">Performance</h2>
+    <p class="sec-desc">Quelques techniques essentielles pour garder votre application Vue rapide et efficace.</p>
+
+    <h3 class="sub-title">Lazy loading des composants</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">JAVASCRIPT</span><span class="code-label">Chargement différé</span></div>
+      <pre><code><span class="tag">&lt;script setup&gt;</span>
+<span class="kw">import</span> { <span class="fn">defineAsyncComponent</span>, <span class="fn">ref</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="cm">// Chargé uniquement quand affiché</span>
+<span class="kw">const</span> <span class="var">GraphiqueLourd</span> = <span class="fn">defineAsyncComponent</span>(() =>
+  <span class="kw">import</span>(<span class="str">'./components/GraphiqueLourd.vue'</span>)
+)
+
+<span class="cm">// Avec états de chargement</span>
+<span class="kw">const</span> <span class="var">EditorRiche</span> = <span class="fn">defineAsyncComponent</span>({
+  <span class="prop">loader</span>: () => <span class="kw">import</span>(<span class="str">'./components/EditorRiche.vue'</span>),
+  <span class="prop">loadingComponent</span>: <span class="var">Spinner</span>,
+  <span class="prop">errorComponent</span>: <span class="var">ErreurComposant</span>,
+  <span class="prop">delay</span>: <span class="num">200</span>
+})
+
+<span class="kw">const</span> <span class="var">afficherGraph</span> = <span class="fn">ref</span>(<span class="kw">false</span>)
+<span class="tag">&lt;/script&gt;</span>
+
+<span class="tag">&lt;template&gt;</span>
+  <span class="tag">&lt;button</span> <span class="sp">@click</span>=<span class="str">"afficherGraph = true"</span><span class="tag">&gt;</span>Charger le graphique<span class="tag">&lt;/button&gt;</span>
+  <span class="cm">&lt;!-- GraphiqueLourd ne charge que quand afficherGraph est true --&gt;</span>
+  <span class="tag">&lt;GraphiqueLourd</span> <span class="sp">v-if</span>=<span class="str">"afficherGraph"</span> <span class="tag">/&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">keep-alive — Préserver l'état des composants</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE TEMPLATE</span><span class="code-label">Cache de composants</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="cm">&lt;!-- Préserve l'état quand on navigue entre onglets --&gt;</span>
+  <span class="tag">&lt;KeepAlive</span> <span class="sp">:include</span>=<span class="str">"['TabRecherche', 'TabFiltres']"</span> <span class="sp">:max</span>=<span class="str">"3"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;component</span> <span class="sp">:is</span>=<span class="str">"ongletActif"</span> <span class="tag">/&gt;</span>
+  <span class="tag">&lt;/KeepAlive&gt;</span>
+
+  <span class="cm">&lt;!-- Dans les routes --&gt;</span>
+  <span class="tag">&lt;RouterView</span> <span class="sp">v-slot</span>=<span class="str">"{ Component }"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;KeepAlive&gt;</span>
+      <span class="tag">&lt;component</span> <span class="sp">:is</span>=<span class="str">"Component"</span> <span class="tag">/&gt;</span>
+    <span class="tag">&lt;/KeepAlive&gt;</span>
+  <span class="tag">&lt;/RouterView&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">v-memo — Mémoïsation de listes</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE TEMPLATE</span><span class="code-label">Optimiser les grandes listes</span></div>
+      <pre><code><span class="tag">&lt;template&gt;</span>
+  <span class="cm">&lt;!-- Ne re-render l'item QUE si selected ou item change --&gt;</span>
+  <span class="tag">&lt;div</span>
+    <span class="sp">v-for</span>=<span class="str">"item in listeItems"</span>
+    <span class="sp">:key</span>=<span class="str">"item.id"</span>
+    <span class="sp">v-memo</span>=<span class="str">"[item.id === selectionne]"</span>
+  <span class="tag">&gt;</span>
+    <span class="tag">&lt;ItemComplexe</span> <span class="sp">:item</span>=<span class="str">"item"</span> <span class="sp">:selected</span>=<span class="str">"item.id === selectionne"</span> <span class="tag">/&gt;</span>
+  <span class="tag">&lt;/div&gt;</span>
+<span class="tag">&lt;/template&gt;</span></code></pre>
+    </div>
+
+    <table>
+      <tr><th>Technique</th><th>Impact</th><th>Quand utiliser</th></tr>
+      <tr><td>Lazy loading routes</td><td>Bundle initial réduit</td><td>Toujours</td></tr>
+      <tr><td><code>defineAsyncComponent</code></td><td>Chargement à la demande</td><td>Composants lourds</td></tr>
+      <tr><td><code>KeepAlive</code></td><td>Évite re-renders</td><td>Onglets, wizards</td></tr>
+      <tr><td><code>v-memo</code></td><td>Skip re-renders inutiles</td><td>Grandes listes</td></tr>
+      <tr><td><code>computed</code> vs méthode</td><td>Mise en cache</td><td>Calculs dérivés</td></tr>
+      <tr><td><code>shallowRef</code></td><td>Réactivité superficielle</td><td>Gros objets immuables</td></tr>
+    </table>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(13)">&#8592; HTTP</button>
+      <button class="nav-btn primary" onclick="goTo(15)">Bonnes pratiques &#8594;</button>
+    </div>
+  </section>
+
+  <!-- SECTION 15: Bonnes pratiques -->
+  <section class="section" id="s15">
+    <h2 class="sec-title">Bonnes pratiques</h2>
+    <p class="sec-desc">Les règles à suivre pour écrire du code Vue maintenable, lisible et performant.</p>
+
+    <h3 class="sub-title">Structure recommandée d'un composant</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">VUE</span><span class="code-label">MonComposant.vue — Ordre recommandé</span></div>
+      <pre><code><span class="tag">&lt;script setup&gt;</span>
+<span class="cm">// 1. Imports</span>
+<span class="kw">import</span> { <span class="fn">ref</span>, <span class="fn">computed</span>, <span class="fn">onMounted</span> } <span class="kw">from</span> <span class="str">'vue'</span>
+<span class="kw">import</span> <span class="var">SousComposant</span> <span class="kw">from</span> <span class="str">'./SousComposant.vue'</span>
+<span class="kw">import</span> { <span class="fn">useMonStore</span> } <span class="kw">from</span> <span class="str">'@/stores/monStore'</span>
+<span class="kw">import</span> { <span class="fn">useMonComposable</span> } <span class="kw">from</span> <span class="str">'@/composables/useMonComposable'</span>
+
+<span class="cm">// 2. Props & Emits</span>
+<span class="kw">const</span> <span class="var">props</span> = <span class="fn">defineProps</span>({ <span class="prop">titre</span>: <span class="fn">String</span> })
+<span class="kw">const</span> <span class="var">emit</span> = <span class="fn">defineEmits</span>([<span class="str">'fermer'</span>])
+
+<span class="cm">// 3. Stores & Composables</span>
+<span class="kw">const</span> <span class="var">store</span> = <span class="fn">useMonStore</span>()
+<span class="kw">const</span> { <span class="var">donnees</span>, <span class="var">charger</span> } = <span class="fn">useMonComposable</span>()
+
+<span class="cm">// 4. State réactif</span>
+<span class="kw">const</span> <span class="var">visible</span> = <span class="fn">ref</span>(<span class="kw">false</span>)
+<span class="kw">const</span> <span class="var">formulaire</span> = <span class="fn">reactive</span>({ <span class="prop">nom</span>: <span class="str">''</span> })
+
+<span class="cm">// 5. Computed</span>
+<span class="kw">const</span> <span class="var">titreFormate</span> = <span class="fn">computed</span>(() => <span class="var">props</span>.titre?.toUpperCase())
+
+<span class="cm">// 6. Watchers</span>
+<span class="fn">watch</span>(<span class="var">visible</span>, (<span class="var">val</span>) => { <span class="kw">if</span> (<span class="var">val</span>) <span class="fn">charger</span>() })
+
+<span class="cm">// 7. Lifecycle</span>
+<span class="fn">onMounted</span>(() => { <span class="fn">charger</span>() })
+
+<span class="cm">// 8. Méthodes</span>
+<span class="kw">function</span> <span class="fn">fermer</span>() { <span class="fn">emit</span>(<span class="str">'fermer'</span>) }
+<span class="tag">&lt;/script&gt;</span></code></pre>
+    </div>
+
+    <h3 class="sub-title">Checklist de l'excellence Vue</h3>
+    <ul class="step-list">
+      <li><div class="step-num">✓</div><div class="step-content"><h4>Toujours utiliser :key dans v-for</h4><p>Une clé unique stable (id, pas l'index) permet à Vue d'optimiser le DOM virtuel.</p></div></li>
+      <li><div class="step-num">✓</div><div class="step-content"><h4>Ne jamais utiliser v-if et v-for ensemble</h4><p>Utilisez un <code>&lt;template v-if&gt;</code> à l'extérieur ou filtrez les données en amont via computed.</p></div></li>
+      <li><div class="step-num">✓</div><div class="step-content"><h4>Nettoyer dans onBeforeUnmount</h4><p>Timers, event listeners, subscriptions — toujours nettoyer pour éviter les fuites mémoire.</p></div></li>
+      <li><div class="step-num">✓</div><div class="step-content"><h4>Variables d'environnement avec VITE_</h4><p>Préfixez toutes vos vars .env avec <code>VITE_</code> pour les exposer au client : <code>VITE_API_URL</code>.</p></div></li>
+      <li><div class="step-num">✓</div><div class="step-content"><h4>Préférer la Composition API</h4><p>Plus flexible, meilleure inférence TypeScript, logique réutilisable via composables.</p></div></li>
+      <li><div class="step-num">✓</div><div class="step-content"><h4>Lazy-loader les routes et composants lourds</h4><p>Utilisez des imports dynamiques <code>() => import(...)</code> pour réduire le bundle initial.</p></div></li>
+      <li><div class="step-num">✓</div><div class="step-content"><h4>Une responsabilité par composant</h4><p>Un composant = une chose. Découpez si ça fait plus de 200 lignes ou gère plusieurs préoccupations.</p></div></li>
+      <li><div class="step-num">✓</div><div class="step-content"><h4>Nommage cohérent</h4><p>Composants : <code>PascalCase</code>. Composables : <code>useCamelCase</code>. Stores : <code>useCamelCaseStore</code>.</p></div></li>
+    </ul>
+
+    <div class="tip"><div class="tip-label">&#9670; Ressources pour aller plus loin</div><p>Documentation officielle : <strong>vuejs.org</strong> — Vue Router : <strong>router.vuejs.org</strong> — Pinia : <strong>pinia.vuejs.org</strong> — VueUse (composables utilitaires) : <strong>vueuse.org</strong></p></div>
+
+    <div style="background: linear-gradient(135deg, rgba(66,184,131,0.1), rgba(53,73,94,0.2)); border: 1px solid var(--border); border-radius: 14px; padding: 32px; text-align: center; margin-top: 32px;">
+      <div style="font-size: 28px; margin-bottom: 12px;">🏁</div>
+      <h3 style="color: var(--green); font-size: 20px; margin-bottom: 8px;">Félicitations !</h3>
+      <p style="color: var(--muted); font-size: 14px; line-height: 1.7;">Vous avez couvert toutes les bases essentielles de Vue.js. La prochaine étape est de construire un vrai projet — c'est en pratiquant qu'on apprend vraiment !</p>
+    </div>
+
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="goTo(14)">&#8592; Performance</button>
+      <button class="nav-btn primary" onclick="goTo(0)">&#8634; Recommencer depuis le début</button>
+    </div>
+  </section>
+
+</div>
+</main>
+
+<script>
+  const sections = document.querySelectorAll('.section')
+  const navItems = document.querySelectorAll('.nav-item')
+  const progress = document.getElementById('progress')
+  const total = sections.length
+
+  function goTo(i) {
+    sections.forEach(s => s.classList.remove('active'))
+    navItems.forEach(n => n.classList.remove('active'))
+    sections[i].classList.add('active')
+    navItems[i].classList.add('active')
+    const pct = Math.round(((i + 1) / total) * 100)
+    progress.style.width = pct + '%'
+    document.getElementById('main').scrollTo({ top: 0, behavior: 'smooth' })
+  }
+</script>
+</body>
+</html>
