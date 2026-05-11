@@ -1,0 +1,5 @@
+custom
+id
+id_feature
+product_feature_value
+value

@@ -1,0 +1,11 @@
+active
+date_add
+date_upd
+description
+id
+link_rewrite
+meta_description
+meta_keywords
+meta_title
+name
+supplier

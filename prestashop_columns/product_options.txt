@@ -1,0 +1,10 @@
+associations
+associations__product_option_values
+group_type
+id
+is_color_group
+name
+position
+product_option
+product_option_value
+public_name

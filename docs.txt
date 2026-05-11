@@ -1,2 +1,0 @@
-docker exec some-mysql mysqldump -u root -pprestashop prestashop >  "backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')
-Get-Content backup_20260507_202625.sql | docker exec -i some-mysql mysql -u root -pprestashop prestashop

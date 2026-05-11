@@ -1,0 +1,10 @@
+depends_on_stock
+id
+id_product
+id_product_attribute
+id_shop
+id_shop_group
+location
+out_of_stock
+quantity
+stock_available

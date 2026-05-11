@@ -1,0 +1,14 @@
+from
+from_quantity
+id
+id_country
+id_currency
+id_group
+id_shop
+name
+price
+reduction
+reduction_tax
+reduction_type
+specific_price_rule
+to

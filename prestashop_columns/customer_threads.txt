@@ -1,0 +1,16 @@
+associations
+associations__customer_messages
+customer_message
+customer_thread
+date_add
+date_upd
+email
+id
+id_contact
+id_customer
+id_lang
+id_order
+id_product
+id_shop
+status
+token

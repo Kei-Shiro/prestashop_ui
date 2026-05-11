@@ -1,13 +1,28 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>prestashop_ui</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrestaShop UI Dev Environment</title>
+    <style>
+        body { font-family: system-ui, sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; }
+        .card { border: 1px solid #ddd; padding: 1.5rem; margin-bottom: 1rem; border-radius: 8px; }
+        a { color: #2563eb; text-decoration: none; font-weight: bold; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>PrestaShop UI Dev Environment</h1>
+    <p>Select the application you want to work on:</p>
+    
+    <div class="card">
+        <h2>🛍️ <a href="/index.front.html">Front-Office</a></h2>
+        <p>The public store interface.</p>
+    </div>
+
+    <div class="card">
+        <h2>⚙️ <a href="/index.back.html">Back-Office</a></h2>
+        <p>The administration panel.</p>
+    </div>
+</body>
 </html>

@@ -1,0 +1,6 @@
+color
+id
+id_attribute_group
+name
+position
+product_option_value

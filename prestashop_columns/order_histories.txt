@@ -1,0 +1,6 @@
+date_add
+id
+id_employee
+id_order
+id_order_state
+order_history

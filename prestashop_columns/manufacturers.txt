@@ -1,0 +1,14 @@
+active
+address
+associations
+associations__addresses
+date_add
+date_upd
+description
+id
+manufacturer
+meta_description
+meta_keywords
+meta_title
+name
+short_description

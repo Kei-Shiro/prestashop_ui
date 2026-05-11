@@ -1,0 +1,17 @@
+accept_language
+adobe_director
+adobe_flash
+apple_quicktime
+guest
+id
+id_customer
+id_operating_system
+id_web_browser
+javascript
+mobile_theme
+real_player
+screen_color
+screen_resolution_x
+screen_resolution_y
+sun_java
+windows_media
