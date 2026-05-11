@@ -1,0 +1,8 @@
+date_add
+id
+id_cart
+id_customer
+id_employee
+id_order
+message
+private

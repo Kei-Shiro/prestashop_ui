@@ -1,0 +1,14 @@
+amount
+card_brand
+card_expiration
+card_holder
+card_number
+conversion_rate
+date_add
+id
+id_currency
+id_employee
+order_payment
+order_reference
+payment_method
+transaction_id

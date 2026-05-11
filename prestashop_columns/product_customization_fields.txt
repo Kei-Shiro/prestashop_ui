@@ -1,0 +1,8 @@
+customization_field
+id
+id_product
+is_deleted
+is_module
+name
+required
+type

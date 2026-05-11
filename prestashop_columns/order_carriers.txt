@@ -1,0 +1,10 @@
+date_add
+id
+id_carrier
+id_order
+id_order_invoice
+order_carrier
+shipping_cost_tax_excl
+shipping_cost_tax_incl
+tracking_number
+weight

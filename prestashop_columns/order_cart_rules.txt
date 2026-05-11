@@ -1,0 +1,10 @@
+deleted
+free_shipping
+id
+id_cart_rule
+id_order
+id_order_invoice
+name
+order_cart_rule
+value
+value_tax_excl

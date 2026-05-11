@@ -14,3 +14,16 @@ export function useAuth() {
   return { isAuthenticated, login, logout };
 }
 
+/*import { computed } from 'vue'
+import { useAuthStore } from '@back/stores/auth'
+
+export function useAuth() {
+  const store = useAuthStore()
+
+  return {
+    isAuthenticated: computed(() => !!store.token),
+    currentUser: computed(() => store.user),
+    login: store.login,
+    logout: store.logout,
+  }
+}*/

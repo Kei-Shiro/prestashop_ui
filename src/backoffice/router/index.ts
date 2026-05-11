@@ -1,30 +1,24 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import ProductPage from '@back/pages/ProductPage.vue'
-import ResetPage   from '@back/pages/ResetPage.vue'
-import LoginPage   from '@back/pages/LoginPage.vue'
-import AdminLayout from '@back/layouts/AdminLayout.vue'
+import LoginPage  from '@back/pages/LoginPage.vue'
+import ImportPage from '@back/pages/ImportPage.vue'
+import ResetPage  from '@back/pages/ResetPage.vue'
+import OrdersPage from '@back/pages/OrdersPage.vue'
 
 const router = createRouter({
     history: createWebHistory('/admin/'),
     routes: [
         { path: '/login', component: LoginPage },
-        {
-            path: '/',
-            component: AdminLayout,
-            meta: { requiresAuth: true },
-            children: [
-                { path: '',        component: ProductPage },
-                { path: 'reset',   component: ResetPage },
-            ],
-        },
+        { path: '/import', component: ImportPage, meta: { requiresAuth: true } },
+        { path: '/reset',  component: ResetPage,  meta: { requiresAuth: true } },
+        { path: '/orders', component: OrdersPage, meta: { requiresAuth: true } },
+        { path: '/',       redirect: '/orders' },
+        { path: '/:pathMatch(.*)*', redirect: '/' } // Catch-all route to prevent warnings
     ],
 })
 
 router.beforeEach((to) => {
-    const isAuth = !!localStorage.getItem('admin_token')
-    if (to.meta.requiresAuth && !isAuth) {
-        return { path: '/login' }
-    }
+    const token = localStorage.getItem('admin_token')
+    if (to.meta.requiresAuth && !token) return { path: '/login' }
 })
 
 export default router

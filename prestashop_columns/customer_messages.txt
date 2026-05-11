@@ -1,0 +1,12 @@
+customer_message
+date_add
+date_upd
+file_name
+id
+id_customer_thread
+id_employee
+ip_address
+message
+private
+read
+user_agent

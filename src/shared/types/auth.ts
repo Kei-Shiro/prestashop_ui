@@ -1,8 +1,10 @@
-import type { User } from './user';
+export interface LoginCredentials {
+  email: string
+  password: string
+}
 
-export interface AuthState {
-  user: User | null;
-  token: string | null;
-  isAuthenticated: boolean;
+export interface AuthResponse {
+  token: string
+  user: import('./user').User
 }
 

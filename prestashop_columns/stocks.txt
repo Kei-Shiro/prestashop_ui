@@ -1,0 +1,13 @@
+ean13
+id
+id_product
+id_product_attribute
+id_warehouse
+isbn
+mpn
+physical_quantity
+price_te
+reference
+stock
+upc
+usable_quantity
