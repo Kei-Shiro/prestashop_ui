@@ -1,9 +1,9 @@
 <!-- src/pages/ProductsPage.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import apiService from '../services/api-service'
+import apiService from '@shared/services/api-service'
 import ProductTable from '../components/ProductTable.vue'
-import type { Product } from '../types/product'
+import type { Product } from '@shared/types/product'
 
 const products = ref<Product[]>([])
 const loading = ref(false)

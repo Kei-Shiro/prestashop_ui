@@ -11,8 +11,12 @@
     "sourceMap": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "useDefineForClassFields": true,
-    "types": ["vite/client"]
-
+    "types": ["vite/client"],
+    "paths": {
+      "@back/*":   ["./src/backoffice/*"],
+      "@front/*":  ["./src/frontoffice/*"],
+      "@shared/*": ["./src/shared/*"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "vite.config.ts"],
   "exclude": ["node_modules"]

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import resetService from "../services/reset-service";
+  import resetService from "@shared/services/reset-service";
 
   function reset() {
       resetService.resetAll()
