@@ -13,6 +13,7 @@ export function useOrders() {
     const updatingOrderId = ref<number | null>(null);
 
     const loadOrdersAndMetadata = async () => {
+
         isLoading.value = true;
         error.value = null;
 

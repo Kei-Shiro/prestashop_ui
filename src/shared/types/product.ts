@@ -10,6 +10,7 @@ export interface Product {
     images?: string[];
     id_default_image?: string;
     category?: string;
+    date_availability?: string;
 }
 
 export interface CartItem {

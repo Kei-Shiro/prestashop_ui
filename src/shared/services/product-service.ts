@@ -23,7 +23,8 @@ const productService = {
                     active: p.active === '1',
                     images: images,
                     id_default_image: images.length > 0 ? images[0] : undefined,
-                    category: p.id_category_default || 'Vêtements'
+                    category: p.id_category_default || 'Vêtements',
+                    date_availability: p.date_availability || ''
                 };
             })
         );
@@ -49,7 +50,8 @@ const productService = {
             active: p.active === '1',
             images: images,
             id_default_image: images.length > 0 ? images[0] : undefined,
-            category: p.id_category_default || 'Vêtements'
+            category: p.id_category_default || 'Vêtements',
+            date_availability: p.date_availability || ''
         };
     },
 
@@ -88,12 +90,14 @@ const productService = {
         }
     },
 
-    getImageUrl(productId: string | number, imageId?: string | number, format: string = 'large_default'): string {
+    getImageUrl(productId: string | number, imageId?: string | number): string {
         if (imageId && imageId !== '0') {
-            return `/prestashop/api/images/products/${productId}/${imageId}/${format}.jpg`;
+            return `/prestashop/api/images/products/${productId}/${imageId}`;
         }
-        return `/prestashop/api/images/products/${productId}/${format}.jpg`;
+        return `/prestashop/api/images/products/${productId}/`;
     }
+
+
 };
 
 export default productService;

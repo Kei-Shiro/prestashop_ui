@@ -35,9 +35,9 @@ export function useProduct() {
         }
     };
 
-    const getProductImageUrl = (product: Product, format: string = 'large_default'): string => {
+    const getProductImageUrl = (product: Product): string => {
         if (product.id_default_image) {
-            return productService.getImageUrl(product.id_product, product.id_default_image, format);
+            return productService.getImageUrl(product.id_product, product.id_default_image);
         }
         return '';
     };
