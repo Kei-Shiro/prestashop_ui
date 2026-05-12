@@ -11,7 +11,7 @@
         </div>
         <div class="ml-3">
           <p class="text-sm text-green-700 font-medium">
-            Votre commande a été passée avec succès !
+            Votre commande a ǸtǸ passǸe avec succs !
           </p>
           <div class="mt-4">
             <router-link to="/my-orders" class="text-sm font-medium text-green-700 hover:text-green-600 underline">Voir mes commandes</router-link>
@@ -22,28 +22,28 @@
 
     <div v-else-if="cartStore.items.length === 0" class="text-center py-10">
       <p class="text-gray-500 mb-4">Votre panier est vide.</p>
-      <router-link to="/" class="text-purple-600 hover:text-purple-500 font-medium">Retourner à la boutique</router-link>
+      <router-link to="/" class="text-purple-600 hover:text-purple-500 font-medium">Retourner  la boutique</router-link>
     </div>
 
     <div v-else class="bg-white shadow overflow-hidden sm:rounded-lg">
       <div class="px-4 py-5 sm:px-6">
-        <h3 class="text-lg leading-6 font-medium text-gray-900">Récapitulatif</h3>
+        <h3 class="text-lg leading-6 font-medium text-gray-900">RǸcapitulatif</h3>
       </div>
       <div class="border-t border-gray-200 px-4 py-5 sm:p-0">
         <dl class="sm:divide-y sm:divide-gray-200">
           <div v-for="item in cartStore.items" :key="item.product.id_product" class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
             <dt class="text-sm font-medium text-gray-500">{{ item.quantity }}x {{ item.product.name }}</dt>
-            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 text-right">{{ (typeof item.product.price === 'string' ? parseFloat(item.product.price) : item.product.price * item.quantity).toFixed(2) }} €</dd>
+            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 text-right">{{ getItemTotal(item) }} '</dd>
           </div>
           
           <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6 bg-gray-50">
             <dt class="text-sm font-medium text-gray-500">Frais de livraison</dt>
-            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 text-right">0.00 €</dd>
+            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 text-right">0.00 '</dd>
           </div>
 
           <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6 bg-gray-50">
-            <dt class="text-base font-bold text-gray-900">Total à payer</dt>
-            <dd class="mt-1 text-base font-bold text-gray-900 sm:mt-0 sm:col-span-2 text-right">{{ cartStore.totalAmount.toFixed(2) }} €</dd>
+            <dt class="text-base font-bold text-gray-900">Total  payer</dt>
+            <dd class="mt-1 text-base font-bold text-gray-900 sm:mt-0 sm:col-span-2 text-right">{{ cartStore.totalAmount.toFixed(2) }} '</dd>
           </div>
         </dl>
       </div>
@@ -57,7 +57,7 @@
               </svg>
             </div>
             <div class="ml-3">
-              <p class="text-sm text-blue-700">Le paiement se fera <strong>uniquement à la livraison</strong>.</p>
+              <p class="text-sm text-blue-700">Le paiement se fera <strong>uniquement  la livraison</strong>.</p>
             </div>
           </div>
         </div>
@@ -80,6 +80,11 @@ import { useCheckoutStore } from '../stores/checkout';
 
 const cartStore = useCartStore();
 const checkoutStore = useCheckoutStore();
+
+const getItemTotal = (item: any) => {
+    const p = typeof item.product.price === 'string' ? parseFloat(item.product.price) : item.product.price;
+    return (!isNaN(p) ? p * item.quantity : 0).toFixed(2);
+};
 
 onMounted(() => {
     checkoutStore.reset();

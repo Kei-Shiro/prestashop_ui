@@ -21,8 +21,8 @@
             <div class="flex items-center justify-between">
               <p class="text-sm font-medium text-purple-600 truncate">Commande {{ order.reference }}</p>
               <div class="ml-2 flex-shrink-0 flex">
-                <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :style="{ backgroundColor: order.currentState.color + '20', color: order.currentState.color }">
-                  {{ order.currentState.label }}
+                <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :style="{ backgroundColor: order.currentState?.color + '20', color: order.currentState?.color }">
+                  {{ order.currentState?.label }}
                 </p>
               </div>
             </div>
