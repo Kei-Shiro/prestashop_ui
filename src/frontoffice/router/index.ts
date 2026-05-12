@@ -1,10 +1,10 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory } from 'vue-router';
 import ShopLayout from '../layouts/ShopLayout.vue';
 import HomePage from '../pages/HomePage.vue';
 import ProductDetailPage from '../pages/ProductDetailPage.vue';
 
 const router = createRouter({
-  history: createWebHistory('/'),
+  history: createWebHashHistory(),
   routes: [
     {
       path: '/',

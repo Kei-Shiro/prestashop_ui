@@ -74,7 +74,7 @@ export const orderService = {
         <current_state>3</current_state>
     </order>
 </prestashop>`;
-
+        
         await apiService.post('/orders', xml, {
             headers: { 'Content-Type': 'application/xml' }
         });

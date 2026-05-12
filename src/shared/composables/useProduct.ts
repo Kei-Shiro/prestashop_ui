@@ -18,7 +18,7 @@ export function useProduct() {
         loading.value = true;
         error.value = null;
         try {
-            products.value = await productService.getProducts();
+            products.value = await productService.getAll();
         } catch (err: any) {
             error.value = err.message || 'Erreur lors du chargement des produits';
             console.error('loadProducts error', err);
