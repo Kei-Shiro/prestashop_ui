@@ -28,30 +28,47 @@ export const useCartStore = defineStore('cart', () => {
         isCartDrawerOpen.value = false;
     }
 
+    /**
+     * Adds a product to the cart or increments its quantity if it already exists.
+     * @param product The product to add
+     * @param quantity The quantity to add (default: 1)
+     */
     function addProduct(product: Product, quantity: number = 1) {
-        const existingItem = items.value.find(item => item.product.id_product === product.id_product);
+        const existingItem = items.value.find(item => String(item.product.id_product) === String(product.id_product));
+        const price = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
         if (existingItem) {
             existingItem.quantity += quantity;
+            existingItem.total_price = price * existingItem.quantity;
         } else {
-            const price = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
             items.value.push({ product, quantity, total_price: price * quantity });
         }
         openCartDrawer();
     }
 
+    /**
+     * Updates the quantity of a specific product in the cart.
+     * @param productId The ID of the product
+     * @param quantity The new quantity
+     */
     function updateQuantity(productId: string | number, quantity: number) {
-        const existingItem = items.value.find(item => item.product.id_product === String(productId));
+        const existingItem = items.value.find(item => String(item.product.id_product) === String(productId));
         if (existingItem) {
             if (quantity <= 0) {
                 removeProduct(productId);
             } else {
                 existingItem.quantity = quantity;
+                const price = typeof existingItem.product.price === 'string' ? parseFloat(existingItem.product.price) : existingItem.product.price;
+                existingItem.total_price = price * existingItem.quantity;
             }
         }
     }
 
+    /**
+     * Removes a product from the cart completely.
+     * @param productId The ID of the product to remove
+     */
     function removeProduct(productId: string | number) {
-        items.value = items.value.filter(item => item.product.id_product !== String(productId));
+        items.value = items.value.filter(item => String(item.product.id_product) !== String(productId));
     }
 
     function clearCart() {
