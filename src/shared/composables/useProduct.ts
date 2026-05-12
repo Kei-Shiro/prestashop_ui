@@ -39,7 +39,7 @@ export function useProduct() {
         if (product.id_default_image) {
             return productService.getImageUrl(product.id_product, product.id_default_image, format);
         }
-        return 'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?q=80&w=600&auto=format&fit=crop';
+        return '';
     };
 
     return {
