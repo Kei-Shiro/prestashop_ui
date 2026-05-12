@@ -15,6 +15,7 @@ export default defineConfig({
         alias: {
             '@back': resolve(__dirname, 'src/backoffice'),
             '@shared': resolve(__dirname, 'src/shared'),
+            '@features': resolve(__dirname, 'src/features'),
         },
     },
     server: {

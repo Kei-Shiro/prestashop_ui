@@ -1,6 +1,7 @@
 // shared/services/product-service.ts
 import apiService from './api-service';
 import type { Product } from '../types/product';
+import { extractLanguageValue } from '../utils/extractLanguageValue';
 
 const productService = {
     async getAll(): Promise<Product[]> {
@@ -22,10 +23,10 @@ const productService = {
                 
                 return {
                     id_product: String(p.id),
-                    name: productService.extractLanguageValue(p.name),
+name: extractLanguageValue(p.name),
                     price: parseFloat(p.price).toFixed(2),
-                    description: productService.extractLanguageValue(p.description),
-                    description_short: productService.extractLanguageValue(p.description_short),
+                    description: extractLanguageValue(p.description),
+                    description_short: extractLanguageValue(p.description_short),
                     quantity: p.quantity || '0',
                     active: p.active === '1',
                     images: images,
@@ -62,10 +63,10 @@ const productService = {
 
         return {
             id_product: String(p.id),
-            name: productService.extractLanguageValue(p.name),
+            name: extractLanguageValue(p.name),
             price: parseFloat(p.price).toFixed(2),
-            description: productService.extractLanguageValue(p.description),
-            description_short: productService.extractLanguageValue(p.description_short),
+            description: extractLanguageValue(p.description),
+            description_short: extractLanguageValue(p.description_short),
             quantity: p.quantity || '0',
             active: p.active === '1',
             images: images,
@@ -83,7 +84,7 @@ const productService = {
         if (!Array.isArray(list)) list = [list];
         return list.map((c: any) => ({
             id: String(c.id),
-            name: productService.extractLanguageValue(c.name)
+            name: extractLanguageValue(c.name)
         }));
     },
 

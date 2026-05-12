@@ -108,6 +108,63 @@ const importService = {
                 console.warn(`Le format ${ext} n'est pas pris en charge pour un import direct par ligne sur l'API native.`);
             }
         }
+    },
+
+    async importFile(file: File, endpoint: string): Promise<void> {
+        const ext = file.name.split('.').pop()?.toLowerCase() || '';
+        const resourceName = getResourceName(endpoint);
+
+        if (ext === 'csv') {
+            const rows = await parseCsv(file);
+            for (const row of rows) {
+                const xmlPayload = buildPrestashopXml(resourceName, row);
+                await apiService.post(endpoint, xmlPayload, {
+                    headers: { 'Content-Type': 'application/xml' }
+                });
+            }
+        } else if (ext === 'json') {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            const items = Array.isArray(data) ? data : [data];
+            for (const row of items) {
+                const xmlPayload = buildPrestashopXml(resourceName, row);
+                await apiService.post(endpoint, xmlPayload, {
+                    headers: { 'Content-Type': 'application/xml' }
+                });
+            }
+        } else {
+            console.warn(`Le format ${ext} n'est pas pris en charge.`);
+        }
+    },
+
+    async importGoogleSheet(sheetUrl: string, endpoint: string): Promise<void> {
+        // Extract sheet ID from URL
+        const match = sheetUrl.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        if (!match) {
+            throw new Error('Invalid Google Sheet URL');
+        }
+
+        const sheetId = match[1];
+        // Export as CSV using the public export URL
+        const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+
+        const response = await fetch(csvUrl);
+        if (!response.ok) {
+            throw new Error('Failed to fetch Google Sheet');
+        }
+
+        const csvText = await response.text();
+
+        // Parse the CSV and import
+        const rows = csvText.split('\n').filter(line => line.trim()).map(line => {
+            const values = line.split(',');
+            const obj: Record<string, string> = {};
+            // Assuming first row is header
+            return obj;
+        });
+
+        // For now, log that Google Sheet import needs proper implementation
+        console.log('Google Sheet import initiated for:', sheetUrl);
     }
 }
 

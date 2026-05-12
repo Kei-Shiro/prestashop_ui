@@ -15,8 +15,3 @@ export interface Product {
     product_option_values?: { id: string }[];
 }
 
-export interface CartItem {
-    product: Product;
-    quantity: number;
-    total_price: number;
-}

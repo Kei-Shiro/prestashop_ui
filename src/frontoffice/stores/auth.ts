@@ -52,11 +52,14 @@ export const useAuthStore = defineStore('auth', () => {
     const restoreSession = () => {
         const stored = localStorage.getItem('user');
         if (stored) {
-            user.value = JSON.parse(stored);
-            isAuthenticated.value = true;
-            isAnonymous.value = false;
-        } else {
-            // Pas de session restaurée
+            try {
+                user.value = JSON.parse(stored);
+                isAuthenticated.value = true;
+                isAnonymous.value = false;
+            } catch (e) {
+                console.error('Failed to restore session:', e);
+                localStorage.removeItem('user');
+            }
         }
     };
 

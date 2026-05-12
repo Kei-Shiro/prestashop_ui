@@ -6,7 +6,7 @@ import CartPage from '../pages/CartPage.vue';
 import CheckoutPage from '../pages/CheckoutPage.vue';
 import OrderConfirmationPage from '../pages/OrderConfirmationPage.vue';
 import MyOrdersPage from '../pages/MyOrderPage.vue';
-import DefaultLayout from '../layouts/DefaultLayouts.vue';
+import DefaultLayout from '../layouts/DefaultLayout.vue';
 import { useAuthStore } from '../stores/auth';
 
 const routes = [
