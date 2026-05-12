@@ -1,23 +1,15 @@
 import { ref } from 'vue';
 import { orderService } from '../services/order-service';
 import { customerService } from '../services/customer-service';
-import { useCart } from './useCart';
-import { useAuthStore } from '@frontoffice/stores/auth';
+import { useCartStore } from '@front/stores/cart';
+import { useAuthStore } from '@front/stores/auth';
+import {CheckoutForm} from "@shared/types/checkout";
 
-export interface CheckoutForm {
-    email: string;
-    firstname: string;
-    lastname: string;
-    phone: string;
-    address: string;
-    city: string;
-    postal_code: string;
-}
 
 export function useCheckout() {
     const loading = ref(false);
     const error = ref<string | null>(null);
-    const { cart, clearCart } = useCart();
+    const cartStore = useCartStore();
     const authStore = useAuthStore();
 
     const submitOrder = async (form: CheckoutForm) => {
@@ -70,15 +62,15 @@ export function useCheckout() {
             }
 
             // Préparer les items du panier
-            const items = cart.value.items.map(item => ({
-                productId: parseInt(item.product.id_product),
+            const items = cartStore.items.map(item => ({
+                product: item.product,
                 quantity: item.quantity
             }));
 
-            const cartId = await orderService.createCart(customerId, items);
-            await orderService.createOrder(customerId, cartId, cart.value.total_price);
-            clearCart();
-            return cartId; // ou l'ID commande? createOrder ne retourne pas l'ID, il faudrait modifier orderService.createOrder pour retourner l'ID
+            const cartId = await orderService.createCart(customerId, items, addressId);
+            const orderId = await orderService.createOrder(customerId, cartId, cartStore.totalAmount, addressId);
+            cartStore.clearCart();
+            return orderId;
         } catch (err) {
             error.value = 'Erreur lors de la création de la commande';
             console.error(err);

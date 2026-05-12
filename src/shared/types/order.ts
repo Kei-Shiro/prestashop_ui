@@ -28,6 +28,7 @@ export interface CustomerInfo {
 export interface MappedOrder {
     id: number;
     reference: string;
+    customerId?: number;
     customerName: string;
     totalPaid: string;
     payment: string;

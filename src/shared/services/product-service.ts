@@ -9,10 +9,17 @@ const productService = {
         let list = res?.prestashop?.products?.product ?? [];
         if (!Array.isArray(list)) list = [list];
 
-        // Récupérer les images pour tous les produits en parallèle
+        // RǸcupǸrer les images pour tous les produits en parallle
         const productsWithImages = await Promise.all(
             list.map(async (p: any) => {
-                const images = await productService.getImageIds(p.id);
+                let images: string[] = [];
+                if (p.associations?.images?.image) {
+                    const imgAssoc = p.associations.images.image;
+                    images = Array.isArray(imgAssoc) ? imgAssoc.map((i: any) => String(i.id || i['#text'] || i.value || '')) : [String(imgAssoc.id || imgAssoc['#text'] || imgAssoc.value || '')];
+                    images = images.filter((i: string) => i && i !== 'undefined' && i !== '0');
+                }
+                const defaultImage = p.id_default_image || (images.length > 0 ? images[0] : undefined);
+                
                 return {
                     id_product: String(p.id),
                     name: productService.extractLanguageValue(p.name),
@@ -22,9 +29,10 @@ const productService = {
                     quantity: p.quantity || '0',
                     active: p.active === '1',
                     images: images,
-                    id_default_image: images.length > 0 ? images[0] : undefined,
-                    category: p.id_category_default || 'Vêtements',
-                    date_availability: p.date_availability || ''
+                    id_default_image: defaultImage,
+                    category: p.id_category_default || '3',
+                    date_availability: p.date_availability || '',
+                    date_add: p.date_add || ''
                 };
             })
         );
@@ -38,7 +46,19 @@ const productService = {
 
         if (!p) throw new Error("Product not found");
 
-        const images = await productService.getImageIds(id);
+        let images: string[] = [];
+        if (p.associations?.images?.image) {
+            const imgAssoc = p.associations.images.image;
+            images = Array.isArray(imgAssoc) ? imgAssoc.map((i: any) => String(i.id || i['#text'] || i.value || '')) : [String(imgAssoc.id || imgAssoc['#text'] || imgAssoc.value || '')];
+            images = images.filter((i: string) => i && i !== 'undefined' && i !== '0');
+        }
+        const defaultImage = p.id_default_image || (images.length > 0 ? images[0] : undefined);
+
+        let options: { id: string }[] = [];
+        if (p.associations?.product_option_values?.product_option_value) {
+            const optAssoc = p.associations.product_option_values.product_option_value;
+            options = Array.isArray(optAssoc) ? optAssoc.map((o: any) => ({ id: String(o.id) })) : [{ id: String(optAssoc.id) }];
+        }
 
         return {
             id_product: String(p.id),
@@ -49,10 +69,36 @@ const productService = {
             quantity: p.quantity || '0',
             active: p.active === '1',
             images: images,
-            id_default_image: images.length > 0 ? images[0] : undefined,
-            category: p.id_category_default || 'Vêtements',
-            date_availability: p.date_availability || ''
+            id_default_image: defaultImage,
+            category: p.id_category_default || '3',
+            date_availability: p.date_availability || '',
+            date_add: p.date_add || '',
+            product_option_values: options
         };
+    },
+
+    async getCategories(): Promise<{ id: string, name: string }[]> {
+        const res = await apiService.get<any>('/categories?display=full');
+        let list = res?.prestashop?.categories?.category ?? [];
+        if (!Array.isArray(list)) list = [list];
+        return list.map((c: any) => ({
+            id: String(c.id),
+            name: productService.extractLanguageValue(c.name)
+        }));
+    },
+
+    async getProductOptionValues(): Promise<any[]> {
+        const res = await apiService.get<any>('/product_option_values?display=full');
+        let list = res?.prestashop?.product_option_values?.product_option_value ?? [];
+        if (!Array.isArray(list)) list = [list];
+        return list;
+    },
+
+    async getProductOptions(): Promise<any[]> {
+        const res = await apiService.get<any>('/product_options?display=full');
+        let list = res?.prestashop?.product_options?.product_option ?? [];
+        if (!Array.isArray(list)) list = [list];
+        return list;
     },
 
     /**
@@ -66,10 +112,11 @@ const productService = {
         if (field.language) {
             const lang = field.language;
             if (Array.isArray(lang)) {
-                // Prendre la première langue (français)
-                return lang[0]?.value || lang[0]?.textContent || '';
+                // Prendre la premire langue (franais)
+                const l = lang[0];
+                return typeof l === 'string' ? l : (l?.value || l?.textContent || '');
             }
-            return lang.value || lang.textContent || '';
+            return typeof lang === 'string' ? lang : (lang.value || lang.textContent || '');
         }
 
         // Si c'est directement la valeur
@@ -85,16 +132,18 @@ const productService = {
             const images = res?.prestashop?.images?.image ?? [];
             return Array.isArray(images) ? images.map((img: any) => String(img.id)) : [String(images.id)];
         } catch (error) {
-            console.error(`Erreur lors de la récupération des images pour le produit ${id}:`, error);
+            console.error(`Erreur lors de la rǸcupǸration des images pour le produit ${id}:`, error);
             return [];
         }
     },
 
     getImageUrl(productId: string | number, imageId?: string | number): string {
+        const apiKey = import.meta.env.VITE_PS_API_KEY || '';
+        const urlParams = apiKey ? `?ws_key=${apiKey}` : '';
         if (imageId && imageId !== '0') {
-            return `/prestashop/api/images/products/${productId}/${imageId}`;
+            return `/prestashop/api/images/products/${productId}/${imageId}${urlParams}`;
         }
-        return `/prestashop/api/images/products/${productId}/`;
+        return `/prestashop/api/images/products/${productId}/${urlParams}`;
     }
 
 

@@ -16,7 +16,7 @@ export const useCustomerOrderStore = defineStore('customerOrder', () => {
         error.value = null;
         try {
             const [rawOrders, rawStates] = await Promise.all([
-                orderService.getCustomerOrders(customerId),
+                orderService.getOrders(),
                 orderService.getOrderStates()
             ]);
 

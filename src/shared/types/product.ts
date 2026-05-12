@@ -11,6 +11,8 @@ export interface Product {
     id_default_image?: string;
     category?: string;
     date_availability?: string;
+    date_add?: string;
+    product_option_values?: { id: string }[];
 }
 
 export interface CartItem {

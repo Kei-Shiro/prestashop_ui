@@ -5,8 +5,8 @@ import ProductDetailPage from '../pages/ProductDetailPage.vue';
 import CartPage from '../pages/CartPage.vue';
 import CheckoutPage from '../pages/CheckoutPage.vue';
 import OrderConfirmationPage from '../pages/OrderConfirmationPage.vue';
-import MyOrdersPage from '../pages/MyOrdersPage.vue';
-import DefaultLayout from '../layouts/DefaultLayout.vue';
+import MyOrdersPage from '../pages/MyOrderPage.vue';
+import DefaultLayout from '../layouts/DefaultLayouts.vue';
 import { useAuthStore } from '../stores/auth';
 
 const routes = [
@@ -22,7 +22,10 @@ const routes = [
       { path: 'order-confirmation/:orderId', component: OrderConfirmationPage, meta: { requiresAuth: true } },
       { path: 'orders', component: MyOrdersPage, meta: { requiresAuth: true } }
     ]
-  }
+  },
+  // Catch-all route to redirect /index.front.html to root
+  { path: '/index.front.html', redirect: '/' },
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ];
 
 const router = createRouter({
@@ -30,14 +33,15 @@ const router = createRouter({
   routes
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to) => {
   const authStore = useAuthStore();
   authStore.restoreSession();
+  
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/'); // redirige vers sélection utilisateur
-  } else {
-    next();
+    return '/'; // redirige vers sélection utilisateur
   }
+  
+  return true;
 });
 
 export default router;
