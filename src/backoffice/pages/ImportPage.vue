@@ -1,72 +1,54 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import importService, { ImportItem } from '@shared/services/import-service';
+import { parseCsvFile } from '@features/import/services/csv-parser.service';
+import { orchestrateImport } from '@features/import/services/import-orchestrator';
+import FileDropZone from '@features/import/components/FileDropZone.vue';
+import ImportProgress from '@features/import/components/ImportProgress.vue';
+import type { ImportFile, ImportDetail } from '@features/import/types/import.types';
 import PageHeader from '../components/PageHeader.vue';
-import ImportRow from '../components/ImportRow.vue';
-import { erasableEndpoints } from '@shared/utils/endpoints';
 
-// Available endpoints dynamically loaded
-const endpointOptions = erasableEndpoints.map(endpoint => {
-  // Format the label neatly, e.g. "/products" -> "Products (/products)"
-  const cleanName = endpoint.replace('/', '');
-  const capitalized = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-  return {
-    value: endpoint,
-    label: `${capitalized} (${endpoint})`
-  };
-});
-
-let nextId = 1;
-const items = ref<ImportItem[]>([
-  { id: nextId++, file: null, endpoint: endpointOptions[0]?.value || '' },
-  { id: nextId++, file: null, endpoint: endpointOptions[1]?.value || '' }
-]);
-
-const isUploading = ref(false);
-const uploadSuccess = ref(false);
-const errorMessage = ref('');
+// State for files, importing status, and progress
+const files = ref<ImportFile[]>([]);
+const isImporting = ref(false);
+const progressDetails = ref<ImportDetail[]>([]);
 
 const canSubmit = computed(() => {
-  return items.value.length > 0 && items.value.every(item => item.file !== null && item.endpoint !== '');
+  return files.value.length > 0;
 });
 
-const addRow = () => {
-  items.value.push({ id: nextId++, file: null, endpoint: '' });
-};
-
-const removeRow = (id: number) => {
-  items.value = items.value.filter(item => item.id !== id);
-};
-
-const handleFileSelect = (item: ImportItem, event: Event) => {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files.length > 0) {
-    item.file = target.files[0];
-  } else {
-    item.file = null;
+const handleFilesSelected = async (selectedFiles: File[]) => {
+  for (const file of selectedFiles) {
+    try {
+      const parsedData = await parseCsvFile(file);
+      files.value.push({
+        id: Date.now() + Math.random(),
+        file,
+        parsedData,
+        endpoint: ''
+      });
+    } catch (error) {
+      console.error(`Error parsing file ${file.name}:`, error);
+    }
   }
+};
+
+const removeFile = (id: number) => {
+  files.value = files.value.filter(f => f.id !== id);
 };
 
 const startImport = async () => {
   if (!canSubmit.value) return;
   
-  isUploading.value = true;
-  uploadSuccess.value = false;
-  errorMessage.value = '';
+  isImporting.value = true;
+  progressDetails.value = [];
 
   try {
-    await importService.importDynamic(items.value);
-    uploadSuccess.value = true;
-    
-    items.value = [
-      { id: nextId++, file: null, endpoint: endpointOptions[0]?.value || '' },
-      { id: nextId++, file: null, endpoint: endpointOptions[1]?.value || '' }
-    ];
+    const results = await orchestrateImport(files.value);
+    progressDetails.value = results;
   } catch (error) {
-    errorMessage.value = "Une erreur est survenue lors de l'importation. Veuillez vérifier les fichiers et réessayer.";
     console.error("Import error:", error);
   } finally {
-    isUploading.value = false;
+    isImporting.value = false;
   }
 };
 </script>
@@ -85,45 +67,28 @@ const startImport = async () => {
       </div>
 
       <div class="card-body">
-        <div class="import-list">
-          <ImportRow
-            v-for="(item, index) in items"
-            :key="item.id"
-            :item="item"
-            :index="index"
-            :options="endpointOptions"
-            :show-remove="items.length > 1"
-            @remove="removeRow"
-            @update:endpoint="item.endpoint = $event"
-            @file-select="handleFileSelect"
-          />
+        <FileDropZone @files-selected="handleFilesSelected" />
+
+        <div v-if="files.length > 0" class="file-list">
+          <div v-for="file in files" :key="file.id" class="file-item">
+            <span class="file-name">{{ file.file.name }}</span>
+            <button type="button" class="btn-remove" @click="removeFile(file.id)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
         </div>
 
-        <button type="button" class="btn-outline btn-add" @click="addRow">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-          Ajouter un champ
-        </button>
+        <ImportProgress v-if="progressDetails.length > 0" :details="progressDetails" />
       </div>
 
       <div class="card-footer">
-        <div class="status-messages">
-          <p v-if="uploadSuccess" class="success-message">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            Importation réussie avec succès.
-          </p>
-          <p v-if="errorMessage" class="error-message">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            {{ errorMessage }}
-          </p>
-        </div>
-        
         <button 
           class="btn-primary" 
-          :disabled="!canSubmit || isUploading"
+          :disabled="!canSubmit || isImporting"
           @click="startImport"
         >
-          <span v-if="isUploading" class="spinner"></span>
-          {{ isUploading ? 'Traitement en cours...' : 'Lancer l\'importation' }}
+          <span v-if="isImporting" class="spinner"></span>
+          {{ isImporting ? 'Traitement en cours...' : 'Lancer l\'importation' }}
         </button>
       </div>
     </div>
@@ -167,11 +132,44 @@ const startImport = async () => {
   padding: 2rem;
 }
 
-.import-list {
+.file-list {
+  margin-top: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
+  gap: 0.75rem;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+}
+
+.file-name {
+  font-size: 0.875rem;
+  color: var(--text-main);
+}
+
+.btn-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: var(--transition-fast);
+}
+
+.btn-remove:hover {
+  color: var(--accent-danger);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* Add Button */
