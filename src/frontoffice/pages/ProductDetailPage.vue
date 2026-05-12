@@ -43,12 +43,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useProduct } from '@shared/composables/useProduct';
 import { useCartStore } from '../stores/cart';
 
 const route = useRoute();
+const router = useRouter();
 const cartStore = useCartStore();
 const { currentProduct, loading, error, fetchProduct, getProductImageUrl } = useProduct();
 
@@ -59,7 +60,7 @@ const imageUrl = computed(() => {
 
 const formatPrice = (price: string | number) => {
     const p = typeof price === 'string' ? parseFloat(price) : price;
-    return p.toFixed(2);
+    return !isNaN(p) ? p.toFixed(2) : '0.00';
 }
 
 const addToCart = () => {
@@ -68,10 +69,16 @@ const addToCart = () => {
   }
 };
 
-onMounted(() => {
-  const id = Number(route.params.id);
-  if (id) {
-    fetchProduct(id);
-  }
-});
+watch(
+  () => route.params.id,
+  (newId) => {
+    const id = Number(newId);
+    if (id) {
+      fetchProduct(id);
+    } else if (newId) {
+       router.push('/');
+    }
+  },
+  { immediate: true }
+);
 </script>

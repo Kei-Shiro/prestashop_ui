@@ -13,6 +13,10 @@
       {{ error }}
     </div>
 
+    <div v-else-if="products.length === 0" class="text-center py-10 text-gray-500">
+      Aucun produit trouvé.
+    </div>
+
     <div v-else class="grid grid-cols-1 gap-y-10 sm:grid-cols-2 gap-x-6 lg:grid-cols-3 xl:grid-cols-4 xl:gap-x-8">
       <ProductCard v-for="product in products" :key="product.id_product" :product="product" />
     </div>
