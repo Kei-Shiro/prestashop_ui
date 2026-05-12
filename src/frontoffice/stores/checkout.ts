@@ -12,6 +12,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
     const customerId = 1;
 
     async function placeOrder() {
+        if (isProcessing.value) return false;
         const cartStore = useCartStore();
         if (cartStore.items.length === 0) return false;
 
@@ -33,7 +34,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
             cartStore.clearCart();
             orderSuccess.value = true;
             return true;
-        } catch (err: any) {
+        } catch (err) {
             console.error(err);
             error.value = "Erreur lors de la validation de la commande.";
             return false;
