@@ -1,9 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 import ShopLayout from '../layouts/ShopLayout.vue';
-import HomePage from '../pages/HomePage.vue';
-import ProductDetailPage from '../pages/ProductDetailPage.vue';
-import CheckoutPage from '../pages/CheckoutPage.vue';
-import MyOrdersPage from '../pages/MyOrdersPage.vue';
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -12,10 +8,11 @@ const router = createRouter({
       path: '/',
       component: ShopLayout,
       children: [
-        { path: '', component: HomePage },
-        { path: 'product/:id', component: ProductDetailPage },
-        { path: 'checkout', component: CheckoutPage },
-        { path: 'my-orders', component: MyOrdersPage }
+        { path: '', name: 'Home', component: () => import('../pages/HomePage.vue') },
+        { path: 'product/:id', name: 'ProductDetail', component: () => import('../pages/ProductDetailPage.vue') },
+        { path: 'checkout', name: 'Checkout', component: () => import('../pages/CheckoutPage.vue') },
+        { path: 'my-orders', name: 'MyOrders', component: () => import('../pages/MyOrdersPage.vue') },
+        { path: '/:pathMatch(.*)*', name: 'NotFound', redirect: '/' }
       ]
     }
   ]
