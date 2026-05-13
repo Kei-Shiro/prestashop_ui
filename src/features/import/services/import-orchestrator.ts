@@ -34,6 +34,10 @@ import {
   buildAddressXml,
   buildCartXml,
   buildOrderXml,
+  buildStockAvailableXml,
+  buildTaxRulesGroupXml,
+  buildTaxXml,
+  buildTaxRuleXml,
 } from './prestashop-adapter';
 import { uploadProductImages } from './image-uploader.service';
 import { parseCartString } from './cart-parser';
@@ -51,6 +55,19 @@ interface OrchestratedFile {
 
 export interface OrchestratorOptions {
   onProgress?: (progress: ImportProgress) => void;
+}
+
+interface TaxCacheInfo {
+  id_tax_rules_group: number;
+  rate: number;
+}
+const taxCache = new Map<string, TaxCacheInfo>();
+
+function parseTaxRate(taxString: string): number {
+    if (!taxString) return 0;
+    const clean = taxString.replace('%', '').replace(',', '.').trim();
+    const rate = parseFloat(clean);
+    return isNaN(rate) ? 0 : rate;
 }
 
 // ──────────────────────────── Helpers API ────────────────────────────
@@ -280,7 +297,36 @@ export async function orchestrateImport(
       }
     }
 
-    // ═══════════════════ PHASE 3 : Produits ═══════════════════
+    // ─── Phase 2.5 : Taxes (extraction + création) ───
+    if (productFiles.length > 0) {
+      const allProductRows = productFiles.flatMap(f => f.rows);
+      const uniqueTaxes = new Set<string>();
+      allProductRows.forEach(row => {
+        const taxVal = row['Taxe'] || row['taxe'] || row['tax'];
+        if (taxVal && taxVal.trim() !== '') uniqueTaxes.add(taxVal.trim());
+      });
+      for (const taxStr of uniqueTaxes) {
+        if (taxCache.has(taxStr)) continue;
+        const rate = parseTaxRate(taxStr);
+        try {
+          const trgXml = buildTaxRulesGroupXml(`Taxe ${rate}%`);
+          const trgRes = await apiService.post<any>('/tax_rules_groups', trgXml, { headers: { 'Content-Type': 'application/xml' } });
+          const trgId = parseInt(trgRes?.prestashop?.tax_rules_group?.id || '0', 10);
+          const tXml = buildTaxXml(`Tax ${rate}%`, rate);
+          const tRes = await apiService.post<any>('/taxes', tXml, { headers: { 'Content-Type': 'application/xml' } });
+          const tId = parseInt(tRes?.prestashop?.tax?.id || '0', 10);
+          if (trgId > 0 && tId > 0) {
+            const trXml = buildTaxRuleXml(trgId, tId);
+            await apiService.post<any>('/tax_rules', trXml, { headers: { 'Content-Type': 'application/xml' } });
+            taxCache.set(taxStr, { id_tax_rules_group: trgId, rate });
+          }
+        } catch (e) {
+          console.error(`Erreur création taxe "${taxStr}"`, e);
+        }
+      }
+    }
+
+
     const productIdCache = new Map<string, number>(); // reference -> id_product
     if (productFiles.length > 0) {
       reportProgress('importing', 'Import des produits');
