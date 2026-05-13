@@ -34,10 +34,12 @@ import {
   buildAddressXml,
   buildCartXml,
   buildOrderXml,
-  buildStockAvailableXml,
+buildStockAvailableXml,
   buildTaxRulesGroupXml,
   buildTaxXml,
   buildTaxRuleXml,
+  buildProductOptionXml,
+  buildProductOptionValueXml,
 } from './prestashop-adapter';
 import { uploadProductImages } from './image-uploader.service';
 import { parseCartString } from './cart-parser';
@@ -69,11 +71,7 @@ interface ProductCacheInfo {
   rate: number;
 }
 
-interface ProductCacheInfo {
-  id_product: number;
-  prix_ttc: number;
-  rate: number;
-}
+const combReferenceCache = new Map<string, number>();
 
 function parseTaxRate(taxString: string): number {
     if (!taxString) return 0;
@@ -476,34 +474,109 @@ try {
       const combMappings = getColumnMappings('combination');
       const combFixed = getFixedValues('combination');
 
+      // ── Attribute extraction & creation ──
+      const attrGroupCache = new Map<string, number>(); // attributeName -> id_attribute_group
+      const attrValueCache = new Map<string, number>(); // groupName-valueName -> id_product_option_value
+
+      for (const cf of combinationFiles) {
+        for (const row of cf.rows) {
+          const optName = row['spécificité'] || row['specificite'] || row['spǸcificitǸ'] || row['attribut'];
+          const valName = row['valeur'] || row['valeur_attribut'];
+          if (!optName || !valName) continue;
+
+          if (!attrGroupCache.has(optName)) {
+            const optXml = buildProductOptionXml(optName);
+            const optRes = await apiService.post<any>('/product_options', optXml, { headers: { 'Content-Type': 'application/xml' } });
+            const idOpt = parseInt(optRes?.prestashop?.product_option?.id || '0', 10);
+            if (idOpt > 0) attrGroupCache.set(optName, idOpt);
+          }
+          const cacheKey = `${optName}-${valName}`;
+          const idOpt = attrGroupCache.get(optName);
+          if (idOpt && !attrValueCache.has(cacheKey)) {
+            const valXml = buildProductOptionValueXml(idOpt, valName);
+            const valRes = await apiService.post<any>('/product_option_values', valXml, { headers: { 'Content-Type': 'application/xml' } });
+            const idVal = parseInt(valRes?.prestashop?.product_option_value?.id || '0', 10);
+            if (idVal > 0) attrValueCache.set(cacheKey, idVal);
+          }
+        }
+      }
+
+      // ── Combination creation + stock update ──
       for (const cf of combinationFiles) {
         for (let i = 0; i < cf.rows.length; i++) {
           try {
             const mapped = mapRow(cf.rows[i], combMappings, combFixed);
             const reference = mapped.reference || cf.rows[i].reference || '';
+            const optName = cf.rows[i]['spécificité'] || cf.rows[i]['specificite'] || cf.rows[i]['spǸcificitǸ'] || cf.rows[i]['attribut'];
+            const valName = cf.rows[i]['valeur'] || cf.rows[i]['valeur_attribut'];
+            const rawCombPrice = cf.rows[i]['prix_vente_ttc'] || cf.rows[i]['prix'] || cf.rows[i]['price'] || '0';
+            const combPrixTtc = parseFloat(rawCombPrice.replace(',', '.'));
 
             // Vérifier que le produit parent existe
-            if (reference) {
-              const productId = productCache.get(reference)?.id_product ?? await findProductByReference(reference);
-              if (productId) {
-                mapped.id_product = String(productId);
-              } else {
-                combDetail.failed++;
-                combDetail.errors.push({
-                  row: i + 1,
-                  field: 'reference',
-                  value: reference,
-                  message: `Produit parent introuvable pour la référence "${reference}"`,
-                  code: 'MISSING_DEPENDENCY',
-                });
-                continue;
+            const parentInfo = productCache.get(reference);
+            if (!parentInfo) {
+              combDetail.failed++;
+              combDetail.errors.push({ row: i + 1, field: 'reference', value: reference, message: `Produit parent introuvable pour "${reference}"`, code: 'MISSING_DEPENDENCY' });
+              continue;
+            }
+            mapped.id_product = String(parentInfo.id_product);
+
+            let idProductAttribute = 0;
+
+            if (optName && valName) {
+              // Real combination
+              const impactTtc = combPrixTtc - parentInfo.prix_ttc;
+              const impactHt = impactTtc / (1 + (parentInfo.rate / 100));
+              mapped.price = String(impactHt);
+              mapped.reference = `${reference}-${valName}`;
+
+              const attrId = attrValueCache.get(`${optName}-${valName}`);
+              const xml = buildCombinationXml(mapped, attrId ? [attrId] : []);
+              const res = await apiService.post<any>('/combinations', xml, { headers: { 'Content-Type': 'application/xml' } });
+              idProductAttribute = parseInt(res?.prestashop?.combination?.id || '0', 10);
+              if (idProductAttribute > 0) {
+                combReferenceCache.set(`${reference}-${valName}`, idProductAttribute);
+              }
+            } else {
+              // No combination — update parent price if different
+              if (Math.abs(combPrixTtc - parentInfo.prix_ttc) > 0.01) {
+                // Update parent product price via PUT
+                const newHt = combPrixTtc / (1 + (parentInfo.rate / 100));
+                const getRes = await apiService.get<any>(`/products/${parentInfo.id_product}`);
+                const productXml = getRes?.prestashop?.product;
+                if (productXml) {
+                  productXml.price = String(newHt);
+                  await apiService.put(`/products/${parentInfo.id_product}`, { prestashop: { product: productXml } }, { headers: { 'Content-Type': 'application/xml' } });
+                }
               }
             }
 
-            const xml = buildCombinationXml(mapped);
-            await apiService.post('/combinations', xml, {
-              headers: { 'Content-Type': 'application/xml' },
-            });
+            // Stock update (PUT on auto-generated stock_available)
+            const qtyStr = cf.rows[i]['stock_initial'] || mapped.quantity || cf.rows[i].stock || '0';
+            const qty = parseInt(qtyStr, 10);
+            if (!isNaN(qty)) {
+              try {
+                let stockUrl = `/stock_availables?filter[id_product]=${parentInfo.id_product}&display=full`;
+                if (idProductAttribute > 0) stockUrl += `&filter[id_product_attribute]=${idProductAttribute}`;
+                else stockUrl += `&filter[id_product_attribute]=0`;
+
+                const stockRes = await apiService.get<any>(stockUrl);
+                const stocks = stockRes?.prestashop?.stock_availables?.stock_available || stockRes?.stock_availables?.stock_available;
+                const stockList = Array.isArray(stocks) ? stocks : (stocks ? [stocks] : []);
+                if (stockList.length > 0) {
+                  const stockRow = stockList[0];
+                  const stockId = typeof stockRow.id === 'object' ? stockRow.id._ : stockRow.id;
+                  const putXml = buildStockAvailableXml({
+                    id_product: String(parentInfo.id_product),
+                    id_product_attribute: String(idProductAttribute),
+                    quantity: String(qty),
+                    id_shop: stockRow.id_shop || '1',
+                  }, parseInt(stockId, 10));
+                  await apiService.put(`/stock_availables/${stockId}`, putXml, { headers: { 'Content-Type': 'application/xml' } });
+                }
+              } catch { /* stock update error logged silently */ }
+            }
+
             combDetail.imported++;
           } catch (error: any) {
             combDetail.failed++;
