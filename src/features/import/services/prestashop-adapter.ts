@@ -95,7 +95,14 @@ ${items}
  * Génère un mot de passe aléatoire sécurisé
  */
 function generatePassword(): string {
-    return Math.random().toString(36).slice(-8) + 'A1!';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$';
+    const array = new Uint8Array(12);
+    window.crypto.getRandomValues(array);
+    let password = '';
+    for (let i = 0; i < array.length; i++) {
+        password += chars[array[i] % chars.length];
+    }
+    return password;
 }
 
 // ──────────────────── Produit ────────────────────
@@ -283,7 +290,7 @@ ${items}
 }
 
 // ──────────────────── Stock Available ────────────────────
-export function buildStockAvailableXml(data: Record<string, string>): string {
+export function buildStockAvailableXml(data: Record<string, string>, id?: number): string {
     const stock: Record<string, string> = {
         id_product: data.id_product || '0',
         id_product_attribute: data.id_product_attribute || '0',
@@ -292,6 +299,8 @@ export function buildStockAvailableXml(data: Record<string, string>): string {
         depends_on_stock: '0',
         out_of_stock: '2',
     };
+
+    if (id !== undefined) stock.id = String(id);
 
     return buildXml('stock_available', Object.entries(stock));
 }
