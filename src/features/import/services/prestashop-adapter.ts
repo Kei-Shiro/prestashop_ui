@@ -305,6 +305,57 @@ export function buildStockAvailableXml(data: Record<string, string>, id?: number
     return buildXml('stock_available', Object.entries(stock));
 }
 
+// ──────────────────── Tax Rules Group ────────────────────
+export function buildTaxRulesGroupXml(name: string): string {
+    return buildXml('tax_rules_group', [
+        ['name', name],
+        ['active', '1'],
+        ['deleted', '0'],
+    ]);
+}
+
+// ──────────────────── Tax ────────────────────
+export function buildTaxXml(name: string, rate: number): string {
+    return buildXml('tax', [
+        ['name', name],
+        ['rate', String(rate)],
+        ['active', '1'],
+        ['deleted', '0'],
+    ]);
+}
+
+// ──────────────────── Tax Rule ────────────────────
+export function buildTaxRuleXml(id_tax_rules_group: number, id_tax: number): string {
+    return buildXml('tax_rule', [
+        ['id_tax_rules_group', String(id_tax_rules_group)],
+        ['id_tax', String(id_tax)],
+        ['id_country', '0'],
+        ['id_state', '0'],
+        ['id_county', '0'],
+        ['behavior', '0'],
+    ]);
+}
+
+// ──────────────────── Product Option ────────────────────
+export function buildProductOptionXml(name: string): string {
+    return buildXml('product_option', [
+        ['is_color_group', '0'],
+        ['group_type', 'select'],
+        ['position', '0'],
+        ['name', name],
+        ['public_name', name],
+    ]);
+}
+
+// ──────────────────── Product Option Value ────────────────────
+export function buildProductOptionValueXml(id_attribute_group: number, name: string): string {
+    return buildXml('product_option_value', [
+        ['id_attribute_group', String(id_attribute_group)],
+        ['position', '0'],
+        ['name', name],
+    ]);
+}
+
 // ──────────────────── Import direct ────────────────────
 export async function importToPrestaShop(
     endpoint: string,
