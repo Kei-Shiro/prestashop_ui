@@ -23,7 +23,24 @@ const apiService = {
         return xmlToJson(parseXml(r.data)) as T
     },
 
-
+    /**
+     * Envoie un FormData (multipart/form-data) — utilisé pour l'upload d'images.
+     * Ne parse pas la réponse XML automatiquement.
+     */
+    async postFormData<T = any>(url: string, formData: FormData): Promise<T> {
+        const r = await api.post(url, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+            responseType: 'text',
+        })
+        // Tenter de parser la réponse XML si possible
+        try {
+            return xmlToJson(parseXml(r.data)) as T
+        } catch {
+            return r.data as T
+        }
+    },
 }
 
 export default apiService

@@ -5,51 +5,60 @@ export interface ColumnMapperContext {
   categoryMap?: Record<string, number>;
 }
 
-/**
- * Apply column mappings with transformations to convert source data to PrestaShop format
- *
- * @param row - Source row data as key-value pairs
- * @param mappings - Array of column mappings to apply
- * @param fixedValues - Fixed values to include in the output
- * @param context - Additional context for transformations (e.g., categoryMap)
- * @returns Mapped record with target column names and transformed values
- */
 export function mapRow(
-  row: Record<string, string>,
-  mappings: ColumnMapping[],
-  fixedValues: Record<string, string> = {},
-  context?: ColumnMapperContext
+    row: Record<string, string>,
+    mappings: ColumnMapping[],
+    fixedValues: Record<string, string> = {},
+    context?: ColumnMapperContext
 ): Record<string, string> {
-  // Start with fixedValues
   const result: Record<string, string> = { ...fixedValues };
 
-  // For each mapping, apply the transformation and add to result
-  for (const mapping of mappings) {
-    const sourceValue = row[mapping.sourceColumn] ?? '';
+  // Créer un index case-insensitive des colonnes
+  const normalizedRow: Record<string, string> = {};
+  for (const [key, value] of Object.entries(row)) {
+    normalizedRow[key.toLowerCase().trim()] = value;
+  }
 
+  for (const mapping of mappings) {
+    const normalizedSource = mapping.sourceColumn.toLowerCase().trim();
+    let sourceValue = normalizedRow[normalizedSource] ?? '';
     let transformedValue: string;
 
-    // Apply transform if specified
     switch (mapping.transform) {
-      case 'taxe_to_id':
-        transformedValue = String(convertTaxeToId(sourceValue));
+      case 'taxe_to_id': {
+        const taxId = convertTaxeToId(sourceValue);
+        transformedValue = String(taxId > 0 ? taxId : 1); // fallback
         break;
-
-      case 'categorie_to_id':
+      }
+      case 'categorie_to_id': {
         if (context?.categoryMap && sourceValue) {
-          transformedValue = String(context.categoryMap[sourceValue] ?? 0);
+          const id = context.categoryMap[sourceValue];
+          transformedValue = String(id && id > 0 ? id : 2); // fallback Accueil
         } else {
-          transformedValue = '0';
+          transformedValue = '2';
         }
         break;
-
-      case 'none':
-      default:
-        transformedValue = sourceValue;
+      }
+      case 'format_price': {
+        transformedValue = sourceValue.replace(',', '.').replace(/[^\d.]/g, '') || '0';
         break;
+      }
+      default:
+        // Normalisation des champs prix (fallback)
+        if (
+            mapping.targetColumn === 'price' ||
+            mapping.targetColumn === 'wholesale_price' ||
+            mapping.targetColumn === 'unit_price_tax_excl' ||
+            mapping.targetColumn === 'unit_price_tax_incl'
+        ) {
+          sourceValue = sourceValue.replace(',', '.').replace(/[^\d.]/g, '');
+        }
+        transformedValue = sourceValue;
     }
-
-    result[mapping.targetColumn] = transformedValue;
+    // Ne pas écraser une valeur valide déjà trouvée par un autre alias vide
+    if (sourceValue !== '' || result[mapping.targetColumn] === undefined || result[mapping.targetColumn] === '') {
+      result[mapping.targetColumn] = transformedValue;
+    }
   }
 
   return result;

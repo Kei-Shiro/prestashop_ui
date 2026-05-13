@@ -52,7 +52,7 @@ function createApiClient(config: ApiClientConfig = {}): AxiosInstance {
     client.interceptors.response.use(
         (r) => r,
         (err) => {
-            console.error('Erreur API', err.response?.status);
+            console.error('Erreur API', err.response?.status, err.response?.data);
             return Promise.reject(err);
         }
     );
