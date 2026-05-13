@@ -1,7 +1,7 @@
 import { slugify } from '@features/import/utils/slugify';
 
 
-const LANG_FIELDS = ['name', 'link_rewrite', 'description', 'description_short',
+const LANG_FIELDS = ['name', 'public_name', 'link_rewrite', 'description', 'description_short',
     'meta_title', 'meta_description', 'meta_keywords', 'available_now', 'available_later',
     'delivery_in_stock', 'delivery_out_stock'];
 
