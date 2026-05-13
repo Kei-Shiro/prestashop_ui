@@ -771,13 +771,16 @@ try {
             const cartString = mapped.cart_items || '';
             const cartItems = parseCartString(cartString);
 
-            // Résoudre les références produit → IDs
-            const cartRows: { id_product: number; quantity: number }[] = [];
+            // Résoudre les références produit → IDs (utilise le cache)
+            const cartRows: { id_product: number; id_product_attribute: number; quantity: number }[] = [];
             for (const item of cartItems) {
-              const productId = await findProductByReference(item.reference);
-              if (productId) {
-                cartRows.push({ id_product: productId, quantity: item.quantity });
+              const parentInfo = productCache.get(item.reference);
+              if (!parentInfo) continue;
+              let idAttr = 0;
+              if (item.combination && item.combination.trim() !== '') {
+                idAttr = combReferenceCache.get(`${item.reference}-${item.combination}`) || 0;
               }
+              cartRows.push({ id_product: parentInfo.id_product, id_product_attribute: idAttr, quantity: item.quantity });
             }
 
             // Créer le panier
