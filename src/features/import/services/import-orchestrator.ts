@@ -357,7 +357,7 @@ export async function orchestrateImport(
 
       for (const pf of productFiles) {
         for (let i = 0; i < pf.rows.length; i++) {
-try {
+            try {
             const mapped = mapRow(pf.rows[i], productMappings, productFixed, mapperContext);
 
             // Générer link_rewrite si absent
@@ -385,31 +385,7 @@ try {
               headers: { 'Content-Type': 'application/xml' },
             });
             const createdProductId = parseInt(response?.prestashop?.product?.id || '0', 10);
-            if (createdProductId > 0 && mapped.reference) {
-                productCache.set(mapped.reference, { id_product: createdProductId, prix_ttc: prixTtc, rate });
-            }
-
-            // Récupérer taxe et calculer prix HT
-            const rawTax = pf.rows[i]['Taxe'] || pf.rows[i]['taxe'] || pf.rows[i]['tax'];
-            const taxInfo = rawTax && rawTax.trim() !== ''
-              ? (taxCache.get(rawTax.trim()) ?? taxCache.get(rawTax.trim()))
-              : undefined;
-            mapped.id_tax_rules_group = String(taxInfo?.id_tax_rules_group || 1);
-            const rawPrice = pf.rows[i]['prix_ttc'] || pf.rows[i]['prix'] || pf.rows[i]['price'] || '0';
-            const prixTtc = parseFloat(rawPrice.replace(',', '.'));
-            const rate = taxInfo?.rate || 0;
-            const priceHt = rate > 0 ? prixTtc / (1 + (rate / 100)) : prixTtc;
-            mapped.price = String(priceHt);
-
-            const categoryId = mapped.id_category_default
-              ? parseInt(mapped.id_category_default, 10)
-              : undefined;
-            const xml = buildProductXml(mapped, categoryId ? [categoryId] : undefined);
-            const response = await apiService.post<any>('/products', xml, {
-              headers: { 'Content-Type': 'application/xml' },
-            });
-            const createdProductId = parseInt(response?.prestashop?.product?.id || '0', 10);
-            if (createdProductId > 0 && mapped.reference) {
+if (createdProductId > 0 && mapped.reference) {
                 productCache.set(mapped.reference, { id_product: createdProductId, prix_ttc: prixTtc, rate });
             }
             productDetail.imported++;
