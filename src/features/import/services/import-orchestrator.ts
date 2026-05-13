@@ -63,6 +63,18 @@ interface TaxCacheInfo {
 }
 const taxCache = new Map<string, TaxCacheInfo>();
 
+interface ProductCacheInfo {
+  id_product: number;
+  prix_ttc: number;
+  rate: number;
+}
+
+interface ProductCacheInfo {
+  id_product: number;
+  prix_ttc: number;
+  rate: number;
+}
+
 function parseTaxRate(taxString: string): number {
     if (!taxString) return 0;
     const clean = taxString.replace('%', '').replace(',', '.').trim();
@@ -327,7 +339,7 @@ export async function orchestrateImport(
     }
 
 
-    const productIdCache = new Map<string, number>(); // reference -> id_product
+    const productCache = new Map<string, ProductCacheInfo>(); // reference -> id_product + prix_ttc + rate
     if (productFiles.length > 0) {
       reportProgress('importing', 'Import des produits');
 
@@ -347,13 +359,25 @@ export async function orchestrateImport(
 
       for (const pf of productFiles) {
         for (let i = 0; i < pf.rows.length; i++) {
-          try {
+try {
             const mapped = mapRow(pf.rows[i], productMappings, productFixed, mapperContext);
 
             // Générer link_rewrite si absent
             if (mapped.name && !mapped.link_rewrite) {
               mapped.link_rewrite = slugify(mapped.name);
             }
+
+            // Récupérer taxe et calculer prix HT
+            const rawTax = pf.rows[i]['Taxe'] || pf.rows[i]['taxe'] || pf.rows[i]['tax'];
+            const taxInfo = rawTax && rawTax.trim() !== ''
+              ? (taxCache.get(rawTax.trim()) ?? taxCache.get(rawTax.trim()))
+              : undefined;
+            mapped.id_tax_rules_group = String(taxInfo?.id_tax_rules_group || 1);
+            const rawPrice = pf.rows[i]['prix_ttc'] || pf.rows[i]['prix'] || pf.rows[i]['price'] || '0';
+            const prixTtc = parseFloat(rawPrice.replace(',', '.'));
+            const rate = taxInfo?.rate || 0;
+            const priceHt = rate > 0 ? prixTtc / (1 + (rate / 100)) : prixTtc;
+            mapped.price = String(priceHt);
 
             const categoryId = mapped.id_category_default
               ? parseInt(mapped.id_category_default, 10)
@@ -364,7 +388,31 @@ export async function orchestrateImport(
             });
             const createdProductId = parseInt(response?.prestashop?.product?.id || '0', 10);
             if (createdProductId > 0 && mapped.reference) {
-                productIdCache.set(mapped.reference, createdProductId);
+                productCache.set(mapped.reference, { id_product: createdProductId, prix_ttc: prixTtc, rate });
+            }
+
+            // Récupérer taxe et calculer prix HT
+            const rawTax = pf.rows[i]['Taxe'] || pf.rows[i]['taxe'] || pf.rows[i]['tax'];
+            const taxInfo = rawTax && rawTax.trim() !== ''
+              ? (taxCache.get(rawTax.trim()) ?? taxCache.get(rawTax.trim()))
+              : undefined;
+            mapped.id_tax_rules_group = String(taxInfo?.id_tax_rules_group || 1);
+            const rawPrice = pf.rows[i]['prix_ttc'] || pf.rows[i]['prix'] || pf.rows[i]['price'] || '0';
+            const prixTtc = parseFloat(rawPrice.replace(',', '.'));
+            const rate = taxInfo?.rate || 0;
+            const priceHt = rate > 0 ? prixTtc / (1 + (rate / 100)) : prixTtc;
+            mapped.price = String(priceHt);
+
+            const categoryId = mapped.id_category_default
+              ? parseInt(mapped.id_category_default, 10)
+              : undefined;
+            const xml = buildProductXml(mapped, categoryId ? [categoryId] : undefined);
+            const response = await apiService.post<any>('/products', xml, {
+              headers: { 'Content-Type': 'application/xml' },
+            });
+            const createdProductId = parseInt(response?.prestashop?.product?.id || '0', 10);
+            if (createdProductId > 0 && mapped.reference) {
+                productCache.set(mapped.reference, { id_product: createdProductId, prix_ttc: prixTtc, rate });
             }
             productDetail.imported++;
           } catch (error: any) {
@@ -393,7 +441,11 @@ export async function orchestrateImport(
       };
       details.push(imageDetail);
 
-      const imageResult = await uploadProductImages(allImages, productIdCache, (done, total) => {
+      const legacyProductIdCache = new Map<string, number>();
+      for (const [ref, info] of productCache) {
+        legacyProductIdCache.set(ref, info.id_product);
+      }
+      const imageResult = await uploadProductImages(allImages, legacyProductIdCache, (done, total) => {
         imageDetail.imported = done - imageDetail.failed;
         updateDetail(imageDetail);
       });
@@ -432,7 +484,7 @@ export async function orchestrateImport(
 
             // Vérifier que le produit parent existe
             if (reference) {
-              const productId = productIdCache.get(reference) ?? await findProductByReference(reference);
+              const productId = productCache.get(reference)?.id_product ?? await findProductByReference(reference);
               if (productId) {
                 mapped.id_product = String(productId);
               } else {
