@@ -300,21 +300,8 @@ async function processProducts(rows: ProductCSVRow[]) {
         });
         console.log(`Product created: ${row.reference} → ${id_product}`);
 
-        // Créer la ligne stock_available pour le produit parent
-        try {
-          const stockXml = `<prestashop>
-            <stock_available>
-              <id_product>${id_product}</id_product>
-              <id_product_attribute>0</id_product_attribute>
-              <id_shop>1</id_shop>
-              <quantity>0</quantity>
-              <depends_on_stock>0</depends_on_stock>
-              <out_of_stock>2</out_of_stock>
-            </stock_available>
-          </prestashop>`;
-
-          console.log(`Stock available created for product ${id_product}`);
-        } catch (_) { /* déjà créé par PS */ }
+        // Le stock_available est créé automatiquement par PrestaShop
+        console.log(`Product created successfully: ${row.reference} → ${id_product}`);
 
       } else {
         console.error(`Failed to create product ${row.reference}`);
