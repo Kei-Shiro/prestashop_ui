@@ -25,7 +25,7 @@
 
     <footer class="footer">
       <div class="footer-brand">Maison Boutique</div>
-      <p class="footer-copy">&copy; 2026 Edition Limitee. Tous droits reserves.</p>
+      <p class="footer-copy">&copy; 2026 Édition Limitée. Tous droits réservés.</p>
     </footer>
   </div>
 </template>
@@ -58,94 +58,125 @@ const logout = async () => {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(255,255,255,0.85);
+  background: rgba(250, 249, 248, 0.9);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid #f1f5f9;
-  transition: box-shadow 0.3s;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.3s;
 }
 .header-inner {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 20px 24px;
+  padding: 1.5rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 .header-logo {
-  font-family: Georgia, serif;
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: #0f172a;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  font-style: italic;
+  font-weight: 600;
+  color: #1a1a2e;
   text-decoration: none;
-  transition: color 0.2s;
+  transition: opacity 0.3s;
 }
-.header-logo:hover { color: #475569; }
+.header-logo:hover {
+  opacity: 0.7;
+}
 
 /* Nav */
 .header-nav {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 2.5rem;
 }
 .nav-link {
+  font-family: 'Outfit', sans-serif;
   font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
+  font-weight: 400;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #475569;
+  color: #555;
   text-decoration: none;
   position: relative;
-  transition: color 0.2s;
+  transition: color 0.3s;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 1px;
+  bottom: -4px;
+  left: 0;
+  background-color: #1a1a2e;
+  transition: width 0.3s ease;
 }
 .nav-link:hover,
-.nav-link.router-link-active { color: #0f172a; }
+.nav-link.router-link-active {
+  color: #1a1a2e;
+}
+.nav-link:hover::after,
+.nav-link.router-link-active::after {
+  width: 100%;
+}
 .nav-btn {
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
-  font-family: inherit;
+}
+.nav-btn::after {
+  display: none;
 }
 .nav-cart {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 .cart-count {
-  background: #0f172a;
-  color: #fff;
-  font-size: 10px;
-  padding: 2px 7px;
+  background: #1a1a2e;
+  color: #faf9f8;
+  font-size: 0.65rem;
+  padding: 0.15rem 0.4rem;
   border-radius: 999px;
-  transition: background 0.2s;
+  transition: background 0.3s;
 }
-.nav-cart:hover .cart-count { background: #334155; }
+.nav-cart:hover .cart-count { 
+  background: #555; 
+}
 
 /* Main */
-.layout-main { flex-grow: 1; }
+.layout-main { 
+  flex-grow: 1; 
+}
 
 /* Footer */
 .footer {
-  background: #0f172a;
-  color: #94a3b8;
-  padding: 48px 24px;
+  background: #1a1a2e;
+  color: #faf9f8;
+  padding: 4rem 2rem;
   text-align: center;
   margin-top: auto;
 }
 .footer-brand {
-  font-family: Georgia, serif;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.5rem;
   color: #fff;
-  margin-bottom: 12px;
-  font-size: 0.875rem;
+  margin-bottom: 1rem;
 }
-.footer-copy { font-size: 0.8125rem; opacity: 0.6; margin: 0; }
+.footer-copy { 
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.75rem; 
+  letter-spacing: 0.05em;
+  opacity: 0.5; 
+  margin: 0; 
+  text-transform: uppercase;
+}
 
 /* Transitions */
 .fade-enter-active,
-.fade-leave-active { transition: opacity 0.35s ease, transform 0.35s ease; }
+.fade-leave-active { transition: opacity 0.4s ease, transform 0.4s ease; }
 .fade-enter-from,
-.fade-leave-to { opacity: 0; transform: translateY(8px); }
+.fade-leave-to { opacity: 0; transform: translateY(10px); }
 </style>

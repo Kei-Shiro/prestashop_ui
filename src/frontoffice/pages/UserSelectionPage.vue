@@ -1,19 +1,24 @@
 <template>
   <div class="user-selection-page">
     <div class="user-selection-header">
-      <h1 class="user-selection-title">Bienvenue sur notre boutique</h1>
-      <p class="user-selection-subtitle">Veuillez choisir un profil pour continuer (Evaluation uniquement)</p>
+      <h1 class="user-selection-title">Connexion</h1>
+      <p class="user-selection-subtitle">Veuillez choisir un profil pour accéder à votre espace d'évaluation</p>
     </div>
 
-    <div v-if="loading" class="user-selection-loading">Chargement des utilisateurs...</div>
+    <div v-if="loading" class="user-selection-loading">
+      <span class="loading-spinner"></span>
+      Chargement des profils...
+    </div>
     <div v-else-if="error" class="user-selection-error">{{ error }}</div>
     <div v-else class="user-grid">
       <div 
         @click="selectAnonymous"
         class="user-card user-card-anonymous"
       >
-        <h2 class="user-card-name">Visiteur Anonyme</h2>
-        <p class="user-card-email">Commander sans compte</p>
+        <div class="user-card-content">
+          <h2 class="user-card-name">Visiteur Anonyme</h2>
+          <p class="user-card-email">Commander sans compte</p>
+        </div>
       </div>
 
       <div 
@@ -22,9 +27,11 @@
         @click="selectUser(user)"
         class="user-card"
       >
-        <h2 class="user-card-name">{{ user.firstname }} {{ user.lastname }}</h2>
-        <p class="user-card-email">{{ user.email }}</p>
-        <span class="user-card-badge">Client Existant</span>
+        <div class="user-card-content">
+          <h2 class="user-card-name">{{ user.firstname }} {{ user.lastname }}</h2>
+          <p class="user-card-email">{{ user.email }}</p>
+          <span class="user-card-badge">Client Existant</span>
+        </div>
       </div>
     </div>
   </div>
@@ -67,78 +74,142 @@ const selectUser = (user: any) => {
 
 <style scoped>
 .user-selection-page {
-  padding: 60px 20px;
+  padding: 5rem 2rem;
   max-width: 1000px;
   margin: 0 auto;
-  text-align: center;
+  min-height: calc(100vh - 250px);
 }
+
 .user-selection-header {
-  margin-bottom: 50px;
+  text-align: center;
+  margin-bottom: 4rem;
 }
+
 .user-selection-title {
-  font-size: 2rem;
-  font-weight: bold;
-  margin-bottom: 15px;
-  color: #333;
+  font-family: 'Playfair Display', serif;
+  font-size: 2.5rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+  color: #1a1a2e;
 }
+
 .user-selection-subtitle {
-  color: #666;
+  font-family: 'Outfit', sans-serif;
+  color: #555;
   font-size: 1rem;
+  letter-spacing: 0.05em;
 }
+
 .user-selection-loading {
-  color: #666;
-  padding: 60px 0;
+  text-align: center;
+  color: #555;
+  font-family: 'Outfit', sans-serif;
+  padding: 4rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
 }
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #ddd;
+  border-top-color: #1a1a2e;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
 .user-selection-error {
-  color: #c00;
-  padding: 60px 0;
+  text-align: center;
+  color: #8b0000;
+  font-family: 'Outfit', sans-serif;
+  padding: 4rem 0;
+  background-color: #fff5f5;
+  border: 1px solid #ffcccc;
 }
+
 .user-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
 }
+
 .user-card {
-  border: 1px solid #ddd;
-  padding: 30px;
+  background: #ffffff;
+  border: 1px solid #eaeaea;
   cursor: pointer;
-  background: #fff;
-  min-height: 150px;
+  min-height: 160px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  transition: all 0.2s;
+  align-items: center;
+  text-align: center;
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
 }
+
+.user-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border: 1px solid transparent;
+  transition: border-color 0.4s ease;
+}
+
 .user-card:hover {
-  border-color: #333;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(26, 26, 46, 0.06);
 }
+
+.user-card:hover::before {
+  border-color: #1a1a2e;
+}
+
+.user-card-content {
+  padding: 2rem;
+  width: 100%;
+}
+
 .user-card-anonymous {
-  border-style: dashed;
   background: transparent;
+  border: 1px dashed #ccc;
 }
+
 .user-card-anonymous:hover {
-  background: #f9f9f9;
+  background: rgba(255, 255, 255, 0.5);
 }
+
 .user-card-name {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 8px;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 0.5rem;
 }
+
 .user-card-email {
+  font-family: 'Outfit', sans-serif;
   color: #666;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 300;
 }
+
 .user-card-badge {
   display: inline-block;
-  margin-top: 15px;
-  font-size: 0.7rem;
-  font-weight: bold;
+  margin-top: 1.5rem;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #666;
-  border: 1px solid #ddd;
-  padding: 4px 10px;
+  letter-spacing: 0.1em;
+  color: #1a1a2e;
+  border-bottom: 1px solid #1a1a2e;
+  padding-bottom: 2px;
 }
 </style>

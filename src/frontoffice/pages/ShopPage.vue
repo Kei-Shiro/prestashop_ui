@@ -1,8 +1,8 @@
 <template>
   <div class="shop-page">
     <div class="shop-header">
-      <h1 class="shop-title">Nos produits</h1>
-      <p class="shop-subtitle">Decouvrez notre collection</p>
+      <h1 class="shop-title">Nos collections</h1>
+      <p class="shop-subtitle">Découvrez notre sélection exclusive</p>
     </div>
     
     <ProductFilters @filter="applyFilters" class="shop-filters" />
@@ -18,8 +18,8 @@
     </div>
     <div v-else-if="error" class="shop-error">{{ error }}</div>
     <div v-else-if="filteredProducts.length === 0" class="no-results">
-      <p class="no-results-title">Aucun produit trouve</p>
-      <p class="no-results-text">Essayez de modifier vos filtres pour voir plus de produits.</p>
+      <p class="no-results-title">Aucun produit trouvé</p>
+      <p class="no-results-text">Essayez de modifier vos filtres pour découvrir d'autres pièces.</p>
     </div>
     <div v-else class="product-grid">
       <ProductCard
@@ -49,78 +49,83 @@ onMounted(async () => {
 
 <style scoped>
 .shop-page {
-  padding: 40px 20px;
-  max-width: 1200px;
+  padding: 4rem 2rem;
+  max-width: 1280px;
   margin: 0 auto;
 }
 .shop-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 4rem;
 }
 .shop-title {
-  font-size: 2rem;
-  font-weight: bold;
-  margin-bottom: 10px;
-  color: #333;
+  font-family: 'Playfair Display', serif;
+  font-size: 2.5rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+  color: #1a1a2e;
 }
 .shop-subtitle {
-  color: #666;
+  font-family: 'Outfit', sans-serif;
+  color: #555;
   font-size: 1rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 .shop-filters {
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #eee;
+  margin-bottom: 3rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 .shop-error {
-  color: #c00;
+  color: #8b0000;
   text-align: center;
-  padding: 80px 0;
+  padding: 5rem 0;
+  font-family: 'Outfit', sans-serif;
+  background-color: #fff5f5;
+  border: 1px solid #ffcccc;
 }
 .no-results {
   text-align: center;
-  padding: 80px 20px;
+  padding: 5rem 2rem;
 }
 .no-results-title {
-  font-size: 1.25rem;
-  color: #333;
-  margin-bottom: 8px;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  color: #1a1a2e;
+  margin-bottom: 0.75rem;
 }
 .no-results-text {
+  font-family: 'Outfit', sans-serif;
   color: #666;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
 }
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2.5rem;
 }
 
-/* Skeleton */
+/* Skeleton - Refined */
 .skeleton-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  background: transparent;
+  padding: 0;
 }
 .skeleton-image {
-  height: 180px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  height: 350px;
+  background: linear-gradient(90deg, #f5f5f5 25%, #eaeaea 50%, #f5f5f5 75%);
   background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s infinite;
-  border-radius: 4px;
-  margin-bottom: 12px;
+  animation: skeleton-shimmer 2s infinite;
+  margin-bottom: 1rem;
 }
 .skeleton-line {
-  height: 14px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  height: 12px;
+  background: linear-gradient(90deg, #f5f5f5 25%, #eaeaea 50%, #f5f5f5 75%);
   background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s infinite;
-  border-radius: 4px;
-  margin-bottom: 8px;
+  animation: skeleton-shimmer 2s infinite;
+  margin-bottom: 0.75rem;
 }
-.skeleton-line.short { width: 40%; }
-.skeleton-line.medium { width: 70%; }
+.skeleton-line.short { width: 30%; }
+.skeleton-line.medium { width: 60%; }
 
 @keyframes skeleton-shimmer {
   0% { background-position: 200% 0; }

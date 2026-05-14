@@ -1,150 +1,168 @@
 <template>
-  <div class="p-6 max-w-4xl mx-auto">
-    <h1 class="text-2xl font-bold mb-6 text-gray-800">Import PrestaShop</h1>
+  <div class="import-page">
+    <div class="page-header">
+      <h1>Importation de Données</h1>
+      <p class="subtitle">Importez vos fichiers CSV et vos images ZIP dans PrestaShop</p>
+    </div>
 
-    <!-- Phase 1: Produits -->
-    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-      <h2 class="text-xl font-bold mb-4">1. Import Produits (Taxes, Catégories, Produits)</h2>
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-          Fichier CSV (Produits)
-        </label>
-        <input
-            type="file"
-            accept=".csv"
-            @change="handleFileProductsChange"
-            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors"
-        />
+    <div class="modules-grid">
+      <!-- Phase 1: Products -->
+      <div class="import-card" :class="{'is-disabled': isImporting}">
+        <div class="card-header">
+          <div class="header-title">
+            <span class="step-num">1</span>
+            <h2>Produits</h2>
+          </div>
+          <span class="status-badge" :class="statusProducts">
+            {{ statusText(statusProducts) }}
+          </span>
+        </div>
+        
+        <div class="card-body">
+          <div class="form-group">
+            <label>Fichier CSV (Taxes, Catégories, Produits)</label>
+            <input type="file" accept=".csv" class="file-input" @change="handleFileProductsChange" :disabled="isImporting" />
+          </div>
+
+          <div class="error-message" v-if="statusProducts === 'error'">
+            {{ errorMessageProducts }}
+          </div>
+
+          <div class="stats-grid" v-if="statusProducts === 'success'">
+            <div class="stat-box">
+              <span class="stat-label">Taxes</span>
+              <span class="stat-value">{{ taxCount }}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Catégories</span>
+              <span class="stat-value">{{ categoryCount }}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Produits</span>
+              <span class="stat-value">{{ productCount }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <button
-          @click="startImportProducts"
-          :disabled="!selectedFileProducts || statusProducts === 'loading'"
-          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        <span v-if="statusProducts === 'loading'">En cours...</span>
-        <span v-else>Importer Produits</span>
-      </button>
+      <!-- Phase 2: Combinations -->
+      <div class="import-card" :class="{'is-disabled': isImporting}">
+        <div class="card-header">
+          <div class="header-title">
+            <span class="step-num">2</span>
+            <h2>Déclinaisons & Stocks</h2>
+          </div>
+          <span class="status-badge" :class="statusCombinations">
+            {{ statusText(statusCombinations) }}
+          </span>
+        </div>
+        
+        <div class="card-body">
+          <div class="form-group">
+            <label>Fichier CSV (Déclinaisons)</label>
+            <input type="file" accept=".csv" class="file-input" @change="handleFileCombinationsChange" :disabled="isImporting" />
+          </div>
 
-      <div class="mt-4">
-        <p v-if="statusProducts === 'waiting'" class="text-gray-500">En attente...</p>
-        <p v-else-if="statusProducts === 'loading'" class="text-blue-500 font-medium animate-pulse">Importation en cours...</p>
-        <p v-else-if="statusProducts === 'success'" class="text-green-600 font-medium">Terminé avec succès !</p>
-        <p v-else-if="statusProducts === 'error'" class="text-red-600 font-medium">Erreur: {{ errorMessageProducts }}</p>
+          <div class="error-message" v-if="statusCombinations === 'error'">
+            {{ errorMessageCombinations }}
+          </div>
+
+          <div class="stats-grid" v-if="statusCombinations === 'success'">
+            <div class="stat-box">
+              <span class="stat-label">Attributs</span>
+              <span class="stat-value">{{ attributeCount }}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Valeurs</span>
+              <span class="stat-value">{{ attributeValueCount }}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Déclinaisons</span>
+              <span class="stat-value">{{ combinationCount }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div v-if="statusProducts === 'success'" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
-          <h2 class="font-bold text-gray-700 mb-2">Taxes</h2>
-          <p class="text-3xl font-light text-blue-600">{{ taxCount }}</p>
+      <!-- Phase 3: Orders -->
+      <div class="import-card" :class="{'is-disabled': isImporting}">
+        <div class="card-header">
+          <div class="header-title">
+            <span class="step-num">3</span>
+            <h2>Commandes</h2>
+          </div>
+          <span class="status-badge" :class="statusOrders">
+            {{ statusText(statusOrders) }}
+          </span>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
-          <h2 class="font-bold text-gray-700 mb-2">Catégories</h2>
-          <p class="text-3xl font-light text-blue-600">{{ categoryCount }}</p>
+        
+        <div class="card-body">
+          <div class="form-group">
+            <label>Fichier CSV (Clients, Adresses, Commandes)</label>
+            <input type="file" accept=".csv" class="file-input" @change="handleFileOrdersChange" :disabled="isImporting" />
+          </div>
+
+          <div class="error-message" v-if="statusOrders === 'error'">
+            {{ errorMessageOrders }}
+          </div>
+
+          <div class="stats-grid" v-if="statusOrders === 'success'">
+            <div class="stat-box">
+              <span class="stat-label">Clients</span>
+              <span class="stat-value">{{ customerCount }}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Adresses</span>
+              <span class="stat-value">{{ addressCount }}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Commandes</span>
+              <span class="stat-value">{{ orderCount }}</span>
+            </div>
+          </div>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
-          <h2 class="font-bold text-gray-700 mb-2">Produits</h2>
-          <p class="text-3xl font-light text-blue-600">{{ productCount }}</p>
+      </div>
+
+      <!-- Phase 4: Images -->
+      <div class="import-card" :class="{'is-disabled': isImporting}">
+        <div class="card-header">
+          <div class="header-title">
+            <span class="step-num">4</span>
+            <h2>Images</h2>
+          </div>
+          <span class="status-badge" :class="statusImages">
+            {{ statusText(statusImages) }}
+          </span>
+        </div>
+        
+        <div class="card-body">
+          <div class="form-group">
+            <label>Archive ZIP (Images des produits)</label>
+            <input type="file" accept=".zip" class="file-input" @change="handleFileImagesChange" :disabled="isImporting" />
+          </div>
+
+          <div class="error-message" v-if="statusImages === 'error'">
+            {{ errorMessageImages }}
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Phase 2: Déclinaisons & Stocks -->
-    <div class="bg-white p-6 rounded-lg shadow-md mb-6" :class="{ 'opacity-50 pointer-events-none': statusProducts !== 'success' }">
-      <h2 class="text-xl font-bold mb-4">2. Import Déclinaisons & Stocks</h2>
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-          Fichier CSV (Stocks/Déclinaisons)
-        </label>
-        <input
-            type="file"
-            accept=".csv"
-            @change="handleFileCombinationsChange"
-            :disabled="statusProducts !== 'success'"
-            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors"
-        />
+    <!-- Action Bar -->
+    <div class="action-bar">
+      <div class="action-info">
+        <span v-if="isImporting" class="importing-text">
+          <span class="spinner"></span> Importation en cours...
+        </span>
+        <span v-else class="ready-text">
+          Prêt à importer. Veuillez sélectionner les fichiers requis.
+        </span>
       </div>
-
-      <button
-          @click="startImportCombinations"
-          :disabled="!selectedFileCombinations || statusCombinations === 'loading' || statusProducts !== 'success'"
-          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        <span v-if="statusCombinations === 'loading'">En cours...</span>
-        <span v-else>Importer Déclinaisons & Stocks</span>
+      
+      <button class="btn-primary" @click="startGlobalImport" :disabled="!canImport || isImporting">
+        Lancer l'importation
       </button>
-
-      <div class="mt-4">
-        <p v-if="statusCombinations === 'waiting'" class="text-gray-500">En attente...</p>
-        <p v-else-if="statusCombinations === 'loading'" class="text-blue-500 font-medium animate-pulse">Importation en cours...</p>
-        <p v-else-if="statusCombinations === 'success'" class="text-green-600 font-medium">Terminé avec succès !</p>
-        <p v-else-if="statusCombinations === 'error'" class="text-red-600 font-medium">Erreur: {{ errorMessageCombinations }}</p>
-      </div>
-
-      <div v-if="statusCombinations === 'success'" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
-          <h2 class="font-bold text-gray-700 mb-2">Attributs</h2>
-          <p class="text-3xl font-light text-blue-600">{{ attributeCount }}</p>
-        </div>
-        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
-          <h2 class="font-bold text-gray-700 mb-2">Valeurs</h2>
-          <p class="text-3xl font-light text-blue-600">{{ attributeValueCount }}</p>
-        </div>
-        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
-          <h2 class="font-bold text-gray-700 mb-2">Combinaisons</h2>
-          <p class="text-3xl font-light text-blue-600">{{ combinationCount }}</p>
-        </div>
-      </div>
     </div>
-
-    <!-- Phase 3: Clients & Commandes -->
-    <div class="bg-white p-6 rounded-lg shadow-md mb-6" :class="{ 'opacity-50 pointer-events-none': statusCombinations !== 'success' }">
-      <h2 class="text-xl font-bold mb-4">3. Import Clients & Commandes</h2>
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-          Fichier CSV (Commandes)
-        </label>
-        <input
-            type="file"
-            accept=".csv"
-            @change="handleFileOrdersChange"
-            :disabled="statusCombinations !== 'success'"
-            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors"
-        />
-      </div>
-
-      <button
-          @click="startImportOrders"
-          :disabled="!selectedFileOrders || statusOrders === 'loading' || statusCombinations !== 'success'"
-          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        <span v-if="statusOrders === 'loading'">En cours...</span>
-        <span v-else>Importer Clients & Commandes</span>
-      </button>
-
-      <div class="mt-4">
-        <p v-if="statusOrders === 'waiting'" class="text-gray-500">En attente...</p>
-        <p v-else-if="statusOrders === 'loading'" class="text-blue-500 font-medium animate-pulse">Importation en cours...</p>
-        <p v-else-if="statusOrders === 'success'" class="text-green-600 font-medium">Terminé avec succès !</p>
-        <p v-else-if="statusOrders === 'error'" class="text-red-600 font-medium">Erreur: {{ errorMessageOrders }}</p>
-      </div>
-
-      <div v-if="statusOrders === 'success'" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
-          <h2 class="font-bold text-gray-700 mb-2">Clients</h2>
-          <p class="text-3xl font-light text-blue-600">{{ customerCount }}</p>
-        </div>
-        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
-          <h2 class="font-bold text-gray-700 mb-2">Adresses</h2>
-          <p class="text-3xl font-light text-blue-600">{{ addressCount }}</p>
-        </div>
-        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
-          <h2 class="font-bold text-gray-700 mb-2">Commandes</h2>
-          <p class="text-3xl font-light text-blue-600">{{ orderCount }}</p>
-        </div>
-      </div>
-    </div>
-
   </div>
 </template>
 
@@ -153,23 +171,50 @@ import { ref, computed } from 'vue';
 import { importProducts, taxRateMap, categoryMap, productMap } from '@features/import/services/productImportService';
 import { importCombinationsAndStocks, attributeMap, attributeValueMap, combinationMap } from '@features/import/services/combinationImportService';
 import { importOrders, customerMap, addressMap, orderCountMap } from '@features/import/services/orderImportService';
+import { importImages } from '@features/import/services/imageImportService';
 
-// ── State Produits ────────────────────────────────────────────────────────────
+// --- State Global ---
+const isImporting = ref(false);
+
+// --- State Produits ---
 const selectedFileProducts = ref<File | null>(null);
 const statusProducts = ref<'waiting' | 'loading' | 'success' | 'error'>('waiting');
 const errorMessageProducts = ref<string>('');
 
-// ── State Combinaisons ────────────────────────────────────────────────────────
+// --- State Combinaisons ---
 const selectedFileCombinations = ref<File | null>(null);
 const statusCombinations = ref<'waiting' | 'loading' | 'success' | 'error'>('waiting');
 const errorMessageCombinations = ref<string>('');
 
-// ── State Commandes ───────────────────────────────────────────────────────────
+// --- State Commandes ---
 const selectedFileOrders = ref<File | null>(null);
 const statusOrders = ref<'waiting' | 'loading' | 'success' | 'error'>('waiting');
 const errorMessageOrders = ref<string>('');
 
-// ── Handlers fichiers ─────────────────────────────────────────────────────────
+// --- State Images ---
+const selectedFileImages = ref<File | null>(null);
+const statusImages = ref<'waiting' | 'loading' | 'success' | 'error'>('waiting');
+const errorMessageImages = ref<string>('');
+
+// --- Computed ---
+const canImport = computed(() => {
+  return selectedFileProducts.value || 
+         selectedFileCombinations.value || 
+         selectedFileOrders.value || 
+         selectedFileImages.value;
+});
+
+const statusText = (status: string) => {
+  switch (status) {
+    case 'waiting': return 'En attente';
+    case 'loading': return 'En cours';
+    case 'success': return 'Terminé';
+    case 'error': return 'Erreur';
+    default: return 'En attente';
+  }
+};
+
+// --- Handlers fichiers ---
 const handleFileProductsChange = (event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.files && target.files.length > 0) {
@@ -197,58 +242,106 @@ const handleFileOrdersChange = (event: Event) => {
   }
 };
 
-// ── Actions import ────────────────────────────────────────────────────────────
-const startImportProducts = async () => {
-  if (!selectedFileProducts.value) return;
-  statusProducts.value = 'loading';
-  errorMessageProducts.value = '';
-
-  try {
-    await importProducts(selectedFileProducts.value);
-    statusProducts.value = 'success';
-  } catch (error: any) {
-    statusProducts.value = 'error';
-    errorMessageProducts.value = error.message || 'Erreur lors de l\'importation des produits';
-    console.error(error);
+const handleFileImagesChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    selectedFileImages.value = target.files[0];
+    statusImages.value = 'waiting';
+    errorMessageImages.value = '';
   }
 };
 
-const startImportCombinations = async () => {
-  if (!selectedFileCombinations.value) return;
-  statusCombinations.value = 'loading';
-  errorMessageCombinations.value = '';
+// --- Actions import globales ---
+const startGlobalImport = async () => {
+  if (!canImport.value) return;
+  isImporting.value = true;
 
-  try {
-    await importCombinationsAndStocks(selectedFileCombinations.value);
-    statusCombinations.value = 'success';
-  } catch (error: any) {
-    statusCombinations.value = 'error';
-    errorMessageCombinations.value = error.message || 'Erreur lors de l\'importation des combinaisons et stocks';
-    console.error(error);
+  // 1. Produits
+  if (selectedFileProducts.value) {
+    statusProducts.value = 'loading';
+    errorMessageProducts.value = '';
+    try {
+      await importProducts(selectedFileProducts.value);
+      statusProducts.value = 'success';
+    } catch (error: any) {
+      statusProducts.value = 'error';
+      errorMessageProducts.value = error.message || 'Erreur lors de l\'importation des produits';
+      console.error(error);
+      isImporting.value = false;
+      return;
+    }
   }
+
+  // 2. Déclinaisons
+  if (selectedFileCombinations.value) {
+    if (selectedFileProducts.value && statusProducts.value !== 'success') {
+      isImporting.value = false;
+      return;
+    }
+    statusCombinations.value = 'loading';
+    errorMessageCombinations.value = '';
+    try {
+      await importCombinationsAndStocks(selectedFileCombinations.value);
+      statusCombinations.value = 'success';
+    } catch (error: any) {
+      statusCombinations.value = 'error';
+      errorMessageCombinations.value = error.message || 'Erreur lors de l\'importation des déclinaisons';
+      console.error(error);
+      isImporting.value = false;
+      return;
+    }
+  }
+
+  // 3. Commandes
+  if (selectedFileOrders.value) {
+    if (selectedFileProducts.value && statusProducts.value !== 'success') {
+        isImporting.value = false;
+        return;
+    }
+    if (selectedFileCombinations.value && statusCombinations.value !== 'success') {
+        isImporting.value = false;
+        return;
+    }
+    statusOrders.value = 'loading';
+    errorMessageOrders.value = '';
+    try {
+      await importOrders(selectedFileOrders.value);
+      statusOrders.value = 'success';
+    } catch (error: any) {
+      statusOrders.value = 'error';
+      errorMessageOrders.value = error.message || 'Erreur lors de l\'importation des commandes';
+      console.error(error);
+      isImporting.value = false;
+      return;
+    }
+  }
+
+  // 4. Images
+  if (selectedFileImages.value) {
+    if (selectedFileProducts.value && statusProducts.value !== 'success') {
+      isImporting.value = false;
+      return;
+    }
+    statusImages.value = 'loading';
+    errorMessageImages.value = '';
+    try {
+      await importImages(selectedFileImages.value);
+      statusImages.value = 'success';
+    } catch (error: any) {
+      statusImages.value = 'error';
+      errorMessageImages.value = error.message || 'Erreur lors de l\'importation des images';
+      console.error(error);
+    }
+  }
+
+  isImporting.value = false;
 };
 
-const startImportOrders = async () => {
-  if (!selectedFileOrders.value) return;
-  statusOrders.value = 'loading';
-  errorMessageOrders.value = '';
-
-  try {
-    await importOrders(selectedFileOrders.value);
-    statusOrders.value = 'success';
-  } catch (error: any) {
-    statusOrders.value = 'error';
-    errorMessageOrders.value = error.message || 'Erreur lors de l\'importation des commandes';
-    console.error(error);
-  }
-};
-
-// ── Computed : compteurs phase 1 ──────────────────────────────────────────────
+// --- Computed : compteurs ---
 const taxCount      = computed(() => taxRateMap?.size || 0);
 const categoryCount = computed(() => categoryMap?.size || 0);
 const productCount  = computed(() => productMap?.size || 0);
 
-// ── Computed : compteurs phase 2 ──────────────────────────────────────────────
 const attributeCount = computed(() => attributeMap?.size || 0);
 const attributeValueCount = computed(() => {
   let count = 0;
@@ -259,8 +352,275 @@ const attributeValueCount = computed(() => {
 });
 const combinationCount = computed(() => combinationMap?.size || 0);
 
-// ── Computed : compteurs phase 3 ──────────────────────────────────────────────
 const customerCount = computed(() => customerMap?.size || 0);
 const addressCount  = computed(() => addressMap?.size || 0);
 const orderCount    = computed(() => orderCountMap?.size || 0);
 </script>
+
+<style scoped>
+.import-page {
+  padding-bottom: 6rem;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 1.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.modules-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.import-card {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-fast);
+  overflow: hidden;
+}
+
+.import-card.is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.card-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f8fafc;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background-color: var(--accent-primary);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.card-header h2 {
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-badge.waiting {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.status-badge.loading {
+  background-color: #dbeafe;
+  color: #2563eb;
+}
+
+.status-badge.success {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+.status-badge.error {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+  color: var(--text-main);
+  font-size: 0.875rem;
+}
+
+.file-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background-color: #fff;
+  color: var(--text-main);
+}
+
+.file-input::file-selector-button {
+  background-color: #f1f5f9;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.375rem 0.75rem;
+  margin-right: 1rem;
+  color: var(--text-main);
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.file-input::file-selector-button:hover {
+  background-color: #e2e8f0;
+}
+
+.error-message {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: #fef2f2;
+  border-left: 4px solid var(--accent-danger);
+  color: var(--accent-danger);
+  font-size: 0.875rem;
+  border-radius: 4px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.stat-box {
+  background-color: #f8fafc;
+  padding: 1rem;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 260px; /* Sidebar width */
+  right: 0;
+  background-color: var(--surface-color);
+  border-top: 1px solid var(--border-color);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+}
+
+.action-info {
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.ready-text {
+  color: var(--text-muted);
+}
+
+.importing-text {
+  color: var(--accent-primary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent-primary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.btn-primary {
+  background-color: var(--accent-primary);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-primary-hover);
+}
+
+.btn-primary:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .action-bar {
+    left: 0;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    text-align: center;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
