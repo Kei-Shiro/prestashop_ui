@@ -25,7 +25,7 @@ function createApiClient(config: ApiClientConfig = {}): AxiosInstance {
     };
 
     // Configure authentication based on mode
-    let auth: { username?: string; password?: string } | undefined;
+    let auth: { username: string; password: string } | undefined;
     
     switch (authMode) {
         case 'basic':

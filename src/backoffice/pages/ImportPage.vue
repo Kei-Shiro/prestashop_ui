@@ -1,504 +1,266 @@
-<script setup lang="ts">
-import { ref, computed } from 'vue';
-import { parseCsvFile } from '@features/import/services/csv-parser.service';
-import { extractZipComplete } from '@features/import/services/zip-extractor.service';
-import { orchestrateImport } from '@features/import/services/import-orchestrator';
-import FileDropZone from '@features/import/components/FileDropZone.vue';
-import ImportProgress from '@features/import/components/ImportProgress.vue';
-import MappingPreview from '@features/import/components/MappingPreview.vue';
-import type { ImportFile, ImportDetail, ImportProgress as ImportProgressType, EntityType } from '@features/import/types/import.types';
-import PageHeader from '../components/PageHeader.vue';
-
-const ENTITY_OPTIONS: { value: string; label: string }[] = [
-  { value: 'product', label: 'Produits' },
-  { value: 'combination', label: 'Combinaisons' },
-  { value: 'customer', label: 'Clients' },
-  { value: 'order', label: 'Commandes' },
-  { value: 'category', label: 'Catégories' },
-];
-
-const ENTITY_LABELS: Record<string, string> = {
-  product: 'Produits', combination: 'Combinaisons', customer: 'Clients',
-  order: 'Commandes', category: 'Catégories', unknown: 'Non détecté',
-};
-
-const ENTITY_COLORS: Record<string, string> = {
-  product: '#3b82f6', combination: '#8b5cf6', customer: '#10b981',
-  order: '#f59e0b', category: '#ec4899', unknown: '#94a3b8',
-};
-
-// State
-const files = ref<ImportFile[]>([]);
-const isImporting = ref(false);
-const progressDetails = ref<ImportDetail[]>([]);
-const progressPercentage = ref(0);
-const progressPhase = ref('');
-
-const globalErrors = computed(() => progressDetails.value.flatMap(d => d.errors));
-const canSubmit = computed(() => files.value.length > 0 && !isImporting.value);
-const totalRows = computed(() => files.value.reduce((s, f) => s + f.rows, 0));
-const totalImages = computed(() => files.value.reduce((s, f) => s + (f.imageCount || 0), 0));
-
-const handleFilesSelected = async (selectedFiles: File[]) => {
-  for (const file of selectedFiles) {
-    try {
-      if (file.name.toLowerCase().endsWith('.zip')) {
-        const extracted = await extractZipComplete(file);
-        const importFile: ImportFile = {
-          id: `zip_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          file, name: file.name, type: 'zip',
-          detectedEntity: 'unknown',
-          rows: extracted.csvFiles.length,
-          imageCount: extracted.imageFiles.length,
-          preview: [],
-        };
-        files.value.push(importFile);
-      } else {
-        const parsedFile = await parseCsvFile(file);
-        files.value.push(parsedFile);
-      }
-    } catch (error) {
-      console.error(`Error parsing file ${file.name}:`, error);
-    }
-  }
-};
-
-const removeFile = (id: string) => {
-  files.value = files.value.filter(f => f.id !== id);
-};
-
-const setOverrideEndpoint = (fileId: string, endpoint: string) => {
-  const file = files.value.find(f => f.id === fileId);
-  if (file) file.overrideEndpoint = endpoint || undefined;
-};
-
-const handleProgress = (progress: ImportProgressType) => {
-  progressDetails.value = progress.details;
-  progressPercentage.value = progress.percentage;
-  progressPhase.value = progress.phase;
-};
-
-const startImport = async () => {
-  if (!canSubmit.value) return;
-  isImporting.value = true;
-  progressDetails.value = [];
-  progressPercentage.value = 0;
-  progressPhase.value = 'parsing';
-
-  try {
-    const result = await orchestrateImport(files.value, { onProgress: handleProgress });
-    progressDetails.value = result.details;
-    progressPercentage.value = 100;
-    progressPhase.value = result.success ? 'complete' : 'error';
-  } catch (error) {
-    console.error("Import error:", error);
-    progressPhase.value = 'error';
-  } finally {
-    isImporting.value = false;
-  }
-};
-
-const copyErrors = () => {
-  const text = globalErrors.value.map(e => `Ligne ${e.row}: ${e.message}`).join('\n');
-  navigator.clipboard.writeText(text);
-};
-
-function getEntityColor(entity: string): string {
-  return ENTITY_COLORS[entity] || ENTITY_COLORS.unknown;
-}
-</script>
-
 <template>
-  <div class="import-page">
-    <PageHeader
-      title="Importation de données"
-      description="Importez vos fichiers CSV et ZIP pour alimenter votre catalogue PrestaShop."
-    />
+  <div class="p-6 max-w-4xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6 text-gray-800">Import PrestaShop</h1>
 
-    <div class="import-card">
-      <div class="card-header">
-        <div class="header-left">
-          <h2>Fichiers à traiter</h2>
-          <p>Déposez vos fichiers CSV et/ou ZIP contenant images et données.</p>
-        </div>
-        <div v-if="files.length > 0" class="header-stats">
-          <span class="stat"><strong>{{ files.length }}</strong> fichier{{ files.length > 1 ? 's' : '' }}</span>
-          <span v-if="totalRows > 0" class="stat"><strong>{{ totalRows }}</strong> ligne{{ totalRows > 1 ? 's' : '' }}</span>
-          <span v-if="totalImages > 0" class="stat stat-image"><strong>{{ totalImages }}</strong> image{{ totalImages > 1 ? 's' : '' }}</span>
-        </div>
-      </div>
-
-      <div class="card-body">
-        <FileDropZone @files="handleFilesSelected" />
-
-        <!-- Liste des fichiers -->
-        <div v-if="files.length > 0" class="file-list">
-          <TransitionGroup name="file-anim">
-            <div v-for="file in files" :key="file.id" class="file-item">
-              <div class="file-main">
-                <div class="file-icon-wrap">
-                  <span v-if="file.type === 'zip'" class="file-icon zip">📦</span>
-                  <span v-else class="file-icon csv">📄</span>
-                </div>
-
-                <div class="file-info">
-                  <span class="file-name">{{ file.name }}</span>
-                  <div class="file-meta">
-                    <span v-if="file.type === 'csv'" class="meta-item">{{ file.rows }} lignes</span>
-                    <span v-if="file.type === 'zip' && file.imageCount" class="meta-item">{{ file.imageCount }} images</span>
-                    <span
-                      class="entity-badge"
-                      :style="{ backgroundColor: getEntityColor(file.overrideEndpoint || file.detectedEntity) + '15', color: getEntityColor(file.overrideEndpoint || file.detectedEntity), borderColor: getEntityColor(file.overrideEndpoint || file.detectedEntity) + '30' }"
-                    >
-                      {{ ENTITY_LABELS[file.overrideEndpoint || file.detectedEntity] || file.detectedEntity }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Sélecteur d'endpoint fallback -->
-                <div v-if="file.detectedEntity === 'unknown' && file.type === 'csv'" class="endpoint-select-wrap">
-                  <select
-                    class="endpoint-select"
-                    :value="file.overrideEndpoint || ''"
-                    @change="setOverrideEndpoint(file.id, ($event.target as HTMLSelectElement).value)"
-                  >
-                    <option value="">— Choisir l'entité —</option>
-                    <option v-for="opt in ENTITY_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                  </select>
-                </div>
-
-                <button type="button" class="btn-remove" @click="removeFile(file.id)" :disabled="isImporting">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-              </div>
-
-              <!-- Mapping preview (CSV uniquement) -->
-              <MappingPreview
-                v-if="file.type === 'csv' && file.headers && file.headers.length > 0"
-                :entity="(file.overrideEndpoint || file.detectedEntity) as EntityType | 'unknown'"
-                :headers="file.headers"
-              />
-            </div>
-          </TransitionGroup>
-        </div>
-
-        <!-- Progression -->
-        <ImportProgress
-          v-if="progressDetails.length > 0 || isImporting"
-          :steps="progressDetails"
-          :percentage="progressPercentage"
-          :phase="progressPhase"
+    <!-- Phase 1: Produits -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+      <h2 class="text-xl font-bold mb-4">1. Import Produits (Taxes, Catégories, Produits)</h2>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Fichier CSV (Produits)
+        </label>
+        <input
+            type="file"
+            accept=".csv"
+            @change="handleFileProductsChange"
+            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors"
         />
-
-        <!-- Erreurs -->
-        <div v-if="globalErrors.length > 0 && !isImporting" class="error-summary">
-          <div class="error-header">
-            <h3>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              {{ globalErrors.length }} erreur{{ globalErrors.length > 1 ? 's' : '' }}
-            </h3>
-            <button class="btn-copy" @click="copyErrors" title="Copier les erreurs">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-            </button>
-          </div>
-          <ul class="error-list">
-            <li v-for="(err, idx) in globalErrors.slice(0, 20)" :key="idx">
-              <span class="error-badge">{{ err.code }}</span>
-              <span v-if="err.row > 0">Ligne {{ err.row }} :</span>
-              {{ err.message }}
-            </li>
-          </ul>
-          <p v-if="globalErrors.length > 20" class="error-more">
-            … et {{ globalErrors.length - 20 }} autres erreurs
-          </p>
-        </div>
       </div>
 
-      <div class="card-footer">
-        <div class="footer-info">
-          <span v-if="progressPhase === 'complete'" class="success-message">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="icon-sm"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            Import terminé avec succès
-          </span>
+      <button
+          @click="startImportProducts"
+          :disabled="!selectedFileProducts || statusProducts === 'loading'"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        <span v-if="statusProducts === 'loading'">En cours...</span>
+        <span v-else>Importer Produits</span>
+      </button>
+
+      <div class="mt-4">
+        <p v-if="statusProducts === 'waiting'" class="text-gray-500">En attente...</p>
+        <p v-else-if="statusProducts === 'loading'" class="text-blue-500 font-medium animate-pulse">Importation en cours...</p>
+        <p v-else-if="statusProducts === 'success'" class="text-green-600 font-medium">Terminé avec succès !</p>
+        <p v-else-if="statusProducts === 'error'" class="text-red-600 font-medium">Erreur: {{ errorMessageProducts }}</p>
+      </div>
+
+      <div v-if="statusProducts === 'success'" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
+          <h2 class="font-bold text-gray-700 mb-2">Taxes</h2>
+          <p class="text-3xl font-light text-blue-600">{{ taxCount }}</p>
         </div>
-        <button
-          class="btn-primary"
-          :disabled="!canSubmit"
-          @click="startImport"
-        >
-          <span v-if="isImporting" class="spinner"></span>
-          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-          {{ isImporting ? 'Traitement en cours...' : 'Lancer l\'importation' }}
-        </button>
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
+          <h2 class="font-bold text-gray-700 mb-2">Catégories</h2>
+          <p class="text-3xl font-light text-blue-600">{{ categoryCount }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
+          <h2 class="font-bold text-gray-700 mb-2">Produits</h2>
+          <p class="text-3xl font-light text-blue-600">{{ productCount }}</p>
+        </div>
       </div>
     </div>
+
+    <!-- Phase 2: Déclinaisons & Stocks -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6" :class="{ 'opacity-50 pointer-events-none': statusProducts !== 'success' }">
+      <h2 class="text-xl font-bold mb-4">2. Import Déclinaisons & Stocks</h2>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Fichier CSV (Stocks/Déclinaisons)
+        </label>
+        <input
+            type="file"
+            accept=".csv"
+            @change="handleFileCombinationsChange"
+            :disabled="statusProducts !== 'success'"
+            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors"
+        />
+      </div>
+
+      <button
+          @click="startImportCombinations"
+          :disabled="!selectedFileCombinations || statusCombinations === 'loading' || statusProducts !== 'success'"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        <span v-if="statusCombinations === 'loading'">En cours...</span>
+        <span v-else>Importer Déclinaisons & Stocks</span>
+      </button>
+
+      <div class="mt-4">
+        <p v-if="statusCombinations === 'waiting'" class="text-gray-500">En attente...</p>
+        <p v-else-if="statusCombinations === 'loading'" class="text-blue-500 font-medium animate-pulse">Importation en cours...</p>
+        <p v-else-if="statusCombinations === 'success'" class="text-green-600 font-medium">Terminé avec succès !</p>
+        <p v-else-if="statusCombinations === 'error'" class="text-red-600 font-medium">Erreur: {{ errorMessageCombinations }}</p>
+      </div>
+
+      <div v-if="statusCombinations === 'success'" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
+          <h2 class="font-bold text-gray-700 mb-2">Attributs</h2>
+          <p class="text-3xl font-light text-blue-600">{{ attributeCount }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
+          <h2 class="font-bold text-gray-700 mb-2">Valeurs</h2>
+          <p class="text-3xl font-light text-blue-600">{{ attributeValueCount }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
+          <h2 class="font-bold text-gray-700 mb-2">Combinaisons</h2>
+          <p class="text-3xl font-light text-blue-600">{{ combinationCount }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase 3: Clients & Commandes -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6" :class="{ 'opacity-50 pointer-events-none': statusCombinations !== 'success' }">
+      <h2 class="text-xl font-bold mb-4">3. Import Clients & Commandes</h2>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Fichier CSV (Commandes)
+        </label>
+        <input
+            type="file"
+            accept=".csv"
+            @change="handleFileOrdersChange"
+            :disabled="statusCombinations !== 'success'"
+            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors"
+        />
+      </div>
+
+      <button
+          @click="startImportOrders"
+          :disabled="!selectedFileOrders || statusOrders === 'loading' || statusCombinations !== 'success'"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        <span v-if="statusOrders === 'loading'">En cours...</span>
+        <span v-else>Importer Clients & Commandes</span>
+      </button>
+
+      <div class="mt-4">
+        <p v-if="statusOrders === 'waiting'" class="text-gray-500">En attente...</p>
+        <p v-else-if="statusOrders === 'loading'" class="text-blue-500 font-medium animate-pulse">Importation en cours...</p>
+        <p v-else-if="statusOrders === 'success'" class="text-green-600 font-medium">Terminé avec succès !</p>
+        <p v-else-if="statusOrders === 'error'" class="text-red-600 font-medium">Erreur: {{ errorMessageOrders }}</p>
+      </div>
+
+      <div v-if="statusOrders === 'success'" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
+          <h2 class="font-bold text-gray-700 mb-2">Clients</h2>
+          <p class="text-3xl font-light text-blue-600">{{ customerCount }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
+          <h2 class="font-bold text-gray-700 mb-2">Adresses</h2>
+          <p class="text-3xl font-light text-blue-600">{{ addressCount }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-100 text-center">
+          <h2 class="font-bold text-gray-700 mb-2">Commandes</h2>
+          <p class="text-3xl font-light text-blue-600">{{ orderCount }}</p>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
-<style scoped>
-.import-page {
-  animation: fadeIn 0.3s ease;
-}
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { importProducts, taxRateMap, categoryMap, productMap } from '@features/import/services/productImportService';
+import { importCombinationsAndStocks, attributeMap, attributeValueMap, combinationMap } from '@features/import/services/combinationImportService';
+import { importOrders, customerMap, addressMap, orderCountMap } from '@features/import/services/orderImportService';
 
-/* Card */
-.import-card {
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
+// ── State Produits ────────────────────────────────────────────────────────────
+const selectedFileProducts = ref<File | null>(null);
+const statusProducts = ref<'waiting' | 'loading' | 'success' | 'error'>('waiting');
+const errorMessageProducts = ref<string>('');
 
-.card-header {
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-.card-header h2 { font-size: 1.125rem; margin-bottom: 0.25rem; }
-.card-header p { font-size: 0.875rem; color: var(--text-muted); margin: 0; }
+// ── State Combinaisons ────────────────────────────────────────────────────────
+const selectedFileCombinations = ref<File | null>(null);
+const statusCombinations = ref<'waiting' | 'loading' | 'success' | 'error'>('waiting');
+const errorMessageCombinations = ref<string>('');
 
-.header-stats {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-.stat {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  background: var(--bg-color);
-  padding: 0.25rem 0.625rem;
-  border-radius: 1rem;
-  border: 1px solid var(--border-color);
-}
-.stat strong { color: var(--text-main); }
-.stat-image strong { color: #8b5cf6; }
+// ── State Commandes ───────────────────────────────────────────────────────────
+const selectedFileOrders = ref<File | null>(null);
+const statusOrders = ref<'waiting' | 'loading' | 'success' | 'error'>('waiting');
+const errorMessageOrders = ref<string>('');
 
-.card-body { padding: 2rem; }
-.card-footer {
-  padding: 1.5rem 2rem;
-  border-top: 1px solid var(--border-color);
-  background: var(--bg-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+// ── Handlers fichiers ─────────────────────────────────────────────────────────
+const handleFileProductsChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    selectedFileProducts.value = target.files[0];
+    statusProducts.value = 'waiting';
+    errorMessageProducts.value = '';
+  }
+};
 
-/* File List */
-.file-list {
-  margin-top: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.file-item {
-  padding: 0.75rem 1rem;
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.file-item:hover {
-  border-color: var(--border-hover);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-}
-.file-main {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-.file-icon-wrap { flex-shrink: 0; }
-.file-icon { font-size: 1.5rem; }
-.file-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-.file-name {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.file-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.meta-item {
-  font-size: 0.6875rem;
-  color: var(--text-muted);
-}
+const handleFileCombinationsChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    selectedFileCombinations.value = target.files[0];
+    statusCombinations.value = 'waiting';
+    errorMessageCombinations.value = '';
+  }
+};
 
-/* Entity badge */
-.entity-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 0.125rem 0.5rem;
-  border-radius: 1rem;
-  border: 1px solid;
-}
+const handleFileOrdersChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    selectedFileOrders.value = target.files[0];
+    statusOrders.value = 'waiting';
+    errorMessageOrders.value = '';
+  }
+};
 
-/* Endpoint select */
-.endpoint-select-wrap { flex-shrink: 0; }
-.endpoint-select {
-  font-family: var(--font-main);
-  font-size: 0.75rem;
-  padding: 0.375rem 0.625rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.375rem;
-  background: var(--surface-color);
-  color: var(--text-main);
-  cursor: pointer;
-  outline: none;
-  transition: border-color 0.15s;
-}
-.endpoint-select:focus { border-color: var(--accent-primary); }
+// ── Actions import ────────────────────────────────────────────────────────────
+const startImportProducts = async () => {
+  if (!selectedFileProducts.value) return;
+  statusProducts.value = 'loading';
+  errorMessageProducts.value = '';
 
-/* Buttons */
-.btn-remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.25rem;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 0.25rem;
-  transition: color 0.15s, background 0.15s;
-  flex-shrink: 0;
-}
-.btn-remove:hover { color: var(--accent-danger); background: rgba(239, 68, 68, 0.1); }
-.btn-remove:disabled { opacity: 0.3; cursor: not-allowed; }
+  try {
+    await importProducts(selectedFileProducts.value);
+    statusProducts.value = 'success';
+  } catch (error: any) {
+    statusProducts.value = 'error';
+    errorMessageProducts.value = error.message || 'Erreur lors de l\'importation des produits';
+    console.error(error);
+  }
+};
 
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: var(--accent-primary);
-  color: #fff;
-  border: none;
-  border-radius: 0.375rem;
-  font-family: var(--font-main);
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, box-shadow 0.15s;
-  box-shadow: var(--shadow-sm);
-}
-.btn-primary:hover:not(:disabled) { background: var(--accent-primary-hover); }
-.btn-primary:disabled { background: var(--border-hover); color: #fff; cursor: not-allowed; box-shadow: none; }
+const startImportCombinations = async () => {
+  if (!selectedFileCombinations.value) return;
+  statusCombinations.value = 'loading';
+  errorMessageCombinations.value = '';
 
-.icon-sm { width: 1.125rem; height: 1.125rem; flex-shrink: 0; }
+  try {
+    await importCombinationsAndStocks(selectedFileCombinations.value);
+    statusCombinations.value = 'success';
+  } catch (error: any) {
+    statusCombinations.value = 'error';
+    errorMessageCombinations.value = error.message || 'Erreur lors de l\'importation des combinaisons et stocks';
+    console.error(error);
+  }
+};
 
-.spinner {
-  width: 1rem; height: 1rem;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-radius: 50%;
-  border-top-color: #fff;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+const startImportOrders = async () => {
+  if (!selectedFileOrders.value) return;
+  statusOrders.value = 'loading';
+  errorMessageOrders.value = '';
 
-/* Errors */
-.error-summary {
-  margin-top: 1.5rem;
-  background: rgba(239, 68, 68, 0.04);
-  border: 1px solid rgba(239, 68, 68, 0.15);
-  border-radius: 0.5rem;
-  padding: 1rem 1.25rem;
-}
-.error-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-.error-header h3 {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.875rem;
-  color: #ef4444;
-  margin: 0;
-}
-.btn-copy {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem;
-  background: transparent;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 0.25rem;
-  color: #ef4444;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.btn-copy:hover { background: rgba(239, 68, 68, 0.1); }
+  try {
+    await importOrders(selectedFileOrders.value);
+    statusOrders.value = 'success';
+  } catch (error: any) {
+    statusOrders.value = 'error';
+    errorMessageOrders.value = error.message || 'Erreur lors de l\'importation des commandes';
+    console.error(error);
+  }
+};
 
-.error-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  max-height: 300px;
-  overflow-y: auto;
-}
-.error-list li {
-  font-size: 0.75rem;
-  color: var(--text-main);
-  padding: 0.375rem 0;
-  border-bottom: 1px solid rgba(239, 68, 68, 0.08);
-}
-.error-badge {
-  font-size: 0.5625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  padding: 0.0625rem 0.3125rem;
-  border-radius: 0.125rem;
-  margin-right: 0.375rem;
-}
-.error-more {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin: 0.5rem 0 0;
-  font-style: italic;
-}
+// ── Computed : compteurs phase 1 ──────────────────────────────────────────────
+const taxCount      = computed(() => taxRateMap?.size || 0);
+const categoryCount = computed(() => categoryMap?.size || 0);
+const productCount  = computed(() => productMap?.size || 0);
 
-/* Success */
-.success-message {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #22c55e;
-}
+// ── Computed : compteurs phase 2 ──────────────────────────────────────────────
+const attributeCount = computed(() => attributeMap?.size || 0);
+const attributeValueCount = computed(() => {
+  let count = 0;
+  if (attributeValueMap) {
+    attributeValueMap.forEach((valMap) => { count += valMap.size; });
+  }
+  return count;
+});
+const combinationCount = computed(() => combinationMap?.size || 0);
 
-/* Transition */
-.file-anim-enter-active { transition: all 0.3s ease; }
-.file-anim-leave-active { transition: all 0.2s ease; }
-.file-anim-enter-from { opacity: 0; transform: translateY(-8px); }
-.file-anim-leave-to { opacity: 0; transform: translateX(16px); }
-</style>
+// ── Computed : compteurs phase 3 ──────────────────────────────────────────────
+const customerCount = computed(() => customerMap?.size || 0);
+const addressCount  = computed(() => addressMap?.size || 0);
+const orderCount    = computed(() => orderCountMap?.size || 0);
+</script>

@@ -44,7 +44,7 @@ import productService from '@shared/services/product-service';
 
 const cartStore = useCartStore();
 const getImageUrl = (product: any) =>
-    productService.getImageUrl(product.id_product, product.id_default_image, 'small_default');
+    productService.getImageUrl(product.id_product, product.id_default_image);
 </script>
 
 <style scoped>
