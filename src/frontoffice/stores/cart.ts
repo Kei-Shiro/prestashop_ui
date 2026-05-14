@@ -1,18 +1,11 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { Product } from '@shared/types/product';
-import { CartItem } from '@shared/types/cart';
+import type { Product } from '@shared/types/product';
+import type { CartItem } from '@shared/types/cart';
 
-/**
- * Store Pinia pour gérer le panier du FrontOffice
- */
 export const useCartStore = defineStore('cart', () => {
-    // État du panier
     const items = ref<CartItem[]>([]);
 
-    /**
-     * Calcule le total du panier (Prix * Quantité pour tous les articles)
-     */
     const totalAmount = computed(() => {
         return items.value.reduce((total, item) => {
             const price = typeof item.product.price === 'string' ? parseFloat(item.product.price) : item.product.price;
@@ -20,47 +13,64 @@ export const useCartStore = defineStore('cart', () => {
         }, 0);
     });
 
-    /**
-     * Ajoute un produit au panier
-     * @param product Le produit à ajouter
-     * @param quantity La quantité à ajouter (par défaut 1)
-     */
-    function addProduct(product: Product, quantity: number = 1) {
-        const existingItem = items.value.find(item => item.product.id_product === product.id_product);
-        if (existingItem) {
-            existingItem.quantity += quantity;
-        } else {
-            items.value.push({ product, quantity });
-        }
+    const totalItems = computed(() => {
+        return items.value.reduce((total, item) => total + item.quantity, 0);
+    });
+
+    const isCartDrawerOpen = ref(false);
+    function toggleCartDrawer() {
+        isCartDrawerOpen.value = !isCartDrawerOpen.value;
+    }
+    function openCartDrawer() {
+        isCartDrawerOpen.value = true;
+    }
+    function closeCartDrawer() {
+        isCartDrawerOpen.value = false;
     }
 
     /**
-     * Modifie la quantité d'un produit dans le panier
-     * @param productId L'ID du produit
-     * @param quantity La nouvelle quantité
+     * Adds a product to the cart or increments its quantity if it already exists.
+     * @param product The product to add
+     * @param quantity The quantity to add (default: 1)
      */
-    function updateQuantity(productId: number, quantity: number) {
-        const existingItem = items.value.find(item => item.product.id_product === productId);
+    function addProduct(product: Product, quantity: number = 1) {
+        const existingItem = items.value.find(item => String(item.product.id_product) === String(product.id_product));
+        const price = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
+        if (existingItem) {
+            existingItem.quantity += quantity;
+            existingItem.total_price = price * existingItem.quantity;
+        } else {
+            items.value.push({ product, quantity, total_price: price * quantity });
+        }
+        openCartDrawer();
+    }
+
+    /**
+     * Updates the quantity of a specific product in the cart.
+     * @param productId The ID of the product
+     * @param quantity The new quantity
+     */
+    function updateQuantity(productId: string | number, quantity: number) {
+        const existingItem = items.value.find(item => String(item.product.id_product) === String(productId));
         if (existingItem) {
             if (quantity <= 0) {
                 removeProduct(productId);
             } else {
                 existingItem.quantity = quantity;
+                const price = typeof existingItem.product.price === 'string' ? parseFloat(existingItem.product.price) : existingItem.product.price;
+                existingItem.total_price = price * existingItem.quantity;
             }
         }
     }
 
     /**
-     * Supprime un produit du panier
-     * @param productId L'ID du produit à supprimer
+     * Removes a product from the cart completely.
+     * @param productId The ID of the product to remove
      */
-    function removeProduct(productId: number) {
-        items.value = items.value.filter(item => item.product.id_product !== productId);
+    function removeProduct(productId: string | number) {
+        items.value = items.value.filter(item => String(item.product.id_product) !== String(productId));
     }
 
-    /**
-     * Vide intégralement le panier (après une commande par exemple)
-     */
     function clearCart() {
         items.value = [];
     }
@@ -68,6 +78,11 @@ export const useCartStore = defineStore('cart', () => {
     return {
         items,
         totalAmount,
+        totalItems,
+        isCartDrawerOpen,
+        toggleCartDrawer,
+        openCartDrawer,
+        closeCartDrawer,
         addProduct,
         updateQuantity,
         removeProduct,

@@ -14,6 +14,7 @@ export default defineConfig({
         alias: {
             '@front': resolve(__dirname, 'src/frontoffice'),
             '@shared': resolve(__dirname, 'src/shared'),
+            '@features': resolve(__dirname, 'src/features'),
         },
     },
     server: {

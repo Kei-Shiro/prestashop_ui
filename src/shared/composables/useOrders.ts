@@ -13,6 +13,7 @@ export function useOrders() {
     const updatingOrderId = ref<number | null>(null);
 
     const loadOrdersAndMetadata = async () => {
+
         isLoading.value = true;
         error.value = null;
 
@@ -58,6 +59,7 @@ export function useOrders() {
                 return {
                     id: Number(order.id),
                     reference: order.reference || "",
+                    customerId: customerId,
                     customerName: customersMap.get(customerId) || "Unknown",
                     totalPaid: parseFloat(order.total_paid_tax_incl || order.total_paid || "0").toFixed(2),
                     payment: order.payment || "Bank wire",

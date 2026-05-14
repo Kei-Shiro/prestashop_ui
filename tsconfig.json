@@ -15,7 +15,8 @@
     "paths": {
       "@back/*":   ["./src/backoffice/*"],
       "@front/*":  ["./src/frontoffice/*"],
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@features/*": ["./src/features/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "vite.config.ts"],

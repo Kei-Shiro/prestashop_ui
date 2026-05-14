@@ -1,24 +1,67 @@
 // src/api/client.ts
-import axios from 'axios'
+import axios, { AxiosInstance } from 'axios';
 
-const client = axios.create({
-    baseURL: '/prestashop/api',
-    timeout: 10000,
-    headers: { 'Content-Type': 'application/xml' },
-    auth: {
-        username: import.meta.env.VITE_PS_API_KEY,
-        password: ''
-    },
-})
+export type AuthMode = 'basic' | 'bearer' | 'none';
 
-client.interceptors.response.use(
-    (r) => r,
-    (err) => {
-        // TODO : créer une route /login ou gérer le 401 dans l'UI
-        // window.location.href = '/login' ← route inexistante, à ne pas activer
-        console.error('Erreur API', err.response?.status)
-        return Promise.reject(err)
+export interface ApiClientConfig {
+    baseURL?: string;
+    timeout?: number;
+    authMode?: AuthMode;
+    authToken?: string;
+    apiKey?: string;
+}
+
+function createApiClient(config: ApiClientConfig = {}): AxiosInstance {
+    const {
+        baseURL = '/prestashop/api',
+        timeout = 10000,
+        authMode = 'basic',
+        authToken,
+        apiKey = import.meta.env.VITE_PS_API_KEY
+    } = config;
+
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/xml'
+    };
+
+    // Configure authentication based on mode
+    let auth: { username: string; password: string } | undefined;
+    
+    switch (authMode) {
+        case 'basic':
+            auth = { username: apiKey, password: '' };
+            break;
+        case 'bearer':
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            break;
+        case 'none':
+        default:
+            // No auth
+            break;
     }
-)
 
-export default client
+    const client = axios.create({
+        baseURL,
+        timeout,
+        headers,
+        auth
+    });
+
+    client.interceptors.response.use(
+        (r) => r,
+        (err) => {
+            console.error('Erreur API', err.response?.status, err.response?.data);
+            return Promise.reject(err);
+        }
+    );
+
+    return client;
+}
+
+// Default client with basic auth (legacy behavior)
+const defaultClient = createApiClient({ authMode: 'basic' });
+
+export { createApiClient, defaultClient };
+export default defaultClient;

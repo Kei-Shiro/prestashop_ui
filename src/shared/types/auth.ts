@@ -8,3 +8,9 @@ export interface AuthResponse {
   user: import('./user').User
 }
 
+export interface AuthState {
+  user: import('./user').User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+}
+

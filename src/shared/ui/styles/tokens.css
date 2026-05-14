@@ -1,0 +1,30 @@
+/* Design System Tokens - L'Édition */
+
+:root {
+  /* Colors */
+  --color-primary: #0f172a;
+  --color-surface: #ffffff;
+  --color-bg: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-text-main: #1e293b;
+  --color-text-muted: #64748b;
+  --color-accent: #7f1d1d;
+  --color-danger: #b00020;
+  --color-success: #1b5e20;
+  --color-accent-light: #eff6ff;
+
+  /* Typography */
+  --font-main: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 300ms ease;
+}
