@@ -66,11 +66,24 @@ function parseAchat(raw: string): AchatTuple[] {
     return results;
 }
 
+/**
+ * Sérialisation PHP robuste pour delivery_option
+ * Utilise TextEncoder pour la longueur des chaînes (compatible navigateur)
+ */
+function phpSerializeArray(obj: Record<string, string>): string {
+    const entries = Object.entries(obj);
+    const inner = entries.map(([key, value]) => {
+        const serializedKey = `i:${key};`;
+        const byteLength = new TextEncoder().encode(value).length;
+        const serializedValue = `s:${byteLength}:"${value}";`;
+        return serializedKey + serializedValue;
+    }).join('');
+    return `a:${entries.length}:{${inner}}`;
+}
+
 async function getDefaultCarrierId(): Promise<number> {
     try {
-        const res = await apiService.get<any>(
-            "/carriers?display=full&filter[active]=1&filter[deleted]=0"
-        );
+        const res = await apiService.get<any>("/carriers?display=full&filter[active]=1&filter[deleted]=0");
         const carrier = res?.prestashop?.carriers?.carrier;
         const first = Array.isArray(carrier) ? carrier[0] : carrier;
         const id = parseInt(first?.id, 10);
@@ -81,7 +94,16 @@ async function getDefaultCarrierId(): Promise<number> {
     } catch (err) {
         console.error("Cannot fetch carriers:", err);
     }
-    return 1;
+    // Fallback : création d'un transporteur par défaut si aucun n'existe
+    try {
+        const carrierXml = `<prestashop><carrier><name>Default carrier</name><active>1</active><deleted>0</deleted><is_free>0</is_free><shipping_handling>1</shipping_handling><shipping_external>0</shipping_external><range_behavior>0</range_behavior><shipping_method>0</shipping_method><max_width>0</max_width><max_height>0</max_height><max_depth>0</max_depth><max_weight>0</max_weight><grade>0</grade><delay><language id="1">Delivery within 3-5 days</language></delay></carrier></prestashop>`;
+        const res = await apiService.post<any>("/carriers", carrierXml);
+        const newId = res?.prestashop?.carrier?.id;
+        if (newId) return parseInt(newId, 10);
+    } catch (err) {
+        console.error("Cannot create fallback carrier:", err);
+    }
+    return 1; // dernier recours
 }
 
 export async function importOrders(csvFile: File): Promise<void> {
@@ -93,9 +115,7 @@ export async function importOrders(csvFile: File): Promise<void> {
             delimiter: ",",
             complete: async (results) => {
                 try {
-                    const metaFields = (results.meta.fields || []).map((f) =>
-                        f.trim().replace(/^\uFEFF/, "")
-                    );
+                    const metaFields = (results.meta.fields || []).map((f) => f.trim().replace(/^\uFEFF/, ""));
                     const required = ["date", "nom", "email", "pwd", "adresse", "achat"];
                     for (const col of required) {
                         if (!metaFields.includes(col)) {
@@ -141,30 +161,19 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         }
     }
 
-    // =========================================================
-    // CUSTOMER
-    // =========================================================
+    // ========== CUSTOMER ==========
     let id_customer = customerMap.get(email);
     if (!id_customer) {
         try {
-            const xml = `
-<prestashop>
-    <customer>
+            const xml = `<prestashop><customer>
         <firstname><![CDATA[Client]]></firstname>
         <lastname><![CDATA[${nom}]]></lastname>
         <email><![CDATA[${email}]]></email>
         <passwd><![CDATA[${pwd}]]></passwd>
-        <active>1</active>
-        <id_lang>1</id_lang>
-        <id_default_group>3</id_default_group>
-        <id_gender>0</id_gender>
-        <is_guest>0</is_guest>
-        <newsletter>0</newsletter>
-        <optin>0</optin>
-        <id_shop>1</id_shop>
-        <id_shop_group>1</id_shop_group>
-    </customer>
-</prestashop>`;
+        <active>1</active><id_lang>1</id_lang><id_default_group>3</id_default_group>
+        <id_gender>0</id_gender><is_guest>0</is_guest><newsletter>0</newsletter>
+        <optin>0</optin><id_shop>1</id_shop><id_shop_group>1</id_shop_group>
+      </customer></prestashop>`;
             const res = await apiService.post<any>("/customers", xml);
             const id = res?.prestashop?.customer?.id;
             if (!id) throw new Error("No customer id");
@@ -175,36 +184,21 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             console.error(`Customer creation error:`, err);
             return;
         }
-    } else {
-        console.log(`Customer reused: ${email} → ${id_customer}`);
     }
 
-    // =========================================================
-    // ADDRESS
-    // =========================================================
+    // ========== ADDRESS ==========
     const addressKey = `${id_customer}::${adresse}`;
     let id_address = addressMap.get(addressKey);
     if (!id_address) {
         try {
-            const xml = `
-<prestashop>
-    <address>
-        <id_customer>${id_customer}</id_customer>
-        <id_country>1</id_country>
-        <firstname><![CDATA[Client]]></firstname>
-        <lastname><![CDATA[${nom}]]></lastname>
-        <address1><![CDATA[${adresse}]]></address1>
-        <city><![CDATA[Antananarivo]]></city>
-        <postcode>101</postcode>
-        <alias><![CDATA[Adresse principale]]></alias>
-        <phone></phone>
-        <phone_mobile></phone_mobile>
-        <other></other>
-        <vat_number></vat_number>
-        <dni></dni>
-        <id_state>0</id_state>
-    </address>
-</prestashop>`;
+            const xml = `<prestashop><address>
+        <id_customer>${id_customer}</id_customer><id_country>8</id_country>
+        <firstname><![CDATA[Client]]></firstname><lastname><![CDATA[${nom}]]></lastname>
+        <address1><![CDATA[${adresse}]]></address1><city><![CDATA[Antananarivo]]></city>
+        <postcode>101</postcode><alias><![CDATA[Adresse principale]]></alias>
+        <phone></phone><phone_mobile></phone_mobile><other></other>
+        <vat_number></vat_number><dni></dni><id_state>0</id_state>
+      </address></prestashop>`;
             const res = await apiService.post<any>("/addresses", xml);
             const id = res?.prestashop?.address?.id;
             if (!id) throw new Error("No address id");
@@ -217,29 +211,18 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         }
     }
 
-    // =========================================================
-    // CART CREATE
-    // =========================================================
+    // ========== CART CREATE ==========
     let id_cart: number;
     try {
-        const xml = `
-<prestashop>
-    <cart>
-        <id_customer>${id_customer}</id_customer>
-        <id_address_delivery>${id_address}</id_address_delivery>
-        <id_address_invoice>${id_address}</id_address_invoice>
-        <id_currency>1</id_currency>
-        <id_lang>1</id_lang>
-        <id_carrier>${id_carrier}</id_carrier>
-        <id_shop>1</id_shop>
-        <id_shop_group>1</id_shop_group>
-        <delivery_option></delivery_option>
-        <gift>0</gift>
-        <gift_message></gift_message>
-        <recyclable>0</recyclable>
-        <mobile_theme>0</mobile_theme>
-    </cart>
-</prestashop>`;
+        const xml = `<prestashop><cart>
+      <id_customer>${id_customer}</id_customer>
+      <id_address_delivery>${id_address}</id_address_delivery>
+      <id_address_invoice>${id_address}</id_address_invoice>
+      <id_currency>1</id_currency><id_lang>1</id_lang><id_carrier>${id_carrier}</id_carrier>
+      <id_shop>1</id_shop><id_shop_group>1</id_shop_group>
+      <delivery_option></delivery_option><gift>0</gift><gift_message></gift_message>
+      <recyclable>0</recyclable><mobile_theme>0</mobile_theme>
+    </cart></prestashop>`;
         const res = await apiService.post<any>("/carts", xml);
         const id = res?.prestashop?.cart?.id;
         if (!id) throw new Error("No cart id");
@@ -250,23 +233,18 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         return;
     }
 
-    // =========================================================
-    // GET SECURE KEY
-    // =========================================================
+    // ========== SECURE KEY ==========
     let secureKey = "";
     try {
         const res = await apiService.get<any>(`/carts/${id_cart}?display=full`);
         secureKey = res?.prestashop?.cart?.secure_key;
         if (!secureKey) throw new Error("Missing secure key");
-        console.log(`Cart secure key: ${secureKey}`);
     } catch (err) {
         console.error(`Cannot get secure key:`, err);
         return;
     }
 
-    // =========================================================
-    // RESOLVE PRODUCTS
-    // =========================================================
+    // ========== RESOLVE PRODUCTS ==========
     const resolvedTuples: ResolvedTuple[] = [];
     for (const tuple of tuples) {
         const productData = productMap.get(tuple.ref);
@@ -294,55 +272,35 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         });
     }
     if (resolvedTuples.length === 0) {
-        console.warn(`No valid products`);
+        console.warn(`No valid products for ${email}`);
         return;
     }
 
-    // =========================================================
-    // UPDATE CART WITH PRODUCTS (PUT /carts/{id})
-    // =========================================================
+    // ========== UPDATE CART WITH PRODUCTS (UNIQUEMENT LES PRODUITS, PAS DE TOTAUX) ==========
     try {
         const cartRowsXml = resolvedTuples
             .map(
-                (t) => `
-<cart_row>
-    <id_product>${t.id_product}</id_product>
-    <id_product_attribute>${t.id_product_attribute}</id_product_attribute>
-    <id_address_delivery>${id_address}</id_address_delivery>
-    <id_currency>1</id_currency>
-    <id_lang>1</id_lang>
-    <quantity>${t.qty}</quantity>
-</cart_row>`
+                (t) => `<cart_row>
+          <id_product>${t.id_product}</id_product>
+          <id_product_attribute>${t.id_product_attribute}</id_product_attribute>
+          <id_address_delivery>${id_address}</id_address_delivery>
+          <id_currency>1</id_currency><id_lang>1</id_lang><quantity>${t.qty}</quantity>
+        </cart_row>`
             )
             .join("");
 
-        const cartUpdateXml = `
-<prestashop>
-    <cart>
-        <id>${id_cart}</id>
-        <id_customer>${id_customer}</id_customer>
-        <id_address_delivery>${id_address}</id_address_delivery>
-        <id_address_invoice>${id_address}</id_address_invoice>
-        <id_currency>1</id_currency>
-        <id_lang>1</id_lang>
-        <id_carrier>${id_carrier}</id_carrier>
-        <id_shop>1</id_shop>
-        <id_shop_group>1</id_shop_group>
-        <secure_key>${secureKey}</secure_key>
-        <gift>0</gift>
-        <gift_message></gift_message>
-        <recyclable>0</recyclable>
-        <mobile_theme>0</mobile_theme>
-        <delivery_option></delivery_option>
-        <associations>
-            <cart_rows>
-                ${cartRowsXml}
-            </cart_rows>
-        </associations>
-    </cart>
-</prestashop>`;
+        const cartUpdateXml = `<prestashop><cart>
+      <id>${id_cart}</id><id_customer>${id_customer}</id_customer>
+      <id_address_delivery>${id_address}</id_address_delivery>
+      <id_address_invoice>${id_address}</id_address_invoice>
+      <id_currency>1</id_currency><id_lang>1</id_lang><id_carrier>${id_carrier}</id_carrier>
+      <id_shop>1</id_shop><id_shop_group>1</id_shop_group>
+      <secure_key>${secureKey}</secure_key><gift>0</gift><gift_message></gift_message>
+      <recyclable>0</recyclable><mobile_theme>0</mobile_theme>
+      <delivery_option></delivery_option>
+      <associations><cart_rows>${cartRowsXml}</cart_rows></associations>
+    </cart></prestashop>`;
 
-        console.log("Cart update XML:", cartUpdateXml);
         await apiService.put(`/carts/${id_cart}`, cartUpdateXml);
         console.log("Cart updated with products");
     } catch (err) {
@@ -350,50 +308,23 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         return;
     }
 
-    // =========================================================
-    // VERIFY CART CONTENT
-    // =========================================================
-    try {
-        const checkRes = await apiService.get<any>(`/carts/${id_cart}?display=full`);
-        const cartRows = checkRes?.prestashop?.cart?.associations?.cart_rows;
-        const cartRow  = cartRows?.cart_row;
-        console.log(`Cart ${id_cart} now has products:`, cartRow);
-        if (!cartRow || (Array.isArray(cartRow) && cartRow.length === 0)) {
-            console.error("Le panier est toujours vide après la mise à jour. Abandon.");
-            return;
-        }
-    } catch (err) {
-        console.error("Error verifying cart content:", err);
-        return;
-    }
-
-    // =========================================================
-    // SET DELIVERY OPTION (second PUT)
-    // =========================================================
+    // ========== SET DELIVERY OPTION (sérialisation PHP robuste) ==========
     try {
         const carrierPart = `${id_carrier},`;
-        const phpSerialized = `a:1:{i:${id_address};s:${carrierPart.length}:"${carrierPart}";}`;
+        const deliveryOptionObj = { [id_address]: carrierPart };
+        const phpSerialized = phpSerializeArray(deliveryOptionObj);
 
-        const deliveryXml = `
-<prestashop>
-    <cart>
-        <id>${id_cart}</id>
-        <id_customer>${id_customer}</id_customer>
-        <id_address_delivery>${id_address}</id_address_delivery>
-        <id_address_invoice>${id_address}</id_address_invoice>
-        <id_currency>1</id_currency>
-        <id_lang>1</id_lang>
-        <id_carrier>${id_carrier}</id_carrier>
-        <id_shop>1</id_shop>
-        <id_shop_group>1</id_shop_group>
-        <secure_key>${secureKey}</secure_key>
-        <gift>0</gift>
-        <gift_message></gift_message>
-        <recyclable>0</recyclable>
-        <mobile_theme>0</mobile_theme>
-        <delivery_option><![CDATA[${phpSerialized}]]></delivery_option>
-    </cart>
-</prestashop>`;
+        const deliveryXml = `<prestashop><cart>
+      <id>${id_cart}</id><id_customer>${id_customer}</id_customer>
+      <id_address_delivery>${id_address}</id_address_delivery>
+      <id_address_invoice>${id_address}</id_address_invoice>
+      <id_currency>1</id_currency><id_lang>1</id_lang><id_carrier>${id_carrier}</id_carrier>
+      <id_shop>1</id_shop><id_shop_group>1</id_shop_group>
+      <secure_key>${secureKey}</secure_key><gift>0</gift><gift_message></gift_message>
+      <recyclable>0</recyclable><mobile_theme>0</mobile_theme>
+      <delivery_option><![CDATA[${phpSerialized}]]></delivery_option>
+    </cart></prestashop>`;
+
         await apiService.put(`/carts/${id_cart}`, deliveryXml);
         console.log("Delivery option set");
     } catch (err) {
@@ -401,154 +332,78 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         return;
     }
 
-    // =========================================================
-    // CALCUL DES TOTAUX (local)
-    // =========================================================
+    // ========== CALCUL DES TOTAUX (uniquement pour les champs requis de l'ordre) ==========
     let total_products_wt = 0; // TTC
-    let total_products    = 0; // HT
-
+    let total_products = 0;    // HT
     for (const t of resolvedTuples) {
         const unit_ht = t.unit_price_ttc / (1 + t.rate / 100);
         total_products_wt += t.unit_price_ttc * t.qty;
-        total_products    += unit_ht * t.qty;
+        total_products += unit_ht * t.qty;
     }
-
-    const total_shipping              = 0;
-    const total_shipping_tax_excl     = 0;
-    const total_shipping_tax_incl     = 0;
-    const total_discounts             = 0;
-    const total_discounts_tax_excl    = 0;
-    const total_discounts_tax_incl    = 0;
-    const total_wrapping              = 0;
-    const total_wrapping_tax_excl     = 0;
-    const total_wrapping_tax_incl     = 0;
-    const total_paid                  = total_products_wt + total_shipping;
-    const total_paid_tax_excl         = total_products + total_shipping_tax_excl;
-    const total_paid_tax_incl         = total_paid;
-    const total_paid_real             = total_paid;
-
-    console.log(`Totaux calculés: total_paid=${total_paid.toFixed(2)}, total_products_wt=${total_products_wt.toFixed(2)}, total_products=${total_products.toFixed(2)}`);
-
-    if (total_products_wt === 0) {
-        console.error("Totaux nuls — prix manquant dans combinationMap ou productMap. Abandon.");
+    const total_shipping = 0;
+    const total_paid = total_products_wt + total_shipping;
+    // Après le calcul des totaux, avant le bloc ORDER CREATE
+    if (isNaN(total_paid) || total_paid <= 0) {
+        console.error(`Invalid total_paid for ${email}: ${total_paid} — check productMap prices`);
         return;
     }
-
-    // =========================================================
-    // MISE À JOUR DES TOTAUX DU PANIER (avec tous les champs obligatoires)
-    // =========================================================
-    try {
-        const cartTotalsXml = `
-<prestashop>
-    <cart>
-        <id>${id_cart}</id>
-        <id_customer>${id_customer}</id_customer>
-        <id_address_delivery>${id_address}</id_address_delivery>
-        <id_address_invoice>${id_address}</id_address_invoice>
-        <id_currency>1</id_currency>
-        <id_lang>1</id_lang>
-        <id_carrier>${id_carrier}</id_carrier>
-        <id_shop>1</id_shop>
-        <id_shop_group>1</id_shop_group>
-        <secure_key>${secureKey}</secure_key>
-        <total_products>${toFixed6(total_products)}</total_products>
-        <total_products_wt>${toFixed6(total_products_wt)}</total_products_wt>
-        <total_shipping>${toFixed6(total_shipping)}</total_shipping>
-        <total_shipping_tax_incl>${toFixed6(total_shipping_tax_incl)}</total_shipping_tax_incl>
-        <total_shipping_tax_excl>${toFixed6(total_shipping_tax_excl)}</total_shipping_tax_excl>
-        <total_discounts>${toFixed6(total_discounts)}</total_discounts>
-        <total_discounts_tax_incl>${toFixed6(total_discounts_tax_incl)}</total_discounts_tax_incl>
-        <total_discounts_tax_excl>${toFixed6(total_discounts_tax_excl)}</total_discounts_tax_excl>
-        <total_wrapping>${toFixed6(total_wrapping)}</total_wrapping>
-        <total_wrapping_tax_incl>${toFixed6(total_wrapping_tax_incl)}</total_wrapping_tax_incl>
-        <total_wrapping_tax_excl>${toFixed6(total_wrapping_tax_excl)}</total_wrapping_tax_excl>
-        <total_paid>${toFixed6(total_paid)}</total_paid>
-        <total_paid_tax_incl>${toFixed6(total_paid_tax_incl)}</total_paid_tax_incl>
-        <total_paid_tax_excl>${toFixed6(total_paid_tax_excl)}</total_paid_tax_excl>
-        <total_paid_real>${toFixed6(total_paid_real)}</total_paid_real>
-    </cart>
-</prestashop>`;
-
-        await apiService.put(`/carts/${id_cart}`, cartTotalsXml);
-        console.log("Cart totals updated");
-    } catch (err) {
-        console.error("Error updating cart totals:", err);
-        // On continue quand même, la commande peut parfois être acceptée
-    }
-
-    // =========================================================
-    // ORDER CREATE
-    // =========================================================
     const dateFormatted = formatDate(date);
+
+    // ========== ORDER CREATE ==========
     try {
-        const orderXml = `
-<prestashop>
-    <order>
-        <id_shop>1</id_shop>
-        <id_shop_group>1</id_shop_group>
-        <id_cart>${id_cart}</id_cart>
-        <id_customer>${id_customer}</id_customer>
-        <id_address_delivery>${id_address}</id_address_delivery>
-        <id_address_invoice>${id_address}</id_address_invoice>
-        <id_currency>1</id_currency>
-        <id_lang>1</id_lang>
-        <id_carrier>${id_carrier}</id_carrier>
-        <module>ps_checkpayment</module>
-        <payment>Check payment</payment>
-        <secure_key>${secureKey}</secure_key>
-        <conversion_rate>1.000000</conversion_rate>
-        <total_products>${toFixed6(total_products)}</total_products>
-        <total_products_wt>${toFixed6(total_products_wt)}</total_products_wt>
-        <total_shipping>${toFixed6(total_shipping)}</total_shipping>
-        <total_shipping_tax_incl>${toFixed6(total_shipping_tax_incl)}</total_shipping_tax_incl>
-        <total_shipping_tax_excl>${toFixed6(total_shipping_tax_excl)}</total_shipping_tax_excl>
-        <total_discounts>${toFixed6(total_discounts)}</total_discounts>
-        <total_discounts_tax_incl>${toFixed6(total_discounts_tax_incl)}</total_discounts_tax_incl>
-        <total_discounts_tax_excl>${toFixed6(total_discounts_tax_excl)}</total_discounts_tax_excl>
-        <total_wrapping>${toFixed6(total_wrapping)}</total_wrapping>
-        <total_wrapping_tax_incl>${toFixed6(total_wrapping_tax_incl)}</total_wrapping_tax_incl>
-        <total_wrapping_tax_excl>${toFixed6(total_wrapping_tax_excl)}</total_wrapping_tax_excl>
-        <total_paid>${toFixed6(total_paid)}</total_paid>
-        <total_paid_tax_incl>${toFixed6(total_paid_tax_incl)}</total_paid_tax_incl>
-        <total_paid_tax_excl>${toFixed6(total_paid_tax_excl)}</total_paid_tax_excl>
-        <total_paid_real>${toFixed6(total_paid_real)}</total_paid_real>
-        <date_add>${dateFormatted}</date_add>
-        <valid>1</valid>
-    </order>
-</prestashop>`;
-        console.log("ORDER XML:");
-        console.log(orderXml);
+        const orderXml = `<prestashop><order>
+  <id_shop>1</id_shop><id_shop_group>1</id_shop_group>
+  <id_cart>${id_cart}</id_cart><id_customer>${id_customer}</id_customer>
+  <id_address_delivery>${id_address}</id_address_delivery>
+  <id_address_invoice>${id_address}</id_address_invoice>
+  <id_currency>1</id_currency><id_lang>1</id_lang><id_carrier>${id_carrier}</id_carrier>
+  <module>ps_checkpayment</module><payment>Check payment</payment>
+  <secure_key>${secureKey}</secure_key><conversion_rate>1.000000</conversion_rate>
+  <total_products>${toFixed6(total_products)}</total_products>
+  <total_products_wt>${toFixed6(total_products_wt)}</total_products_wt>
+  <total_shipping>0.000000</total_shipping>
+  <total_shipping_tax_incl>0.000000</total_shipping_tax_incl>
+  <total_shipping_tax_excl>0.000000</total_shipping_tax_excl>
+  <total_discounts>0</total_discounts><total_discounts_tax_incl>0</total_discounts_tax_incl>
+  <total_discounts_tax_excl>0</total_discounts_tax_excl>
+  <total_wrapping>0</total_wrapping><total_wrapping_tax_incl>0</total_wrapping_tax_incl>
+  <total_wrapping_tax_excl>0</total_wrapping_tax_excl>
+  <total_paid>${toFixed6(total_paid)}</total_paid>
+  <total_paid_tax_incl>${toFixed6(total_paid)}</total_paid_tax_incl>
+  <total_paid_tax_excl>${toFixed6(total_products)}</total_paid_tax_excl>
+  <total_paid_real>${toFixed6(total_paid)}</total_paid_real>
+  <date_add>${dateFormatted}</date_add><valid>1</valid>
+</order></prestashop>`;
+
+        // Ligne ~372, juste avant :
+// const res = await apiService.post<any>("/orders", orderXml);
+
+        console.log("ORDER XML envoyé :", orderXml);
+
         const res = await apiService.post<any>("/orders", orderXml);
-        console.log("ORDER RESPONSE:", res);
+        console.log("ORDER RESPONSE RAW:", JSON.stringify(res)); // ← ajoute cette ligne
         const id = res?.prestashop?.order?.id;
         if (!id) throw new Error("No order id returned");
         const id_order = parseInt(id, 10);
         orderCountMap.set(id_order, true);
         console.log(`Order created: ${id_order}`);
 
-        // =====================================================
-        // ORDER STATE
-        // =====================================================
+        // ========== ORDER STATE & STOCK UPDATE ==========
         if (etat) {
-            let id_order_state = STATUS_MAP[etat];
-            if (!id_order_state) id_order_state = 2;
-            const historyXml = `
-<prestashop>
-    <order_history>
-        <id_order>${id_order}</id_order>
-        <id_order_state>${id_order_state}</id_order_state>
+            let id_order_state = STATUS_MAP[etat.toLowerCase()];
+            if (!id_order_state) id_order_state = 2; // paiement accepté par défaut
+            const historyXml = `<prestashop><order_history>
+        <id_order>${id_order}</id_order><id_order_state>${id_order_state}</id_order_state>
         <date_add>${dateFormatted}</date_add>
-    </order_history>
-</prestashop>`;
+      </order_history></prestashop>`;
             await apiService.post("/order_histories", historyXml);
             console.log(`Order history added: order ${id_order} → state ${id_order_state}`);
         }
     } catch (err: any) {
-        console.error(`ORDER ERROR:`);
+        console.error("ORDER ERROR:");
         if (err.response) {
             console.error("STATUS:", err.response.status);
             console.error("DATA:", err.response.data);
-            console.error("HEADERS:", err.response.headers);
         } else {
             console.error(err);
         }

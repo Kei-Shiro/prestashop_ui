@@ -418,3 +418,6 @@ INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resou
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (845, 'zones', 'PATCH', 1);
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (843, 'zones', 'DELETE', 1);
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (844, 'zones', 'HEAD', 1);
+
+
+SELECT id_product, id_product_attribute, quantity FROM ps_stock_available WHERE id_product IN (71, 72);

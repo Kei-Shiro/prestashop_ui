@@ -9,7 +9,9 @@ const apiService = {
     },
 
     async post<T>(url: string, data?: string, config?: AxiosRequestConfig): Promise<T> {
-        const r = await api.post(url, data, { ...config, responseType: 'text' })
+        const r = await api.post(url, data, { ...config, responseType: 'text' });
+        // Log le body brut pour débugger
+        console.log(`[POST ${url}] status:`, r.status, '| body:', r.data?.substring(0, 500));
         return xmlToJson(parseXml(r.data)) as T
     },
 

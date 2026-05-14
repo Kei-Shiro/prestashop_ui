@@ -95,23 +95,3 @@ export const nonErasableEndpoints: string[] = [
     '/weight_ranges',             // utilisés par carriers
     '/zones',                     // référentiel géo
 ];
-
-/**
- * Cas spéciaux — traitement custom requis.
- */
-export const specialHandlingEndpoints = {
-    '/categories': {
-        action: 'delete_filtered',
-        filter: 'id=![1|2]',
-        note: 'Garder Root (1) et Home (2) — hardcodés dans le core',
-    },
-    '/addresses': {
-        action: 'delete_filtered',
-        filter: 'id_customer=![0]',
-        note: 'Garder adresses système (shops, warehouses)',
-    },
-    '/stock_availables': {
-        action: 'put_quantity_zero',
-        note: 'NE JAMAIS DELETE — sinon crash front sur chaque produit. PUT quantity=0',
-    },
-};
