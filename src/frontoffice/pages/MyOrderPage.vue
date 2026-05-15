@@ -30,7 +30,8 @@ const authStore = useAuthStore();
 onMounted(async () => {
   if (!authStore.isAnonymous && authStore.user) {
     await loadOrdersAndMetadata();
-    orders.value = orders.value.filter(o => o.customerId === authStore.user.id);
+    const userId = Number(authStore.user.id);
+    orders.value = orders.value.filter(o => Number(o.customerId) === userId);
   } else {
     orders.value = [];
   }

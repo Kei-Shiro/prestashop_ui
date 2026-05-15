@@ -2,7 +2,7 @@ import { ref } from "vue";
 import { MappedOrder } from "../types/order";
 import { orderService } from "../services/order-service";
 
-const ALLOWED_STATE_IDS = [6, 8, 9]; // Échec paiement, Paiement effectué, Annulé
+const ALLOWED_STATE_IDS = [2, 6, 13]; // Paiement accepté, Annulé, En attente de paiement à la livraison
 
 export function useOrders() {
     const orders = ref<MappedOrder[]>([]);

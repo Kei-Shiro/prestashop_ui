@@ -41,16 +41,19 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { useCartStore } from '../stores/cart';
 import { customerService } from '@shared/services/customer-service';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const cartStore = useCartStore();
 
 const users = ref<any[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
 
 onMounted(async () => {
+  cartStore.clearAnonymousCart();
   try {
     const allUsers = await customerService.getAllCustomers();
     users.value = allUsers.filter(u => u.email && u.firstname && u.lastname).slice(0, 10);

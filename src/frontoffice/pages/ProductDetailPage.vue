@@ -11,6 +11,14 @@
       <div class="detail-info">
         <h1 class="detail-name">{{ product.name }}</h1>
         <p class="detail-price">{{ product.price }} &euro;</p>
+
+        <div class="detail-stock">
+          <span v-if="Number(product.quantity) > 0" class="stock-available">
+            En stock ({{ product.quantity }} disponible{{ Number(product.quantity) > 1 ? 's' : '' }})
+          </span>
+          <span v-else class="stock-unavailable">Rupture de stock</span>
+        </div>
+
         <div class="detail-desc" v-html="product.description"></div>
 
         <div v-if="sizes.length > 0" class="detail-option">
@@ -178,6 +186,15 @@ const addToCart = () => { if (product.value) cartStore.addProduct(product.value,
   line-height: 1.7;
   margin-bottom: 24px;
 }
+
+.detail-stock {
+  margin-bottom: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.stock-available { color: #16a34a; }
+.stock-unavailable { color: #dc2626; }
 
 .detail-option {
   margin-bottom: 16px;

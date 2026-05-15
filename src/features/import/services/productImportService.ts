@@ -254,6 +254,10 @@ async function processProducts(rows: ProductCSVRow[]) {
         console.error(`Invalid price format for ${row.reference}`);
         continue;
       }
+      
+      if (cleanPrixTtc < 0 || cleanPrixAchat < 0) {
+        throw new Error(`VALIDATION_ERROR: Montant négatif détecté pour la référence ${row.reference}. Les montants doivent être positifs.`);
+      }
 
       const taxData = taxRateMap.get(row.Taxe);
       if (!taxData) {

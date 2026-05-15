@@ -43,7 +43,6 @@ const { filters, filteredProducts, applyFilters } = useProductFilters(products);
 
 onMounted(async () => {
   await fetchProducts();
-  const categories = [...new Set(products.value.map(p => p.category).filter(Boolean))];
 });
 </script>
 

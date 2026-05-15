@@ -5,12 +5,25 @@ import { extractLanguageValue } from '../utils/extractLanguageValue';
 
 const productService = {
     async getAll(): Promise<Product[]> {
-        const res = await apiService.get<any>('/products?display=full&limit=100');
+        const [res, stockRes] = await Promise.all([
+            apiService.get<any>('/products?display=full&limit=100'),
+            apiService.get<any>('/stock_availables?display=[id_product,quantity]&filter[id_product_attribute]=0')
+        ]);
 
         let list = res?.prestashop?.products?.product ?? [];
         if (!Array.isArray(list)) list = [list];
 
-        // RǸcupǸrer les images pour tous les produits en parallle
+        let stockList = stockRes?.prestashop?.stock_availables?.stock_available ?? [];
+        if (!Array.isArray(stockList)) stockList = [stockList];
+
+        const stockMap = new Map<string, string>();
+        stockList.forEach((s: any) => {
+            if (s && s.id_product) {
+                stockMap.set(String(s.id_product), String(s.quantity || '0'));
+            }
+        });
+
+        // Récupérer les images pour tous les produits en parallèle
         const productsWithImages = await Promise.all(
             list.map(async (p: any) => {
                 let images: string[] = [];
@@ -23,11 +36,11 @@ const productService = {
                 
                 return {
                     id_product: String(p.id),
-name: extractLanguageValue(p.name),
+                    name: extractLanguageValue(p.name),
                     price: parseFloat(p.price).toFixed(2),
                     description: extractLanguageValue(p.description),
                     description_short: extractLanguageValue(p.description_short),
-                    quantity: p.quantity || '0',
+                    quantity: stockMap.get(String(p.id)) || '0',
                     active: p.active === '1',
                     images: images,
                     id_default_image: defaultImage,
@@ -42,10 +55,16 @@ name: extractLanguageValue(p.name),
     },
 
     async getProduct(id: number): Promise<Product> {
-        const res = await apiService.get<any>(`/products/${id}?display=full`);
+        const [res, stockRes] = await Promise.all([
+            apiService.get<any>(`/products/${id}?display=full`),
+            apiService.get<any>(`/stock_availables?filter[id_product]=${id}&filter[id_product_attribute]=0&display=[quantity]`)
+        ]);
         const p = res?.prestashop?.product;
 
         if (!p) throw new Error("Product not found");
+
+        const stock = stockRes?.prestashop?.stock_availables?.stock_available;
+        const quantity = Array.isArray(stock) ? stock[0]?.quantity : (stock?.quantity || '0');
 
         let images: string[] = [];
         if (p.associations?.images?.image) {
@@ -67,7 +86,7 @@ name: extractLanguageValue(p.name),
             price: parseFloat(p.price).toFixed(2),
             description: extractLanguageValue(p.description),
             description_short: extractLanguageValue(p.description_short),
-            quantity: p.quantity || '0',
+            quantity: String(quantity),
             active: p.active === '1',
             images: images,
             id_default_image: defaultImage,

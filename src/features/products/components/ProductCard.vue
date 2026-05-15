@@ -35,13 +35,15 @@ const goToDetails = () => router.push(`/product/${props.product.id_product}`);
 const addToCart = () => cartStore.addProduct(props.product, 1);
 
 const isHot = computed(() => {
-  if (!props.product.date_add) return false;
-  const diff = Math.floor((Date.now() - new Date(props.product.date_add).getTime()) / 86400000);
-  return diff <= 1 && diff >= 0;
+  const dateStr = props.product.date_availability || props.product.date_add;
+  if (!dateStr) return false;
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  return diff >= 0 && diff <= 1;
 });
 const isNew = computed(() => {
-  if (!props.product.date_add) return false;
-  const diff = Math.floor((Date.now() - new Date(props.product.date_add).getTime()) / 86400000);
+  const dateStr = props.product.date_availability || props.product.date_add;
+  if (!dateStr) return false;
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
   return diff > 1 && diff <= 7;
 });
 </script>
