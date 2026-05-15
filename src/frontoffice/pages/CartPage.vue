@@ -38,8 +38,9 @@
 </template>
 
 <script setup lang="ts">
-import { useCartStore } from '../stores/cart';
-import productService from '@shared/services/product-service';
+
+import productService from '@features/catalog/services/product-service';
+import {useCartStore} from "@features/checkout/stores/cartStore";
 
 const cartStore = useCartStore();
 const getImageUrl = (product: any) =>

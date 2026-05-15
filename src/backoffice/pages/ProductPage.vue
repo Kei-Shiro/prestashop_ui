@@ -1,8 +1,8 @@
 <!-- src/pages/ProductsPage.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import apiService from '@shared/services/api-service'
-import ProductTable from '../components/ProductTable.vue'
+import apiService from '@shared/api/api-service'
+import ProductTable from '@features/catalog/components/ProductTable.vue'
 import type { Product } from '@shared/types/product'
 
 const products = ref<Product[]>([])

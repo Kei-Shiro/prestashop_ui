@@ -54,9 +54,9 @@
 <script setup lang="ts">
 import { reactive, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { useCartStore } from '../stores/cart';
-import { useCheckout } from '@shared/composables/useCheckout';
-import { useAuthStore } from '../stores/auth';
+import { useCheckout } from '@features/checkout/composables/useCheckout';
+import { useAuthStore } from '@features/auth/stores/customerAuthStore';
+import {useCartStore} from "@features/checkout/stores/cartStore";
 
 const router = useRouter();
 const authStore = useAuthStore();

@@ -33,10 +33,10 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { useProduct } from '@shared/composables/useProduct';
-import { useProductFilters } from '@shared/composables/useProductFilters';
-import ProductCard from '@features/products/components/ProductCard.vue';
-import ProductFilters from '@features/products/components/ProductFilters.vue';
+import { useProduct } from '@features/catalog/composables/useProduct';
+import { useProductFilters } from '@features/catalog/composables/useProductFilters';
+import ProductCard from '@features/catalog/components/ProductCard.vue';
+import ProductFilters from '@features/catalog/components/ProductFilters.vue';
 
 const { products, loading, error, fetchProducts } = useProduct();
 const { filters, filteredProducts, applyFilters } = useProductFilters(products);

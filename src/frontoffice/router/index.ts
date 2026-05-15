@@ -7,7 +7,7 @@ import CheckoutPage from '../pages/CheckoutPage.vue';
 import OrderConfirmationPage from '../pages/OrderConfirmationPage.vue';
 import MyOrdersPage from '../pages/MyOrderPage.vue';
 import DefaultLayout from '../layouts/DefaultLayout.vue';
-import { useAuthStore } from '../stores/auth';
+import { useAuthStore } from '@features/auth/stores/customerAuthStore';
 
 const routes = [
   {

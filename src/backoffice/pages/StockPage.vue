@@ -59,9 +59,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useProductStore } from '../stores/product';
-import { useStockStore } from '../stores/stock';
+import { useProductStore } from '@features/catalog/stores/adminProductStore';
 import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
+import {useStockStore} from "@features/inventory/stores/stockStore";
 
 const productStore = useProductStore();
 const stockStore = useStockStore();

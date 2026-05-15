@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { useOrders } from '@shared/composables/useOrders';
+import { useOrders } from '@features/checkout/composables/useOrders';
 
 const { orders, orderStates, allowedStateIds, isLoading, error, updatingOrderId, loadOrdersAndMetadata, changeOrderStatus } = useOrders();
 

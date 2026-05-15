@@ -47,7 +47,7 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { useOrderStore } from '../stores/order';
+import { useOrderStore } from '@features/checkout/stores/adminOrderStore';
 
 const orderStore = useOrderStore();
 

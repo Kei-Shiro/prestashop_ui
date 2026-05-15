@@ -21,8 +21,8 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { useOrders } from '@shared/composables/useOrders';
-import { useAuthStore } from '../stores/auth';
+import { useOrders } from '@features/checkout/composables/useOrders';
+import { useAuthStore } from '@features/auth/stores/customerAuthStore';
 
 const { orders, isLoading, error, loadOrdersAndMetadata } = useOrders();
 const authStore = useAuthStore();

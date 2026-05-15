@@ -31,8 +31,8 @@
 </template>
 
 <script setup lang="ts">
-import { useCartStore } from '../stores/cart';
-import { useAuthStore } from '../stores/auth';
+import { useCartStore } from '@features/checkout/stores/cartStore';
+import { useAuthStore } from '@features/auth/stores/customerAuthStore';
 import { useRouter } from 'vue-router';
 
 const cartStore = useCartStore();

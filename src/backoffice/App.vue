@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
-import Sidebar from './components/Sidebar.vue';
+import Sidebar from '@features/dashboard/components/Sidebar.vue';
 
 const route = useRoute();
 

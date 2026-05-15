@@ -51,9 +51,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
-import { useProduct } from '@shared/composables/useProduct';
-import { useCartStore } from '../stores/cart';
-import productService from '@shared/services/product-service';
+import { useProduct } from '@features/catalog/composables/useProduct';
+import productService from '@features/catalog/services/product-service';
+import {useCartStore} from "@features/checkout/stores/cartStore";
 
 const route = useRoute();
 const { currentProduct, loading, error, fetchProduct } = useProduct();

@@ -40,9 +40,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '../stores/auth';
-import { useCartStore } from '../stores/cart';
-import { customerService } from '@shared/services/customer-service';
+import { useAuthStore } from '@features/auth/stores/customerAuthStore';
+import { useCartStore } from '@features/checkout/stores/cartStore';
+import { customerService } from '@features/auth/services/customer-service';
 
 const router = useRouter();
 const authStore = useAuthStore();
