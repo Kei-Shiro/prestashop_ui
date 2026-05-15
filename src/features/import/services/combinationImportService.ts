@@ -112,6 +112,8 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
               <id>${stockId}</id>
               <id_product>${productId}</id_product>
               <id_product_attribute>0</id_product_attribute>
+              <id_shop>${simpleStock.id_shop || 1}</id_shop>
+              <id_shop_group>${simpleStock.id_shop_group || 0}</id_shop_group>
               <quantity>${quantity}</quantity>
               <depends_on_stock>0</depends_on_stock>
               <out_of_stock>2</out_of_stock>
@@ -286,12 +288,15 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
 
       if (allComboStocks.length > 0) {
         // Ligne existante → PUT
-        const stockId = allComboStocks[0].id;
+        const stockRecord = allComboStocks[0];
+        const stockId = stockRecord.id;
         const stockPutXml = `<prestashop>
           <stock_available>
             <id>${stockId}</id>
             <id_product>${productId}</id_product>
             <id_product_attribute>${combinationId}</id_product_attribute>
+            <id_shop>${stockRecord.id_shop || 1}</id_shop>
+            <id_shop_group>${stockRecord.id_shop_group || 0}</id_shop_group>
             <quantity>${quantity}</quantity>
             <depends_on_stock>0</depends_on_stock>
             <out_of_stock>2</out_of_stock>
@@ -300,18 +305,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         await apiService.put(`/stock_availables/${stockId}`, stockPutXml);
         console.log(`Stock updated (PUT) for combination ${combinationId}: qty=${quantity}`);
       } else {
-        // Pas de ligne → POST
-        const stockPostXml = `<prestashop>
-          <stock_available>
-            <id_product>${productId}</id_product>
-            <id_product_attribute>${combinationId}</id_product_attribute>
-            <id_shop>1</id_shop>
-            <quantity>${quantity}</quantity>
-            <depends_on_stock>0</depends_on_stock>
-            <out_of_stock>2</out_of_stock>
-          </stock_available>
-        </prestashop>`;
-
+        console.warn(`No stock_available entry found for combination ${combinationId}`);
       }
     } catch (err) {
       console.error(`Error updating stock for combination ${combinationId}`, err);

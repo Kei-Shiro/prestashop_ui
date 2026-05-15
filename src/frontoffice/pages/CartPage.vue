@@ -15,14 +15,13 @@
           </div>
           <div class="cart-item-info">
             <h3 class="cart-item-name">{{ item.product.name }}</h3>
-            <p class="cart-item-price">{{ item.product.price }} &euro;</p>
-          </div>
+            <p class="cart-item-price">{{ item.product.price }} &euro;</p>          </div>
           <div class="qty-ctrl">
             <button class="qty-btn" @click="cartStore.updateQuantity(item.product.id_product, item.quantity - 1)">&minus;</button>
             <span class="qty-val">{{ item.quantity }}</span>
             <button class="qty-btn" @click="cartStore.updateQuantity(item.product.id_product, item.quantity + 1)">&plus;</button>
           </div>
-          <div class="cart-item-total">{{ item.total_price }} &euro;</div>
+          <div class="cart-item-total">{{ Number(item.total_price).toFixed(2) }} &euro;</div>
           <button class="cart-remove" @click="cartStore.removeProduct(item.product.id_product)">Retirer</button>
         </div>
       </div>
@@ -30,7 +29,7 @@
       <div class="cart-footer">
         <div class="cart-subtotal">
           <span class="subtotal-label">Sous-total</span>
-          <span class="subtotal-amount">{{ cartStore.totalAmount }} &euro;</span>
+          <span class="subtotal-amount">{{ cartStore.totalAmount.toFixed(2) }} &euro;</span>
         </div>
         <router-link to="/checkout" class="btn-primary">Proceder au paiement</router-link>
       </div>

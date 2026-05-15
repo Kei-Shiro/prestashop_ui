@@ -14,9 +14,17 @@ export default defineConfig({
     },
     server: {
         proxy: {
+            // Proxy pour l'API standard
             '/prestashop/api': {
                 target: 'http://localhost',
                 changeOrigin: true,
+                secure: false,
+            },
+            // Proxy spécifique pour le script custom de stock
+            '/prestashop/update_stock_custom.php': {
+                target: 'http://localhost',
+                changeOrigin: true,
+                secure: false,
             }
         }
     },

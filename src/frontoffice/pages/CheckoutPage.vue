@@ -38,7 +38,7 @@
         </div>
         <div class="summary-total">
           <span>Total</span>
-          <span class="summary-amount">{{ cartStore.totalAmount }} &euro;</span>
+          <span class="summary-amount">{{ cartStore.totalAmount.toFixed(2) }} &euro;</span>
         </div>
       </div>
 
@@ -96,10 +96,10 @@ const isSubmitting = computed(() => loading.value);
 const handleSubmit = () => {
   errors.value = {};
 
-  if (!validateEmail(form.email)) {
+  if (authStore.isAnonymous && !validateEmail(form.email)) {
     errors.value.email = 'Email invalide';
   }
-  if (!validatePhone(form.phone)) {
+  if (authStore.isAnonymous && !validatePhone(form.phone)) {
     errors.value.phone = 'Telephone invalide (8 chiffres minimum)';
   }
   if (!validatePostalCode(form.postal_code)) {
