@@ -3,8 +3,8 @@ import { orderService } from '../services/order-service';
 import { customerService } from '@features/auth/services/customer-service';
 import { useCartStore } from '@features/checkout/stores/cartStore';
 import { useAuthStore } from '@features/auth/stores/customerAuthStore';
-import {CheckoutForm} from "@shared/types/checkout";
-
+import { CheckoutForm } from "@shared/types/checkout";
+import { extractIdValue } from '@shared/utils/extractIdValue';
 
 export function useCheckout() {
     const loading = ref(false);
@@ -14,7 +14,7 @@ export function useCheckout() {
 
     /**
      * Trouve l'ID de l'état initial pour une nouvelle commande COD
-     * Cherche "paiement à la livraison" ou "cash on delivery" en priorité
+     * Cherche l'état correspondant à l'attente de paiement à la livraison
      */
     const resolveInitialStateId = async (): Promise<number> => {
         try {
@@ -31,38 +31,24 @@ export function useCheckout() {
                 return '';
             };
 
-            // Priorité 1 : état spécifique au Paiement à la livraison
+            // Priorité 1 : état spécifique "En attente de paiement à la livraison"
             const codState = states.find((s: any) => {
                 const label = getLabel(s).toLowerCase();
-                return label.includes('livraison') || label.includes('cash');
+                return label.includes('livraison') || label.includes('cash on delivery');
             });
-            if (codState) return Number(codState.id);
+            if (codState) return Number(extractIdValue(codState.id));
 
-            // Priorité 2 : état "attente" générique (mais pas payé si possible)
+            // Priorité 2 : tout état "attente"
             const pendingState = states.find((s: any) => {
-                const label = getLabel(s).toLowerCase();
-                return (label.includes('attente') || label.includes('pending')) && !label.includes('payé');
-            });
-            if (pendingState) return Number(pendingState.id);
-
-            // Priorité 3 : tout état "attente"
-            const anyPending = states.find((s: any) => {
                 const label = getLabel(s).toLowerCase();
                 return label.includes('attente') || label.includes('pending');
             });
-            if (anyPending) return Number(anyPending.id);
+            if (pendingState) return Number(extractIdValue(pendingState.id));
 
-            // Fallback : premier état qui n'est pas annulation/erreur
-            const safeState = states.find((s: any) => {
-                const label = getLabel(s).toLowerCase();
-                return !label.includes('annul') && !label.includes('cancel')
-                    && !label.includes('erreur') && !label.includes('error');
-            });
-            if (safeState) return Number(safeState.id);
-
-            if (states.length > 0) return Number(states[0].id);
+            // Fallback - utiliser l'ID 3 pour "En cours de préparation" au lieu de non commandé
+            return 3;
         } catch (_) { /* ignore */ }
-        return 3; // valeur par défaut PS (Préparation en cours)
+        return 3;
     };
 
     const submitOrder = async (form: CheckoutForm) => {
@@ -97,7 +83,7 @@ export function useCheckout() {
                 // Récupérer l'adresse existante du client (ou en créer une)
                 const addresses = await customerService.getAllAddressesByCustomerId(customerId);
                 if (addresses.length > 0) {
-                    addressId = Number(addresses[0].id); // cast string→number depuis l'API
+                    addressId = Number(extractIdValue(addresses[0].id)); 
                 } else {
                     // Créer une adresse pour ce client
                     addressId = await customerService.createAddress({
@@ -114,9 +100,10 @@ export function useCheckout() {
                 }
             }
 
-            // Préparer les items du panier
+            // Préparer les items du panier avec id_product et id_product_attribute
             const items = cartStore.items.map(item => ({
-                product: item.product,
+                id_product: extractIdValue(item.product.id_product),
+                id_product_attribute: extractIdValue(item.id_product_attribute || '0'),
                 quantity: item.quantity
             }));
 
@@ -129,8 +116,18 @@ export function useCheckout() {
 
             console.log(`[useCheckout] Création commande — state:${initialStateId} carrier:${carrierId} module:${moduleName}`);
 
+            let totalToUse = cartStore.totalAmount;
+            if (totalToUse === 0 && items.length > 0) {
+                // Si total 0, recalculer depuis les items
+                totalToUse = cartStore.items.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
+            }
+
             const cartId = await orderService.createCart(customerId, items, addressId);
-            const orderId = await orderService.createOrder(customerId, cartId, cartStore.totalAmount, addressId, initialStateId, carrierId, moduleName);
+            const orderId = await orderService.createOrder(customerId, cartId, totalToUse, addressId, initialStateId, carrierId, moduleName);
+            
+            // Ajouter explicitement à l'historique pour valider l'état
+            await orderService.updateOrderStatus(orderId, initialStateId);
+            
             cartStore.clearCart();
             return orderId;
         } catch (err: any) {

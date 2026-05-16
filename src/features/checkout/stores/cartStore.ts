@@ -36,7 +36,17 @@ export const useCartStore = defineStore('cart', () => {
         currentUserKey.value = userKey;
         try {
             const stored = localStorage.getItem(STORAGE_PREFIX + userKey);
-            items.value = stored ? (JSON.parse(stored) as CartItem[]) : [];
+            const loadedItems = stored ? (JSON.parse(stored) as CartItem[]) : [];
+            
+            // Migration/Fix: S'assurer que chaque item a un unit_price
+            items.value = loadedItems.map(item => {
+                if (item.unit_price === undefined) {
+                    item.unit_price = typeof item.product.price === 'string' 
+                        ? parseFloat(item.product.price) 
+                        : Number(item.product.price || 0);
+                }
+                return item;
+            });
         } catch (_) {
             items.value = [];
         }
@@ -48,12 +58,15 @@ export const useCartStore = defineStore('cart', () => {
                     String(i.product.id_product) === String(anonItem.product.id_product) &&
                     String(i.id_product_attribute || '0') === String(anonItem.id_product_attribute || '0')
                 );
+                
+                const anonPrice = anonItem.unit_price || (typeof anonItem.product.price === 'string' ? parseFloat(anonItem.product.price) : Number(anonItem.product.price || 0));
+                
                 if (existing) {
                     existing.quantity += anonItem.quantity;
-                    const price = typeof existing.product.price === 'string' ? parseFloat(existing.product.price) : existing.product.price;
-                    existing.total_price = price * existing.quantity;
+                    existing.unit_price = anonPrice;
+                    existing.total_price = existing.unit_price * existing.quantity;
                 } else {
-                    items.value.push({ ...anonItem });
+                    items.value.push({ ...anonItem, unit_price: anonPrice });
                 }
             });
             _saveToStorage();
@@ -86,10 +99,9 @@ export const useCartStore = defineStore('cart', () => {
             if (existing) {
                 // Synchronisation : on prend la quantité du serveur pour éviter les doublons lors des reconnexions
                 existing.quantity = serverItem.quantity;
-                const price = typeof existing.product.price === 'string'
-                    ? parseFloat(existing.product.price)
-                    : existing.product.price;
-                existing.total_price = price * existing.quantity;
+                // On met à jour aussi le prix au cas où
+                existing.unit_price = serverItem.unit_price;
+                existing.total_price = existing.unit_price * existing.quantity;
             } else {
                 items.value.push(serverItem);
             }
@@ -99,20 +111,18 @@ export const useCartStore = defineStore('cart', () => {
         console.log(`[cartStore] Panier synchronisé avec PS : ${serverItems.length} article(s) traités`);
     }
 
-
     // ─── Computed ────────────────────────────────────────────────
 
     const totalAmount = computed(() => {
         return items.value.reduce((total, item) => {
-            const price = typeof item.product.price === 'string'
-                ? parseFloat(item.product.price)
-                : item.product.price;
-            return total + (price * item.quantity);
+            const price = Number(item.unit_price) || 0;
+            const qty = Number(item.quantity) || 0;
+            return total + (price * qty);
         }, 0);
     });
 
     const totalItems = computed(() =>
-        items.value.reduce((total, item) => total + item.quantity, 0)
+        items.value.reduce((total, item) => total + (Number(item.quantity) || 0), 0)
     );
 
     // ─── Drawer ──────────────────────────────────────────────────
@@ -124,19 +134,20 @@ export const useCartStore = defineStore('cart', () => {
 
     // ─── Mutations (avec sauvegarde automatique) ─────────────────
 
-    function addProduct(product: Product, quantity: number = 1, id_product_attribute: string = '0') {
+    function addProduct(product: Product, quantity: number = 1, id_product_attribute: string = '0', unitPrice?: number) {
         const existing = items.value.find(
             i => String(i.product.id_product) === String(product.id_product) &&
                  String(i.id_product_attribute || '0') === String(id_product_attribute || '0')
         );
-        const price = typeof product.price === 'string'
-            ? parseFloat(product.price)
-            : product.price;
+
+        const finalPrice = unitPrice !== undefined ? unitPrice : (typeof product.price === 'string' ? parseFloat(product.price) : product.price);
+
         if (existing) {
             existing.quantity += quantity;
-            existing.total_price = price * existing.quantity;
+            existing.unit_price = finalPrice;
+            existing.total_price = finalPrice * existing.quantity;
         } else {
-            items.value.push({ product, quantity, total_price: price * quantity, id_product_attribute });
+            items.value.push({ product, quantity, unit_price: finalPrice, total_price: finalPrice * quantity, id_product_attribute });
         }
         _saveToStorage();
         openCartDrawer();
@@ -153,10 +164,7 @@ export const useCartStore = defineStore('cart', () => {
                 return;
             }
             existing.quantity = quantity;
-            const price = typeof existing.product.price === 'string'
-                ? parseFloat(existing.product.price)
-                : existing.product.price;
-            existing.total_price = price * existing.quantity;
+            existing.total_price = existing.unit_price * existing.quantity;
             _saveToStorage();
         }
     }

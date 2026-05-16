@@ -58,7 +58,7 @@ async function deleteAll(endpoint: string): Promise<string[]> {
     }
     // PrestaShop n'a aucune contrainte FK : on supprime du plus grand id au plus petit
     // pour retirer les enfants (créés après) avant leurs parents.
-    items.sort((a: any, b: any) => Number(extractId(b?.id)) - Number(extractId(a?.id)))
+    items.sort((a: any, b: any) => Number(extractId(a?.id)) - Number(extractId(b?.id)))
     const failedIds: string[] = []
     for (const item of items) {
         const id = extractId(item?.id)
@@ -92,7 +92,7 @@ async function deleteFiltered(endpoint: string, filterStr: string): Promise<stri
         console.warn(`GET ${endpoint} échoué — endpoint ignoré`, error)
         return []
     }
-    items.sort((a: any, b: any) => Number(extractId(b?.id)) - Number(extractId(a?.id)))
+    items.sort((a: any, b: any) => Number(extractId(a?.id)) - Number(extractId(b?.id)))
     const failedIds: string[] = []
     for (const item of items) {
         const id = extractId(item?.id)

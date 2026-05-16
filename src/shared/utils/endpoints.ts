@@ -96,3 +96,5 @@ export const nonErasableEndpoints: string[] = [
     '/weight_ranges',             // utilisés par carriers
     '/zones',                     // référentiel géo
 ];
+
+

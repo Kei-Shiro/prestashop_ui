@@ -130,12 +130,7 @@ INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resou
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (557, 'image_types', 'PATCH', 1);
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (555, 'image_types', 'DELETE', 1);
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (556, 'image_types', 'HEAD', 1);
-INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (426, 'klaviyo', 'GET', 1);
-INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (428, 'klaviyo', 'POST', 1);
-INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (427, 'klaviyo', 'PUT', 1);
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (431, 'klaviyo', 'PATCH', 1);
-INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (429, 'klaviyo', 'DELETE', 1);
-INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (430, 'klaviyo', 'HEAD', 1);
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (564, 'languages', 'GET', 1);
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (566, 'languages', 'POST', 1);
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (565, 'languages', 'PUT', 1);
@@ -418,6 +413,3 @@ INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resou
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (845, 'zones', 'PATCH', 1);
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (843, 'zones', 'DELETE', 1);
 INSERT INTO prestashop.ps_webservice_permission (id_webservice_permission, resource, method, id_webservice_account) VALUES (844, 'zones', 'HEAD', 1);
-
-
-SELECT id_product, id_product_attribute, quantity FROM ps_stock_available WHERE id_product IN (71, 72);

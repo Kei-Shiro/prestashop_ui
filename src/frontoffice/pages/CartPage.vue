@@ -9,20 +9,22 @@
 
     <div v-else>
       <div class="cart-list">
-        <div v-for="item in cartStore.items" :key="item.product.id_product" class="cart-item">
+        <div v-for="item in cartStore.items" :key="String(item.product.id_product) + '-' + (item.id_product_attribute || '0')" class="cart-item">
           <div class="cart-item-img">
             <img :src="getImageUrl(item.product)" class="cart-img" />
           </div>
           <div class="cart-item-info">
             <h3 class="cart-item-name">{{ item.product.name }}</h3>
-            <p class="cart-item-price">{{ item.product.price }} &euro;</p>          </div>
+            <p v-if="item.id_product_attribute && item.id_product_attribute !== '0'" class="cart-item-variant">Variante #{{ item.id_product_attribute }}</p>
+            <p class="cart-item-price">{{ Number(item.unit_price).toFixed(2) }} &euro;</p>
+          </div>
           <div class="qty-ctrl">
-            <button class="qty-btn" @click="cartStore.updateQuantity(item.product.id_product, item.quantity - 1)">&minus;</button>
+            <button class="qty-btn" @click="cartStore.updateQuantity(item.product.id_product, item.quantity - 1, item.id_product_attribute)">&minus;</button>
             <span class="qty-val">{{ item.quantity }}</span>
-            <button class="qty-btn" @click="cartStore.updateQuantity(item.product.id_product, item.quantity + 1)">&plus;</button>
+            <button class="qty-btn" @click="cartStore.updateQuantity(item.product.id_product, item.quantity + 1, item.id_product_attribute)">&plus;</button>
           </div>
           <div class="cart-item-total">{{ Number(item.total_price).toFixed(2) }} &euro;</div>
-          <button class="cart-remove" @click="cartStore.removeProduct(item.product.id_product)">Retirer</button>
+          <button class="cart-remove" @click="cartStore.removeProduct(item.product.id_product, item.id_product_attribute)">Retirer</button>
         </div>
       </div>
 

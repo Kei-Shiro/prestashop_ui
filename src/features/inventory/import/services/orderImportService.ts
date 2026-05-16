@@ -254,19 +254,27 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     // ========== RESOLVE PRODUCTS ==========
     const resolvedTuples: ResolvedTuple[] = [];
     for (const tuple of tuples) {
+        // Le productMap est rempli par productImportService.ts
         const productData = productMap.get(tuple.ref);
-        if (!productData) continue;
+        if (!productData) {
+            console.warn(`[orderImport] Product not found in Map for ref: ${tuple.ref}. Maps size: ${productMap.size}`);
+            continue;
+        }
 
         let id_product_attribute = 0;
         let unit_price_ttc = productData.prix_ttc;
         let rate = productData.rate;
 
         if (tuple.valeur) {
+            // combinationMap est rempli par combinationImportService.ts
+            // La clé est "reference-valeur"
             const comboKey = `${tuple.ref}-${tuple.valeur}`;
             const combo = combinationMap.get(comboKey);
             if (combo) {
                 id_product_attribute = combo.id;
                 unit_price_ttc = combo.prix_ttc;
+            } else {
+                console.warn(`[orderImport] Combination not found for key: ${comboKey}. Map size: ${combinationMap.size}`);
             }
         }
 

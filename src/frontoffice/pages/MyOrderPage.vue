@@ -1,11 +1,12 @@
 <template>
   <div class="orders-page">
     <h1 class="page-title">Mes commandes</h1>
+    <p v-if="orders.length > 0" class="page-subtitle">{{ orders.length }} commande{{ orders.length > 1 ? 's' : '' }} au total</p>
     <div v-if="isLoading" class="state-msg">Chargement...</div>
     <div v-else-if="error" class="state-error">{{ error }}</div>
     <div v-else-if="orders.length === 0" class="state-msg">Aucune commande trouvee.</div>
     <div v-else class="orders-list">
-      <div v-for="order in orders" :key="order.id" class="order-card">
+      <div v-for="order in paginatedOrders" :key="order.id" class="order-card">
         <div class="order-info">
           <p class="order-id">Commande n{{ order.id }}</p>
           <p class="order-date">{{ order.dateAdd }}</p>
@@ -15,17 +16,33 @@
           {{ order.currentState.label }}
         </div>
       </div>
+
+      <BasePagination
+        v-if="!isLoading && !error && orders.length > 0"
+        v-model:current-page="currentPage"
+        :total-items="orders.length"
+        :items-per-page="itemsPerPage"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useOrders } from '@features/checkout/composables/useOrders';
 import { useAuthStore } from '@features/auth/stores/customerAuthStore';
+import BasePagination from '@shared/ui/components/BasePagination.vue';
 
 const { orders, isLoading, error, loadOrdersAndMetadata } = useOrders();
 const authStore = useAuthStore();
+
+const currentPage = ref(1);
+const itemsPerPage = 10;
+
+const paginatedOrders = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  return orders.value.slice(start, start + itemsPerPage);
+});
 
 onMounted(async () => {
   if (!authStore.isAnonymous && authStore.user) {
@@ -48,8 +65,14 @@ onMounted(async () => {
   font-family: Georgia, serif;
   font-size: 2rem;
   color: #0f172a;
-  margin: 0 0 48px;
+  margin: 0 0 8px;
   letter-spacing: -0.02em;
+}
+.page-subtitle {
+  font-family: sans-serif;
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 40px;
 }
 
 /* States */

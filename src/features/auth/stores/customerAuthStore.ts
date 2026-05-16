@@ -30,14 +30,32 @@ export const useAuthStore = defineStore('auth', () => {
             const fullItems = await Promise.all(
                 serverItems.map(async (si) => {
                     const cleanId = extractIdValue(si.id_product);
+                    const cleanIdAttr = extractIdValue(si.id_product_attribute) || '0';
                     if (!cleanId || cleanId === 'NaN' || cleanId === '0') return null;
 
                     try {
                         const product = await productService.getProduct(Number(cleanId));
-                        const price = typeof product.price === 'string' ? parseFloat(product.price) : Number(product.price);
+                        let price = typeof product.price === 'string' ? parseFloat(product.price) : Number(product.price);
+                        
+                        // Handle price for combinations
+                        if (cleanIdAttr !== '0') {
+                            try {
+                                const combinations = await productService.getCombinations(Number(cleanId));
+                                const combination = combinations.find(c => extractIdValue(c.id) === cleanIdAttr);
+                                if (combination && combination.price) {
+                                    const impact = typeof combination.price === 'string' ? parseFloat(combination.price) : Number(combination.price);
+                                    price += impact;
+                                }
+                            } catch (e) {
+                                console.warn(`Could not get combination ${cleanIdAttr} for product ${cleanId}`);
+                            }
+                        }
+
                         return {
                             product,
+                            id_product_attribute: cleanIdAttr,
                             quantity: Number(si.quantity),
+                            unit_price: price,
                             total_price: price * Number(si.quantity)
                         };
                     } catch (e) {
@@ -114,7 +132,7 @@ export const useAuthStore = defineStore('auth', () => {
         cartStore.loadForUser('anonymous');
     };
 
-    const restoreSession = () => {
+    const restoreSession = async () => {
         const stored = localStorage.getItem('user');
         if (stored) {
             try {
@@ -126,8 +144,8 @@ export const useAuthStore = defineStore('auth', () => {
                 const cartStore = useCartStore();
                 if (cartStore.currentUserKey !== String(parsed.id)) {
                     cartStore.loadForUser(String(parsed.id));
-                    // Note: restoreSession est synchrone, on ne peut pas await syncServerCarts ici sans refactor.
-                    // Mais loadForUser restaure déjà le localStorage local.
+                    // Add cart sync here for imported carts when user refreshes page!
+                    await syncServerCarts(Number(parsed.id));
                 }
             } catch (e) {
                 console.error('Failed to restore session:', e);

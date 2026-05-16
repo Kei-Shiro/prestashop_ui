@@ -158,7 +158,7 @@ watch(selectedCombination, async (newCombo) => {
 const addToCart = () => {
     if (!product.value) return;
     const comboId = selectedCombination.value ? productService.extractIdValue(selectedCombination.value.id) : '0';
-    cartStore.addProduct(product.value, quantity.value, comboId);
+    cartStore.addProduct(product.value, quantity.value, comboId, parseFloat(displayPrice.value));
 };
 </script>
 

@@ -30,7 +30,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="stat in orderStore.dailyStats" :key="stat.date">
+            <tr v-for="stat in paginatedStats" :key="stat.date">
               <td>{{ stat.date }}</td>
               <td>{{ stat.count }}</td>
               <td>{{ stat.amount.toFixed(2) }} €</td>
@@ -41,15 +41,31 @@
           </tbody>
         </table>
       </div>
+
+      <BasePagination
+        v-if="orderStore.dailyStats.length > 0"
+        v-model:current-page="currentPage"
+        :total-items="orderStore.dailyStats.length"
+        :items-per-page="itemsPerPage"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useOrderStore } from '@features/checkout/stores/adminOrderStore';
+import BasePagination from '@shared/ui/components/BasePagination.vue';
 
 const orderStore = useOrderStore();
+
+const currentPage = ref(1);
+const itemsPerPage = 10;
+
+const paginatedStats = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  return orderStore.dailyStats.slice(start, start + itemsPerPage);
+});
 
 onMounted(async () => {
   await orderStore.fetchOrders();

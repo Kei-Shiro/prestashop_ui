@@ -22,7 +22,7 @@
       </div>
 
       <div 
-        v-for="user in users" 
+        v-for="user in paginatedUsers" 
         :key="user.id" 
         @click="selectUser(user)"
         class="user-card"
@@ -34,15 +34,23 @@
         </div>
       </div>
     </div>
+
+    <BasePagination
+      v-if="!loading && !error"
+      v-model:current-page="currentPage"
+      :total-items="users.length"
+      :items-per-page="itemsPerPage"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@features/auth/stores/customerAuthStore';
 import { useCartStore } from '@features/checkout/stores/cartStore';
 import { customerService } from '@features/auth/services/customer-service';
+import BasePagination from '@shared/ui/components/BasePagination.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -52,13 +60,21 @@ const users = ref<any[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
 
+const currentPage = ref(1);
+const itemsPerPage = 12;
+
+const paginatedUsers = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  return users.value.slice(start, start + itemsPerPage);
+});
+
 onMounted(async () => {
   // Clear any existing session when returning to this page
   await authStore.logout();
   
   try {
     const allUsers = await customerService.getAllCustomers();
-    users.value = allUsers.filter(u => u.email && u.firstname && u.lastname).slice(0, 10);
+    users.value = allUsers.filter(u => u.email && u.firstname && u.lastname);
   } catch (err) {
     error.value = "Impossible de charger la liste des utilisateurs.";
   } finally {

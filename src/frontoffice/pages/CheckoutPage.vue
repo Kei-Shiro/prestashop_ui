@@ -20,6 +20,7 @@
       </div>
 
       <div class="form-section">
+        <label class="section-label">Adresse de livraison</label>
         <input v-model="form.address" type="text" placeholder="Adresse" required class="form-input" />
         <div class="form-row">
           <input v-model="form.city" type="text" placeholder="Ville" required class="form-input" />
@@ -27,6 +28,20 @@
             <input v-model="form.postal_code" type="text" placeholder="Code postal" required class="form-input" :class="{ 'input-error': errors.postal_code }" />
             <span v-if="errors.postal_code" class="field-error">{{ errors.postal_code }}</span>
           </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <label class="section-label">Mode de paiement</label>
+        <div class="payment-selector">
+          <label class="payment-option payment-option--active">
+            <input type="radio" name="payment" value="cod" checked disabled />
+            <div class="payment-content">
+              <span class="payment-name">Paiement à la livraison</span>
+              <span class="payment-desc">Payez en espèces dès réception de votre colis.</span>
+            </div>
+            <span class="payment-radio-custom"></span>
+          </label>
         </div>
       </div>
 
@@ -178,6 +193,73 @@ const doSubmit = async () => {
 }
 .user-name { font-weight: 500; color: #0f172a; font-size: 0.9375rem; }
 .user-email { font-size: 0.875rem; color: #475569; }
+
+.section-label {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+/* Payment Selector */
+.payment-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.payment-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+.payment-option input { position: absolute; opacity: 0; }
+.payment-option--active {
+  border-color: #0f172a;
+  background: #f8fafc;
+}
+.payment-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.payment-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+.payment-desc {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+.payment-radio-custom {
+  margin-left: auto;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #cbd5e1;
+  border-radius: 50%;
+  position: relative;
+}
+.payment-option--active .payment-radio-custom {
+  border-color: #0f172a;
+}
+.payment-option--active .payment-radio-custom::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px; height: 8px;
+  background: #0f172a;
+  border-radius: 50%;
+}
 
 /* Summary */
 .order-summary {

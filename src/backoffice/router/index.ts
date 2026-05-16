@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import LoginPage  from '@back/pages/LoginPage.vue'
 import ImportPage from '@back/pages/ImportPage.vue'
 import ResetPage  from '@back/pages/ResetPage.vue'
@@ -7,7 +7,7 @@ import DashboardPage from '@back/pages/DashboardPage.vue'
 import StockPage from '@back/pages/StockPage.vue'
 
 const router = createRouter({
-    history: createWebHistory('/admin/'),
+    history: createWebHashHistory(),
     routes: [
         { path: '/login', component: LoginPage },
         { path: '/dashboard', component: DashboardPage, meta: { requiresAuth: true } },

@@ -30,4 +30,5 @@ export class Serializer {
   static fromXml<T>(xml: string): T {
     return this.parser.parse(xml);
   }
+
 }

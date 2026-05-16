@@ -25,11 +25,11 @@ export const orderService = {
     /**
      * Retourne les articles de TOUS les paniers ouverts (non commandés) d'un client.
      * Les quantités sont agrégées par produit.
-     * @returns tableau de {id_product, quantity} ou [] si aucun panier ouvert
+     * @returns tableau de {id_product, id_product_attribute, quantity} ou [] si aucun panier ouvert
      */
     async getOpenCartItemsForCustomer(
         customerId: number
-    ): Promise<Array<{ id_product: string; quantity: number }>> {
+    ): Promise<Array<{ id_product: string; id_product_attribute: string; quantity: number }>> {
         try {
             // 1. Trouver les cart IDs déjà convertis en commande pour ce client
             const ordersRes: any = await apiService.get(
@@ -59,22 +59,23 @@ export const orderService = {
                 if (!rowsRaw) continue;
                 const rowsArr = Array.isArray(rowsRaw) ? rowsRaw : [rowsRaw];
 
-
                 rowsArr.forEach((r: any) => {
                     const id = extractIdValue(r.id_product);
+                    const id_attr = extractIdValue(r.id_product_attribute) || '0';
                     const qty = Number(typeof r.quantity === 'object' ? r.quantity['#text'] : r.quantity);
                     if (id && id !== '0' && qty > 0) {
-                        aggregatedItems.set(id, (aggregatedItems.get(id) || 0) + qty);
+                        const key = `${id}_${id_attr}`;
+                        aggregatedItems.set(key, (aggregatedItems.get(key) || 0) + qty);
                     }
                 });
             }
 
             if (aggregatedItems.size > 0) {
                 console.log(`[orderService] ${aggregatedItems.size} produits agrégés depuis les paniers PS ouverts pour client ${customerId}`);
-                return Array.from(aggregatedItems.entries()).map(([id_product, quantity]) => ({
-                    id_product,
-                    quantity
-                }));
+                return Array.from(aggregatedItems.entries()).map(([key, quantity]) => {
+                    const [id_product, id_product_attribute] = key.split('_');
+                    return { id_product, id_product_attribute, quantity };
+                });
             }
         } catch (e) {
             console.warn('[orderService] getOpenCartItemsForCustomer failed:', e);
@@ -89,7 +90,7 @@ export const orderService = {
     async detectCarrierId(): Promise<number> {
         try {
             const response: any = await apiService.get(
-                '/carriers?display=full&filter[deleted]=0'
+                '/carriers?display=full&filter[active]=1&filter[deleted]=0'
             );
             const carriers = response?.prestashop?.carriers?.carrier;
             if (!carriers) return 1;
@@ -139,12 +140,15 @@ export const orderService = {
     async createCart(customerId: number, items: any[], addressId: number = 1): Promise<number> {
         let cartRows = items.map(item => `
         <cart_row>
-            <id_product>${item.product.id_product}</id_product>
-            <id_product_attribute>0</id_product_attribute>
+            <id_product>${item.id_product}</id_product>
+            <id_product_attribute>${item.id_product_attribute || 0}</id_product_attribute>
             <id_address_delivery>${addressId}</id_address_delivery>
             <id_customization>0</id_customization>
             <quantity>${item.quantity}</quantity>
         </cart_row>`).join('');
+
+        const carrierId = await this.detectCarrierId();
+        const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <prestashop>
@@ -154,6 +158,9 @@ export const orderService = {
         <id_address_invoice>${addressId}</id_address_invoice>
         <id_currency>1</id_currency>
         <id_lang>1</id_lang>
+        <id_carrier>${carrierId}</id_carrier>
+        <date_add>${now}</date_add>
+        <date_upd>${now}</date_upd>
         <associations>
             <cart_rows>
                 ${cartRows}
@@ -164,7 +171,7 @@ export const orderService = {
         const response: any = await apiService.post('/carts', xml, {
             headers: { 'Content-Type': 'application/xml' }
         });
-        return parseInt(response.prestashop.cart.id);
+        return parseInt(extractIdValue(response.prestashop.cart.id));
     },
 
     async createOrder(
@@ -172,11 +179,11 @@ export const orderService = {
         cartId: number,
         totalAmount: number,
         addressId: number = 1,
-        initialStateId: number = 3,
+        initialStateId: number = 2,
         carrierId: number = 1,
-        moduleName: string = 'cashondelivery'
+        moduleName: string = 'ps_cashondelivery'
     ): Promise<number> {
-        const total = totalAmount.toFixed(2);
+        const total = totalAmount.toFixed(6);
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <prestashop>
     <order>
@@ -196,7 +203,7 @@ export const orderService = {
         <total_paid>${total}</total_paid>
         <total_paid_tax_incl>${total}</total_paid_tax_incl>
         <total_paid_tax_excl>${total}</total_paid_tax_excl>
-        <total_paid_real>0.000000</total_paid_real>
+        <total_paid_real>${total}</total_paid_real>
         <total_products>${total}</total_products>
         <total_products_wt>${total}</total_products_wt>
         <total_shipping>0.000000</total_shipping>
@@ -205,7 +212,8 @@ export const orderService = {
         <total_wrapping>0.000000</total_wrapping>
         <total_wrapping_tax_incl>0.000000</total_wrapping_tax_incl>
         <total_wrapping_tax_excl>0.000000</total_wrapping_tax_excl>
-        <conversion_rate>1</conversion_rate>
+        <conversion_rate>1.000000</conversion_rate>
+        <valid>1</valid>
     </order>
 </prestashop>`;
         const response: any = await apiService.post('/orders', xml, {
@@ -218,7 +226,7 @@ export const orderService = {
                 `Vérifiez dans PS admin : module COD actif, transporteur existant, et état de commande valide.`
             );
         }
-        return parseInt(response.prestashop.order.id);
+        return parseInt(extractIdValue(response.prestashop.order.id));
     },
 
     async updateOrderStatus(orderId: number, newStateId: number): Promise<void> {

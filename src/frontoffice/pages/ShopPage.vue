@@ -29,25 +29,46 @@
         
         <div v-else class="product-grid">
           <ProductCard
-              v-for="product in filteredProducts"
+              v-for="product in paginatedProducts"
               :key="product.id_product"
               :product="product"
           />
         </div>
+
+        <BasePagination
+          v-if="!loading && !error && filteredProducts.length > 0"
+          v-model:current-page="currentPage"
+          :total-items="filteredProducts.length"
+          :items-per-page="itemsPerPage"
+        />
       </main>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useProduct } from '@features/catalog/composables/useProduct';
 import { useProductFilters } from '@features/catalog/composables/useProductFilters';
 import ProductCard from '@features/catalog/components/ProductCard.vue';
 import ProductFilters from '@features/catalog/components/ProductFilters.vue';
+import BasePagination from '@shared/ui/components/BasePagination.vue';
 
 const { products, loading, error, fetchProducts } = useProduct();
 const { filters, filteredProducts, applyFilters } = useProductFilters(products);
+
+const currentPage = ref(1);
+const itemsPerPage = 12;
+
+const paginatedProducts = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  return filteredProducts.value.slice(start, start + itemsPerPage);
+});
+
+// Reset to page 1 when filters change
+watch(filteredProducts, () => {
+  currentPage.value = 1;
+});
 
 onMounted(async () => {
   await fetchProducts();
