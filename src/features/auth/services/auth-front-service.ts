@@ -25,6 +25,15 @@ export const authFrontService = {
     },
 
     async logout(): Promise<void> {
-        await frontApi.get('/?mylogout=');
+        try {
+            // Utiliser fetch avec mode: 'no-cors' pour tenter de vider la session PS 
+            // sans déclencher d'erreur CORS bloquante sur la redirection (302) de PrestaShop.
+            await fetch('http://localhost/prestashop/?mylogout=', {
+                mode: 'no-cors',
+                credentials: 'include'
+            });
+        } catch (e) {
+            // Silence total pour ne pas polluer la console, le logout local suffit.
+        }
     }
 };

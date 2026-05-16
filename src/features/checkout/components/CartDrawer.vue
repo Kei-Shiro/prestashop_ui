@@ -28,12 +28,12 @@ const formatPrice = (price: number): string => {
 
 const isEmpty = computed(() => cartStore.items.length === 0);
 
-const handleUpdateQuantity = (productId: string | number, quantity: number) => {
-  cartStore.updateQuantity(productId, quantity);
+const handleUpdateQuantity = (productId: string | number, quantity: number, combinationId: string) => {
+  cartStore.updateQuantity(productId, quantity, combinationId);
 };
 
-const handleRemove = (productId: string | number) => {
-  cartStore.removeProduct(productId);
+const handleRemove = (productId: string | number, combinationId: string) => {
+  cartStore.removeProduct(productId, combinationId);
 };
 
 const handleClose = () => {
@@ -84,10 +84,10 @@ const handleCheckout = () => {
           <div v-else class="cart-drawer__items">
             <CartItemRow
               v-for="item in cartStore.items"
-              :key="String(item.product.id_product)"
+              :key="String(item.product.id_product) + '-' + (item.id_product_attribute || '0')"
               :item="item"
-              :on-update-quantity="handleUpdateQuantity"
-              :on-remove="handleRemove"
+              @update-quantity="handleUpdateQuantity"
+              @remove="handleRemove"
             />
           </div>
         </div>

@@ -5,6 +5,7 @@ import { customerService } from '@features/auth/services/customer-service';
 import { orderService } from '@features/checkout/services/order-service';
 import productService from '@features/catalog/services/product-service';
 import { useCartStore } from '@features/checkout/stores/cartStore';
+import { extractIdValue } from '@shared/utils/extractIdValue';
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref<any>(null);
@@ -18,21 +19,29 @@ export const useAuthStore = defineStore('auth', () => {
         const cartStore = useCartStore();
         try {
             const serverItems = await orderService.getOpenCartItemsForCustomer(customerId);
-            if (serverItems.length === 0) return;
+            if (serverItems.length === 0) {
+                console.log(`[authStore] Aucun article à synchroniser pour client ${customerId}`);
+                return;
+            }
+
+            console.log(`[authStore] Synchronisation de ${serverItems.length} articles pour client ${customerId}`);
 
             // Récupérer les détails des produits pour chaque article
             const fullItems = await Promise.all(
                 serverItems.map(async (si) => {
+                    const cleanId = extractIdValue(si.id_product);
+                    if (!cleanId || cleanId === 'NaN' || cleanId === '0') return null;
+
                     try {
-                        const product = await productService.getProduct(Number(si.id_product));
+                        const product = await productService.getProduct(Number(cleanId));
                         const price = typeof product.price === 'string' ? parseFloat(product.price) : Number(product.price);
                         return {
                             product,
-                            quantity: si.quantity,
-                            total_price: price * si.quantity
+                            quantity: Number(si.quantity),
+                            total_price: price * Number(si.quantity)
                         };
                     } catch (e) {
-                        console.error(`Failed to fetch product ${si.id_product} for cart sync`, e);
+                        console.error(`[authStore] Failed to fetch product ${cleanId} (original: ${JSON.stringify(si.id_product)})`, e);
                         return null;
                     }
                 })
@@ -91,7 +100,9 @@ export const useAuthStore = defineStore('auth', () => {
 
     const logout = async () => {
         if (!isAnonymous.value) {
-            await authFrontService.logout();
+            try {
+                await authFrontService.logout();
+            } catch (_) { /* already handled in service */ }
         }
         user.value = null;
         isAuthenticated.value = false;

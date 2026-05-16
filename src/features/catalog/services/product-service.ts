@@ -1,17 +1,9 @@
-// shared/services/product-service.ts
 import apiService from '@shared/api/api-service';
 import type { Product } from '@shared/types/product';
 import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
+import { extractIdValue } from '@shared/utils/extractIdValue';
 
 const productService = {
-    extractIdValue(val: any): string {
-        if (val == null) return '';
-        if (typeof val === 'object') {
-            return String(val['#text'] || val.id || val.value || '');
-        }
-        return String(val);
-    },
-
     async getAll(): Promise<Product[]> {
         const [res, stockRes] = await Promise.all([
             apiService.get<any>('/products?display=full&limit=100'),
@@ -27,7 +19,7 @@ const productService = {
         const stockMap = new Map<string, string>();
         stockList.forEach((s: any) => {
             if (s && s.id_product) {
-                stockMap.set(this.extractIdValue(s.id_product), String(s.quantity || '0'));
+                stockMap.set(extractIdValue(s.id_product), String(s.quantity || '0'));
             }
         });
 
@@ -37,20 +29,20 @@ const productService = {
                 let images: string[] = [];
                 if (p.associations?.images?.image) {
                     const imgAssoc = p.associations.images.image;
-                    images = Array.isArray(imgAssoc) ? imgAssoc.map((i: any) => this.extractIdValue(i)) : [this.extractIdValue(imgAssoc)];
+                    images = Array.isArray(imgAssoc) ? imgAssoc.map((i: any) => extractIdValue(i)) : [extractIdValue(imgAssoc)];
                     images = images.filter((i: string) => i && i !== 'undefined' && i !== '0');
                 }
-                const defaultImage = this.extractIdValue(p.id_default_image) || (images.length > 0 ? images[0] : undefined);
+                const defaultImage = extractIdValue(p.id_default_image) || (images.length > 0 ? images[0] : undefined);
                 
                 let productCategories: string[] = [];
                 if (p.associations?.categories?.category) {
                     const catAssoc = p.associations.categories.category;
                     productCategories = Array.isArray(catAssoc) 
-                        ? catAssoc.map((c: any) => this.extractIdValue(c)) 
-                        : [this.extractIdValue(catAssoc)];
+                        ? catAssoc.map((c: any) => extractIdValue(c)) 
+                        : [extractIdValue(catAssoc)];
                 }
 
-                const pid = this.extractIdValue(p.id);
+                const pid = extractIdValue(p.id);
 
                 return {
                     id_product: pid,
@@ -62,7 +54,7 @@ const productService = {
                     active: p.active === '1',
                     images: images,
                     id_default_image: defaultImage,
-                    category: this.extractIdValue(p.id_category_default) || '2',
+                    category: extractIdValue(p.id_category_default) || '2',
                     categories: productCategories,
                     date_availability: p.date_availability || '',
                     date_add: p.date_add || ''
@@ -88,26 +80,26 @@ const productService = {
         let images: string[] = [];
         if (p.associations?.images?.image) {
             const imgAssoc = p.associations.images.image;
-            images = Array.isArray(imgAssoc) ? imgAssoc.map((i: any) => this.extractIdValue(i)) : [this.extractIdValue(imgAssoc)];
+            images = Array.isArray(imgAssoc) ? imgAssoc.map((i: any) => extractIdValue(i)) : [extractIdValue(imgAssoc)];
             images = images.filter((i: string) => i && i !== 'undefined' && i !== '0');
         }
-        const defaultImage = this.extractIdValue(p.id_default_image) || (images.length > 0 ? images[0] : undefined);
+        const defaultImage = extractIdValue(p.id_default_image) || (images.length > 0 ? images[0] : undefined);
 
         let productCategories: string[] = [];
         if (p.associations?.categories?.category) {
             const catAssoc = p.associations.categories.category;
             productCategories = Array.isArray(catAssoc) 
-                ? catAssoc.map((c: any) => this.extractIdValue(c)) 
-                : [this.extractIdValue(catAssoc)];
+                ? catAssoc.map((c: any) => extractIdValue(c)) 
+                : [extractIdValue(catAssoc)];
         }
 
         let options: { id: string }[] = [];
         if (p.associations?.product_option_values?.product_option_value) {
             const optAssoc = p.associations.product_option_values.product_option_value;
-            options = Array.isArray(optAssoc) ? optAssoc.map((o: any) => ({ id: this.extractIdValue(o) })) : [{ id: this.extractIdValue(optAssoc) }];
+            options = Array.isArray(optAssoc) ? optAssoc.map((o: any) => ({ id: extractIdValue(o) })) : [{ id: extractIdValue(optAssoc) }];
         }
 
-        const pid = this.extractIdValue(p.id);
+        const pid = extractIdValue(p.id);
 
         return {
             id_product: pid,
@@ -119,7 +111,7 @@ const productService = {
             active: p.active === '1',
             images: images,
             id_default_image: defaultImage,
-            category: this.extractIdValue(p.id_category_default) || '2',
+            category: extractIdValue(p.id_category_default) || '2',
             date_availability: p.date_availability || '',
             date_add: p.date_add || '',
             product_option_values: options
@@ -135,6 +127,29 @@ const productService = {
             id: String(c.id),
             name: extractLanguageValue(c.name)
         }));
+    },
+
+    async getCombinations(productId: number): Promise<any[]> {
+        try {
+            const res = await apiService.get<any>(`/combinations?filter[id_product]=${productId}&display=full`);
+            let list = res?.prestashop?.combinations?.combination ?? [];
+            if (!Array.isArray(list)) list = [list];
+            return list;
+        } catch (error) {
+            console.error(`Error fetching combinations for product ${productId}:`, error);
+            return [];
+        }
+    },
+
+    async getCombinationStock(combinationId: number): Promise<string> {
+        try {
+            const res = await apiService.get<any>(`/stock_availables?filter[id_product_attribute]=${combinationId}&display=[quantity]`);
+            const stock = res?.prestashop?.stock_availables?.stock_available;
+            return String(Array.isArray(stock) ? stock[0]?.quantity : (stock?.quantity || '0'));
+        } catch (error) {
+            console.error(`Error fetching stock for combination ${combinationId}:`, error);
+            return '0';
+        }
     },
 
     async getProductOptionValues(): Promise<any[]> {
@@ -155,25 +170,14 @@ const productService = {
      * Extrait la valeur d'un champ multilingue (name, description, etc.)
      */
     extractLanguageValue(field: any): string {
-        if (!field) return '';
-        if (typeof field === 'string') return field;
+        return extractLanguageValue(field);
+    },
 
-        // Si c'est un objet avec language
-        if (field.language) {
-            const lang = field.language;
-            if (Array.isArray(lang)) {
-                // Prendre la premire langue (franais)
-                const l = lang[0];
-                return typeof l === 'string' ? l : (l?.value || l?.textContent || '');
-            }
-            return typeof lang === 'string' ? lang : (lang.value || lang.textContent || '');
-        }
-
-        // Si c'est directement la valeur
-        if (field.value) return field.value;
-        if (field.textContent) return field.textContent;
-
-        return '';
+    /**
+     * Extrait l'ID d'un champ PrestaShop (gère le format #text du parser XML)
+     */
+    extractIdValue(val: any): string {
+        return extractIdValue(val);
     },
 
     async getImageIds(id: number): Promise<string[]> {

@@ -11,4 +11,5 @@ export interface CartItem {
     product: Product;
     quantity: number;
     total_price: number;
+    id_product_attribute?: string;
 }

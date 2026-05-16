@@ -1,4 +1,5 @@
 import apiService from '@shared/api/api-service';
+import { extractIdValue } from '@shared/utils/extractIdValue';
 
 export const orderService = {
     async getOrders(): Promise<any[]> {
@@ -37,7 +38,7 @@ export const orderService = {
             const ordersRaw = ordersRes?.prestashop?.orders?.order || [];
             const ordersArr = Array.isArray(ordersRaw) ? ordersRaw : [ordersRaw];
             const usedCartIds = new Set(
-                ordersArr.map((o: any) => String(o.id_cart)).filter(Boolean)
+                ordersArr.map((o: any) => extractIdValue(o.id_cart)).filter(Boolean)
             );
 
             // 2. Récupérer tous les paniers du client
@@ -52,7 +53,7 @@ export const orderService = {
             const aggregatedItems = new Map<string, number>();
 
             for (const cart of cartsArr) {
-                if (usedCartIds.has(String(cart.id))) continue;
+                if (usedCartIds.has(extractIdValue(cart.id))) continue;
 
                 const rowsRaw = cart.associations?.cart_rows?.cart_row;
                 if (!rowsRaw) continue;
@@ -60,9 +61,9 @@ export const orderService = {
 
 
                 rowsArr.forEach((r: any) => {
-                    if (r.id_product && String(r.id_product) !== '0' && Number(r.quantity) > 0) {
-                        const id = String(r.id_product);
-                        const qty = Number(r.quantity);
+                    const id = extractIdValue(r.id_product);
+                    const qty = Number(typeof r.quantity === 'object' ? r.quantity['#text'] : r.quantity);
+                    if (id && id !== '0' && qty > 0) {
                         aggregatedItems.set(id, (aggregatedItems.get(id) || 0) + qty);
                     }
                 });

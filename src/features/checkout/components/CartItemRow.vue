@@ -7,14 +7,15 @@ interface Props {
 }
 
 interface Emits {
-  updateQuantity: [productId: string | number, quantity: number];
-  remove: [productId: string | number];
+  updateQuantity: [productId: string | number, quantity: number, combinationId: string];
+  remove: [productId: string | number, combinationId: string];
 }
 
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const productId = computed(() => props.item.product.id_product);
+const combinationId = computed(() => props.item.id_product_attribute || '0');
 
 const unitPrice = computed(() => {
   const price = typeof props.item.product.price === 'string'
@@ -36,25 +37,26 @@ const productImage = computed(() => {
     return images[0];
   }
   if (props.item.product.id_default_image) {
-    return `/img/${props.item.product.id_default_image}-medium_default.jpg`;
+    // Note: This might need adjustment if using the proxy URL from productService
+    return `/prestashop/api/images/products/${productId.value}/${props.item.product.id_default_image}`;
   }
   return '/img/no-image.jpg';
 });
 
 const handleDecrease = () => {
   if (props.item.quantity > 1) {
-    emit('updateQuantity', productId.value, props.item.quantity - 1);
+    emit('updateQuantity', productId.value, props.item.quantity - 1, combinationId.value);
   } else {
-    emit('remove', productId.value);
+    emit('remove', productId.value, combinationId.value);
   }
 };
 
 const handleIncrease = () => {
-  emit('updateQuantity', productId.value, props.item.quantity + 1);
+  emit('updateQuantity', productId.value, props.item.quantity + 1, combinationId.value);
 };
 
 const handleRemove = () => {
-  emit('remove', productId.value);
+  emit('remove', productId.value, combinationId.value);
 };
 </script>
 
@@ -66,6 +68,9 @@ const handleRemove = () => {
 
     <div class="cart-item-row__info">
       <h4 class="cart-item-row__name">{{ item.product.name }}</h4>
+      <p v-if="combinationId !== '0'" class="cart-item-row__variant">
+        Variante #{{ combinationId }}
+      </p>
       <span class="cart-item-row__price">{{ formatPrice(unitPrice) }}</span>
     </div>
 
@@ -137,6 +142,12 @@ const handleRemove = () => {
   color: var(--color-text-main, #1e293b);
   margin: 0;
   line-height: 1.4;
+}
+
+.cart-item-row__variant {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #64748b);
+  margin: 0;
 }
 
 .cart-item-row__price {

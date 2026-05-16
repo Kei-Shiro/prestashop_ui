@@ -10,28 +10,24 @@
       </div>
       <div class="detail-info">
         <h1 class="detail-name">{{ product.name }}</h1>
-        <p class="detail-price">{{ product.price }} &euro;</p>
+        <p class="detail-price">{{ displayPrice }} &euro;</p>
 
         <div class="detail-stock">
-          <span v-if="Number(product.quantity) > 0" class="stock-available">
-            En stock ({{ product.quantity }} disponible{{ Number(product.quantity) > 1 ? 's' : '' }})
+          <span v-if="Number(displayStock) > 0" class="stock-available">
+            En stock ({{ displayStock }} disponible{{ Number(displayStock) > 1 ? 's' : '' }})
           </span>
           <span v-else class="stock-unavailable">Rupture de stock</span>
         </div>
 
         <div class="detail-desc" v-html="product.description"></div>
 
-        <div v-if="sizes.length > 0" class="detail-option">
-          <label>Taille :</label>
-          <select v-model="selectedSize" class="opt-select">
-            <option v-for="s in sizes" :key="s.id" :value="s.id">{{ productService.extractLanguageValue(s.name) }}</option>
-          </select>
-        </div>
-
-        <div v-if="colors.length > 0" class="detail-option">
-          <label>Couleur :</label>
-          <select v-model="selectedColor" class="opt-select">
-            <option v-for="c in colors" :key="c.id" :value="c.id">{{ productService.extractLanguageValue(c.name) }}</option>
+        <!-- Dynamic Attribute Selectors -->
+        <div v-for="group in attributeGroups" :key="group.id" class="detail-option">
+          <label>{{ group.name }} :</label>
+          <select v-model="selectedOptions[group.id]" class="opt-select">
+            <option v-for="val in group.values" :key="val.id" :value="val.id">
+              {{ val.name }}
+            </option>
           </select>
         </div>
 
@@ -41,7 +37,9 @@
             <input type="number" v-model.number="quantity" min="1" class="qty-input" />
             <button class="qty-btn" @click="quantity++">&#43;</button>
           </div>
-          <button @click="addToCart" class="btn-cart">Ajouter au panier</button>
+          <button @click="addToCart" class="btn-cart" :disabled="Number(displayStock) <= 0">
+            {{ Number(displayStock) > 0 ? 'Ajouter au panier' : 'Indisponible' }}
+          </button>
         </div>
       </div>
     </div>
@@ -49,57 +47,119 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch, reactive } from 'vue';
 import { useRoute } from 'vue-router';
 import { useProduct } from '@features/catalog/composables/useProduct';
 import productService from '@features/catalog/services/product-service';
-import {useCartStore} from "@features/checkout/stores/cartStore";
+import { useCartStore } from "@features/checkout/stores/cartStore";
 
 const route = useRoute();
 const { currentProduct, loading, error, fetchProduct } = useProduct();
 const cartStore = useCartStore();
 const quantity = ref(1);
 
-const sizes = ref<any[]>([]);
-const colors = ref<any[]>([]);
-const selectedSize = ref('');
-const selectedColor = ref('');
+const combinations = ref<any[]>([]);
+const attributeGroups = ref<any[]>([]);
+const selectedOptions = reactive<Record<string, string>>({});
+const combinationStock = ref<string | null>(null);
 
 const product = computed(() => currentProduct.value);
-const mainImage = computed(() => product.value ? productService.getImageUrl(product.value.id_product, product.value.id_default_image) : ''
-);
+const mainImage = computed(() => product.value ? productService.getImageUrl(product.value.id_product, product.value.id_default_image) : '');
+
+// Find matching combination based on selected options
+const selectedCombination = computed(() => {
+    if (combinations.value.length === 0) return null;
+    
+    return combinations.value.find(c => {
+        const comboVals = c.associations?.product_option_values?.product_option_value;
+        const vals = Array.isArray(comboVals) ? comboVals : (comboVals ? [comboVals] : []);
+        
+        // Check if every selected option matches this combination
+        return Object.entries(selectedOptions).every(([groupId, valId]) => {
+            return vals.some((v: any) => productService.extractIdValue(v.id || v) === String(valId));
+        });
+    });
+});
+
+const displayPrice = computed(() => {
+    if (!product.value) return '0.00';
+    const basePrice = parseFloat(product.value.price);
+    if (selectedCombination.value) {
+        const impact = parseFloat(selectedCombination.value.price || '0');
+        return (basePrice + impact).toFixed(2);
+    }
+    return basePrice.toFixed(2);
+});
+
+const displayStock = computed(() => {
+    if (combinations.value.length > 0) {
+        return combinationStock.value ?? '0';
+    }
+    return product.value?.quantity ?? '0';
+});
 
 onMounted(async () => {
-    await fetchProduct(parseInt(route.params.id as string));
-    if (product.value?.product_option_values) {
+    const productId = parseInt(route.params.id as string);
+    await fetchProduct(productId);
+    
+    // Fetch combinations
+    combinations.value = await productService.getCombinations(productId);
+    
+    if (combinations.value.length > 0) {
         const [allVals, allOpts] = await Promise.all([
             productService.getProductOptionValues(),
             productService.getProductOptions()
         ]);
 
-        const sizeGroup = allOpts.find(o => {
-            const name = productService.extractLanguageValue(o.name).toLowerCase();
-            return name === 'taille' || name === 'size';
-        });
-        const colorGroup = allOpts.find(o => {
-            const name = productService.extractLanguageValue(o.name).toLowerCase();
-            return String(o.is_color_group) === '1' || name === 'couleur' || name === 'color';
+        // Map combinations to identify unique attributes
+        const usedValIds = new Set<string>();
+        combinations.value.forEach(c => {
+            const comboVals = c.associations?.product_option_values?.product_option_value;
+            const vals = Array.isArray(comboVals) ? comboVals : (comboVals ? [comboVals] : []);
+            vals.forEach((v: any) => {
+                const vid = productService.extractIdValue(v.id || v);
+                if (vid) usedValIds.add(vid);
+            });
         });
 
-        const prodOptIds = product.value.product_option_values.map((o: any) => String(o.id));
-        const prodVals = allVals.filter(v => prodOptIds.includes(String(v.id)));
+        const prodVals = allVals.filter(v => usedValIds.has(productService.extractIdValue(v.id)));
+        const usedGroupIds = new Set(prodVals.map(v => productService.extractIdValue(v.id_attribute_group)));
+        
+        attributeGroups.value = allOpts
+            .filter(o => usedGroupIds.has(productService.extractIdValue(o.id)))
+            .map(o => ({
+                id: productService.extractIdValue(o.id),
+                name: productService.extractLanguageValue(o.name || o.public_name),
+                values: prodVals
+                    .filter(v => productService.extractIdValue(v.id_attribute_group) === productService.extractIdValue(o.id))
+                    .map(v => ({
+                        id: productService.extractIdValue(v.id),
+                        name: productService.extractLanguageValue(v.name)
+                    }))
+            }));
 
-        if (sizeGroup) {
-            sizes.value = prodVals.filter(v => String(v.id_attribute_group) === String(sizeGroup.id));
-            if (sizes.value.length > 0) selectedSize.value = sizes.value[0].id;
-        }
-        if (colorGroup) {
-            colors.value = prodVals.filter(v => String(v.id_attribute_group) === String(colorGroup.id));
-            if (colors.value.length > 0) selectedColor.value = colors.value[0].id;
-        }
+        // Initialize selection
+        attributeGroups.value.forEach(g => {
+            if (g.values.length > 0) selectedOptions[g.id] = g.values[0].id;
+        });
     }
 });
-const addToCart = () => { if (product.value) cartStore.addProduct(product.value, quantity.value); };
+
+// Watch for selection changes to update stock
+watch(selectedCombination, async (newCombo) => {
+    if (newCombo) {
+        const comboId = productService.extractIdValue(newCombo.id);
+        combinationStock.value = await productService.getCombinationStock(parseInt(comboId));
+    } else {
+        combinationStock.value = null;
+    }
+}, { immediate: true });
+
+const addToCart = () => {
+    if (!product.value) return;
+    const comboId = selectedCombination.value ? productService.extractIdValue(selectedCombination.value.id) : '0';
+    cartStore.addProduct(product.value, quantity.value, comboId);
+};
 </script>
 
 <style scoped>

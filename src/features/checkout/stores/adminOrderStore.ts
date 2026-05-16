@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import apiService from '@shared/api/api-service';
 import type { Order } from '@shared/types/order';
+import { extractIdValue } from '@shared/utils/extractIdValue';
 
 interface DailyStat {
   date: string;
@@ -32,8 +33,11 @@ export const useOrderStore = defineStore('order', () => {
       const pCarts = cartRes?.prestashop?.carts?.cart;
       const cartsList = Array.isArray(pCarts) ? pCarts : (pCarts ? [pCarts] : []);
       // On soustrait les carts qui sont déjà des commandes
-      const usedCartIds = new Set(orders.value.map(o => String((o as any).id_cart)));
-      activeCartsCount.value = cartsList.filter(c => !usedCartIds.has(String(c.id))).length;
+      const usedCartIds = new Set(orders.value.map(o => extractIdValue((o as any).id_cart)));
+      activeCartsCount.value = cartsList.filter(c => {
+        const cid = extractIdValue(c.id);
+        return !usedCartIds.has(cid);
+      }).length;
       
     } catch (error) {
       console.error('Failed to fetch orders/carts', error);
@@ -70,6 +74,7 @@ export const useOrderStore = defineStore('order', () => {
 
   return {
     orders,
+    activeCartsCount,
     loading,
     fetchOrders,
     totalOrders,

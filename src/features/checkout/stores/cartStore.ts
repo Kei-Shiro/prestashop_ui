@@ -44,7 +44,10 @@ export const useCartStore = defineStore('cart', () => {
         // Fusionner si demandé
         if (mergeAnonymous && anonymousItems.length > 0) {
             anonymousItems.forEach(anonItem => {
-                const existing = items.value.find(i => String(i.product.id_product) === String(anonItem.product.id_product));
+                const existing = items.value.find(i => 
+                    String(i.product.id_product) === String(anonItem.product.id_product) &&
+                    String(i.id_product_attribute || '0') === String(anonItem.id_product_attribute || '0')
+                );
                 if (existing) {
                     existing.quantity += anonItem.quantity;
                     const price = typeof existing.product.price === 'string' ? parseFloat(existing.product.price) : existing.product.price;
@@ -70,17 +73,19 @@ export const useCartStore = defineStore('cart', () => {
 
     /**
      * Fusionne les articles venant du serveur (PS) avec le panier local.
+     * En cas de doublon, la quantité du serveur est prioritaire (synchronisation).
      */
     function mergeServerItems(serverItems: CartItem[]) {
         if (serverItems.length === 0) return;
 
         serverItems.forEach(serverItem => {
             const existing = items.value.find(
-                i => String(i.product.id_product) === String(serverItem.product.id_product)
+                i => String(i.product.id_product) === String(serverItem.product.id_product) &&
+                     String(i.id_product_attribute || '0') === String(serverItem.id_product_attribute || '0')
             );
             if (existing) {
-                // On peut choisir d'additionner ou de prendre le max. Ici, on additionne pour suivre la logique de fusion.
-                existing.quantity += serverItem.quantity;
+                // Synchronisation : on prend la quantité du serveur pour éviter les doublons lors des reconnexions
+                existing.quantity = serverItem.quantity;
                 const price = typeof existing.product.price === 'string'
                     ? parseFloat(existing.product.price)
                     : existing.product.price;
@@ -91,8 +96,9 @@ export const useCartStore = defineStore('cart', () => {
         });
 
         _saveToStorage();
-        console.log(`[cartStore] Panier fusionné avec PS : +${serverItems.length} article(s)`);
+        console.log(`[cartStore] Panier synchronisé avec PS : ${serverItems.length} article(s) traités`);
     }
+
 
     // ─── Computed ────────────────────────────────────────────────
 
@@ -118,9 +124,10 @@ export const useCartStore = defineStore('cart', () => {
 
     // ─── Mutations (avec sauvegarde automatique) ─────────────────
 
-    function addProduct(product: Product, quantity: number = 1) {
+    function addProduct(product: Product, quantity: number = 1, id_product_attribute: string = '0') {
         const existing = items.value.find(
-            i => String(i.product.id_product) === String(product.id_product)
+            i => String(i.product.id_product) === String(product.id_product) &&
+                 String(i.id_product_attribute || '0') === String(id_product_attribute || '0')
         );
         const price = typeof product.price === 'string'
             ? parseFloat(product.price)
@@ -129,19 +136,20 @@ export const useCartStore = defineStore('cart', () => {
             existing.quantity += quantity;
             existing.total_price = price * existing.quantity;
         } else {
-            items.value.push({ product, quantity, total_price: price * quantity });
+            items.value.push({ product, quantity, total_price: price * quantity, id_product_attribute });
         }
         _saveToStorage();
         openCartDrawer();
     }
 
-    function updateQuantity(productId: string | number, quantity: number) {
+    function updateQuantity(productId: string | number, quantity: number, id_product_attribute: string = '0') {
         const existing = items.value.find(
-            i => String(i.product.id_product) === String(productId)
+            i => String(i.product.id_product) === String(productId) &&
+                 String(i.id_product_attribute || '0') === String(id_product_attribute || '0')
         );
         if (existing) {
             if (quantity <= 0) {
-                removeProduct(productId);
+                removeProduct(productId, id_product_attribute);
                 return;
             }
             existing.quantity = quantity;
@@ -153,12 +161,13 @@ export const useCartStore = defineStore('cart', () => {
         }
     }
 
-    function removeProduct(productId: string | number) {
+    function removeProduct(productId: string | number, id_product_attribute: string = '0') {
         items.value = items.value.filter(
-            i => String(i.product.id_product) !== String(productId)
+            i => !(String(i.product.id_product) === String(productId) && String(i.id_product_attribute || '0') === String(id_product_attribute || '0'))
         );
         _saveToStorage();
     }
+
 
     function clearCart() {
         items.value = [];

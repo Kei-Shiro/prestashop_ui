@@ -3,6 +3,7 @@ import apiService from "@shared/api/api-service";
 import { productMap } from "./productImportService";
 import type { StockCSVRow, CombinationMapEntry, ProductOption, ProductOptionValue, CombinationPost, StockAvailablePut, StockAvailableGet, LValue } from "@shared/types/import";
 import { Serializer } from "@shared/utils/serializer";
+import { extractIdValue } from "@shared/utils/extractIdValue";
 
 export const attributeMap = new Map<string, number>();
 export const attributeValueMap = new Map<string, Map<string, number>>();
@@ -104,7 +105,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         const rawSimple = stockGetRes?.prestashop?.stock_availables?.stock_available;
         const allSimpleStocks: StockAvailableGet[] = Array.isArray(rawSimple) ? rawSimple : (rawSimple ? [rawSimple] : []);
         const simpleStock = allSimpleStocks.find(
-            (s: any) => !s.id_product_attribute || s.id_product_attribute === '0' || parseInt(typeof s.id_product_attribute === 'object' ? s.id_product_attribute['#text'] : s.id_product_attribute, 10) === 0
+            (s: any) => !s.id_product_attribute || extractIdValue(s.id_product_attribute) === '0'
         ) ?? allSimpleStocks[0];
 
         const stockId = simpleStock?.id ?? null;
@@ -113,17 +114,17 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         if (stockId) {
           const quantity = stock_initial ? parseInt(stock_initial, 10) : 0;
           const stockData: StockAvailablePut = {
-            id: stockId,
+            id: Number(extractIdValue(stockId)),
             id_product: productId,
             id_product_attribute: 0,
-            id_shop: Number(typeof simpleStock.id_shop === 'object' ? simpleStock.id_shop['#text'] : (simpleStock.id_shop || 1)),
-            id_shop_group: simpleStock.id_shop_group || 0,
+            id_shop: Number(extractIdValue(simpleStock.id_shop) || 1),
+            id_shop_group: Number(extractIdValue(simpleStock.id_shop_group) || 0),
             quantity: quantity,
             depends_on_stock: 0,
             out_of_stock: 2,
             location: simpleStock.location || ''
           };
-          await apiService.put(`/stock_availables/${stockId}`, { stock_available: stockData });
+          await apiService.put(`/stock_availables/${extractIdValue(stockId)}`, { stock_available: stockData });
           console.log(`Stock updated for simple product ${productId}: qty=${quantity}`);
         } else {
           console.warn(`No stock_available entry found for simple product ${productId}`);
@@ -150,9 +151,10 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         const existingOption = existing?.prestashop?.product_options?.product_option;
         const found = Array.isArray(existingOption) ? existingOption[0] : existingOption;
         if (found?.id) {
-          attributeMap.set(specificite, parseInt(found.id, 10));
+          const id = Number(extractIdValue(found.id));
+          attributeMap.set(specificite, id);
           if (!attributeValueMap.has(specificite)) attributeValueMap.set(specificite, new Map());
-          console.log(`Attribute already exists: ${specificite} → ${found.id}`);
+          console.log(`Attribute already exists: ${specificite} → ${id}`);
         }
       } catch (_) { /* pas trouvé, on crée */ }
 
@@ -164,11 +166,11 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         };
         try {
           const response = await apiService.post<any>("/product_options", { product_option: optionData });
-          const idMatch = response?.prestashop?.product_option?.id;
-          if (idMatch) {
-            attributeMap.set(specificite, parseInt(idMatch, 10));
+          const id = Number(extractIdValue(response?.prestashop?.product_option?.id));
+          if (id) {
+            attributeMap.set(specificite, id);
             attributeValueMap.set(specificite, new Map<string, number>());
-            console.log(`Attribute created: ${specificite} → ${idMatch}`);
+            console.log(`Attribute created: ${specificite} → ${id}`);
           } else {
             continue;
           }
@@ -197,8 +199,9 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         const existingVal = existing?.prestashop?.product_option_values?.product_option_value;
         const found = Array.isArray(existingVal) ? existingVal[0] : existingVal;
         if (found?.id) {
-          valMap.set(valeur, parseInt(found.id, 10));
-          console.log(`Attribute value already exists: ${valeur} → ${found.id}`);
+          const id = Number(extractIdValue(found.id));
+          valMap.set(valeur, id);
+          console.log(`Attribute value already exists: ${valeur} → ${id}`);
         }
       } catch (_) { /* pas trouvée, on crée */ }
 
@@ -209,10 +212,10 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         };
         try {
           const response = await apiService.post<any>("/product_option_values", { product_option_value: optionValueData });
-          const idMatch = response?.prestashop?.product_option_value?.id;
-          if (idMatch) {
-            valMap.set(valeur, parseInt(idMatch, 10));
-            console.log(`Attribute value created: ${valeur} → ${idMatch}`);
+          const id = Number(extractIdValue(response?.prestashop?.product_option_value?.id));
+          if (id) {
+            valMap.set(valeur, id);
+            console.log(`Attribute value created: ${valeur} → ${id}`);
           } else {
             continue;
           }
@@ -239,7 +242,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         const existingCombo = existing?.prestashop?.combinations?.combination;
         const found = Array.isArray(existingCombo) ? existingCombo[0] : existingCombo;
         if (found?.id) {
-          combinationId = parseInt(found.id, 10);
+          combinationId = Number(extractIdValue(found.id));
           combinationMap.set(combinationKey, { id: combinationId, prix_ttc: productData.prix_ttc });
           console.log(`Combination already exists: ${combinationKey} → ${combinationId}`);
         }
@@ -270,9 +273,9 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
 
         try {
           const response = await apiService.post<any>("/combinations", { combination: combinationData });
-          const idMatch = response?.prestashop?.combination?.id;
-          if (idMatch) {
-            combinationId = parseInt(idMatch, 10);
+          const id = Number(extractIdValue(response?.prestashop?.combination?.id));
+          if (id) {
+            combinationId = id;
             combinationMap.set(combinationKey, { id: combinationId, prix_ttc: prixVenteTtc });
             console.log(`Combination created: ${combinationKey} → ${combinationId}`);
           }
@@ -300,19 +303,19 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
       if (allComboStocks.length > 0) {
         // Ligne existante → PUT
         const stockRecord = allComboStocks[0];
-        const stockId = stockRecord.id;
+        const stockId = extractIdValue(stockRecord.id);
         const stockData: StockAvailablePut = {
-          id: stockId,
+          id: Number(stockId),
           id_product: productId,
           id_product_attribute: combinationId,
-          id_shop: Number(typeof stockRecord.id_shop === 'object' ? stockRecord.id_shop['#text'] : (stockRecord.id_shop || 1)),
-          id_shop_group: stockRecord.id_shop_group || 0,
+          id_shop: Number(extractIdValue(stockRecord.id_shop) || 1),
+          id_shop_group: Number(extractIdValue(stockRecord.id_shop_group) || 0),
           quantity: quantity,
           depends_on_stock: 0,
           out_of_stock: 2,
           location: stockRecord.location || ''
         };
-        await apiService.put(`/stock_availables/${stockId.toString()}`, { stock_available: stockData });
+        await apiService.put(`/stock_availables/${stockId}`, { stock_available: stockData });
         console.log(`Stock updated (PUT) for combination ${combinationId}: qty=${quantity}`);
       } else {
         console.warn(`No stock_available entry found for combination ${combinationId}`);

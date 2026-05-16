@@ -53,7 +53,9 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 
 onMounted(async () => {
-  cartStore.clearAnonymousCart();
+  // Clear any existing session when returning to this page
+  await authStore.logout();
+  
   try {
     const allUsers = await customerService.getAllCustomers();
     users.value = allUsers.filter(u => u.email && u.firstname && u.lastname).slice(0, 10);
