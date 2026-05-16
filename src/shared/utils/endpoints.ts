@@ -54,6 +54,9 @@ export const erasableEndpoints: string[] = [
     '/products',
     '/manufacturers',
     '/suppliers',
+    // Après /products : category_product déjà nettoyé par Product::delete().
+    // delete_filtered → garde Root(1) et Home(2), supprime le reste.
+    '/categories',
 
     // 8. CMS
     '/content_management_system',

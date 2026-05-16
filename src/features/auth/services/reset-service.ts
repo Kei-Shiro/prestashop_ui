@@ -46,8 +46,16 @@ const specialHandlingEndpoints: Record<string, {
 }
 
 async function deleteAll(endpoint: string): Promise<string[]> {
-    const res: any = await apiService.get(`${endpoint}?display=[id]`)
-    const items = extractList(res, endpoint)
+    let items: any[]
+    try {
+        const res: any = await apiService.get(`${endpoint}?display=[id]`)
+        items = extractList(res, endpoint)
+    } catch (error) {
+        // GET en échec (401 ressource non autorisée, 404, réseau…) :
+        // on ignore CET endpoint sans faire planter tout le reset.
+        console.warn(`GET ${endpoint} échoué — endpoint ignoré`, error)
+        return []
+    }
     // PrestaShop n'a aucune contrainte FK : on supprime du plus grand id au plus petit
     // pour retirer les enfants (créés après) avant leurs parents.
     items.sort((a: any, b: any) => Number(extractId(b?.id)) - Number(extractId(a?.id)))
@@ -76,9 +84,14 @@ async function deleteFiltered(endpoint: string, filterStr: string): Promise<stri
     const excludedIds = new Set(excludedRaw.split('|').map(s => s.trim()))
 
     const displayFields = field === 'id' ? '[id]' : `[id,${field}]`
-    const res: any = await apiService.get(`${endpoint}?display=${displayFields}`)
-
-    const items = extractList(res, endpoint)
+    let items: any[]
+    try {
+        const res: any = await apiService.get(`${endpoint}?display=${displayFields}`)
+        items = extractList(res, endpoint)
+    } catch (error) {
+        console.warn(`GET ${endpoint} échoué — endpoint ignoré`, error)
+        return []
+    }
     items.sort((a: any, b: any) => Number(extractId(b?.id)) - Number(extractId(a?.id)))
     const failedIds: string[] = []
     for (const item of items) {
@@ -103,8 +116,14 @@ async function deleteFiltered(endpoint: string, filterStr: string): Promise<stri
 
 async function putQuantityZero(endpoint: string): Promise<string[]> {
     // Récupérer tous les stocks avec leurs champs complets
-    const res: any = await apiService.get(`${endpoint}?display=full`)
-    const items = extractList(res, endpoint)
+    let items: any[]
+    try {
+        const res: any = await apiService.get(`${endpoint}?display=full`)
+        items = extractList(res, endpoint)
+    } catch (error) {
+        console.warn(`GET ${endpoint} échoué — endpoint ignoré`, error)
+        return []
+    }
     const failedIds: string[] = []
 
     for (const item of items) {
@@ -168,16 +187,29 @@ const resetService = {
         const processed = new Set<string>()
 
         for (const ep of MAIN_ENDPOINTS) {
-            const { failed } = await resetEndpoint(ep)
+            try {
+                const { failed } = await resetEndpoint(ep)
+                if (failed.length > 0) hasFailures = true
+            } catch (error) {
+                // Un endpoint qui échoue ne doit JAMAIS interrompre le reset :
+                // sinon les endpoints suivants (dont /categories, traité en
+                // dernier) ne sont jamais atteints.
+                console.error(`resetEndpoint(${ep}) a échoué — on poursuit`, error)
+                hasFailures = true
+            }
             processed.add(ep)
-            if (failed.length > 0) hasFailures = true
         }
 
         for (const ep of Object.keys(specialHandlingEndpoints)) {
             if (!processed.has(ep)) {
                 console.log(`Endpoint spécial supplémentaire (hors erasableEndpoints) : ${ep}`)
-                const { failed } = await resetEndpoint(ep)
-                if (failed.length > 0) hasFailures = true
+                try {
+                    const { failed } = await resetEndpoint(ep)
+                    if (failed.length > 0) hasFailures = true
+                } catch (error) {
+                    console.error(`resetEndpoint(${ep}) a échoué — on poursuit`, error)
+                    hasFailures = true
+                }
             }
         }
 
