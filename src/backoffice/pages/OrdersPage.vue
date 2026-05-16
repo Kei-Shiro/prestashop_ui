@@ -64,6 +64,12 @@ onMounted(() => {
                 @change="changeOrderStatus(order.id, Number(($event.target as HTMLSelectElement).value))"
               >
                 <option
+                  v-if="!orderStates.some(s => s.id === order.currentState.id)"
+                  :value="order.currentState.id"
+                >
+                  {{ order.currentState.label }}
+                </option>
+                <option
                   v-for="state in orderStates.filter(s => allowedStateIds.includes(s.id) || s.id === order.currentState.id)"
                   :key="state.id"
                   :value="state.id"

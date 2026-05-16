@@ -4,6 +4,16 @@ import { orderService } from "../services/order-service";
 
 const ALLOWED_STATE_IDS = [2, 6, 13]; // Paiement accepté, Annulé, En attente de paiement à la livraison
 
+/**
+ * Avec display=full, PrestaShop renvoie les champs FK (current_state, id_customer…)
+ * sous forme <current_state xlink:href="...">2</current_state>. fast-xml-parser
+ * les parse en objet { '@_xlink:href': '...', '#text': 2 }. On extrait la valeur.
+ */
+const psNum = (v: any): number => {
+    if (v && typeof v === 'object') v = v['#text'] ?? v['value'] ?? v['@_id'];
+    return Number(v);
+};
+
 export function useOrders() {
     const orders = ref<MappedOrder[]>([]);
     const orderStates = ref<any[]>([]);
@@ -52,8 +62,8 @@ export function useOrders() {
             });
 
             orders.value = ordersArray.map(order => {
-                const customerId = Number(order.id_customer);
-                const currentStateId = Number(order.current_state);
+                const customerId = psNum(order.id_customer);
+                const currentStateId = psNum(order.current_state);
                 const state = statesMap.get(currentStateId) || { id: currentStateId, label: "Unknown", color: "#000000" };
 
                 return {

@@ -307,6 +307,9 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             id_shop: 1,
             id_shop_group: 1,
             secure_key: secureKey,
+            // PUT remplace tout l'objet : sans date_add, PS réécrit la date du
+            // panier à la date d'import. On renvoie la date du CSV.
+            date_add: formatDate(date),
             delivery_option: phpSerialized,
             associations: {
                 cart_rows: {
@@ -319,6 +322,12 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         console.log("Cart updated with products and delivery option");
     } catch (err) {
         console.error("Error updating cart:", err);
+        return;
+    }
+
+    // État vide dans le CSV → on s'arrête au panier, aucune commande créée.
+    if (!etat) {
+        console.log(`État vide pour ${email} → panier ${id_cart} créé, aucune commande.`);
         return;
     }
 
@@ -382,6 +391,18 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         const id_order = parseInt(id, 10);
         orderCountMap.set(id_order, true);
         console.log(`Order created: ${id_order}`);
+
+        // validateOrder (PrestaShop) force date_add = date d'import. On réaligne
+        // la commande sur la date du CSV via un PUT (sans associations pour ne
+        // pas re-synchroniser order_rows).
+        try {
+            const orderPut: any = { ...orderData, id: id_order };
+            delete orderPut.associations;
+            await apiService.put(`/orders/${id_order}`, { order: orderPut });
+            console.log(`Order date set to ${dateFormatted} for ${id_order}`);
+        } catch (e) {
+            console.warn(`Could not set order date for ${id_order}`, e);
+        }
 
         // ========== ORDER STATE UPDATE ==========
         const historyData = {
