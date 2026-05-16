@@ -11,14 +11,15 @@ export function extractLanguageValue(field: any): string {
         if (Array.isArray(lang)) {
             // Prendre la première langue (français)
             const l = lang[0];
-            return typeof l === 'string' ? l : (l?.value || l?.textContent || '');
+            return typeof l === 'string' ? l : String(l?.['#text'] || l?.value || l?.textContent || '');
         }
-        return typeof lang === 'string' ? lang : (lang.value || lang.textContent || '');
+        return typeof lang === 'string' ? lang : String(lang?.['#text'] || lang.value || lang.textContent || '');
     }
 
     // Si c'est directement la valeur
-    if (field.value) return field.value;
-    if (field.textContent) return field.textContent;
+    if (field['#text']) return String(field['#text']);
+    if (field.value) return String(field.value);
+    if (field.textContent) return String(field.textContent);
 
     return '';
 }

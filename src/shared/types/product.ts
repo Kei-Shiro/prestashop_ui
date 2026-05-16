@@ -10,6 +10,7 @@ export interface Product {
     images?: string[];
     id_default_image?: string;
     category?: string;
+    categories?: string[];
     date_availability?: string;
     date_add?: string;
     product_option_values?: { id: string }[];

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vue-tsc *)",
+      "WebSearch",
+      "WebFetch(domain:devdocs.prestashop-project.org)",
+      "Bash(node *)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ]
+  }
+}

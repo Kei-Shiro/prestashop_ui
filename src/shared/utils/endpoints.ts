@@ -52,7 +52,6 @@ export const erasableEndpoints: string[] = [
 
     // 7. Entités catalogue
     '/products',
-    '/categories',              // ⚠️ exclure id=1 et id=2
     '/manufacturers',
     '/suppliers',
 
@@ -60,7 +59,6 @@ export const erasableEndpoints: string[] = [
     '/content_management_system',
 
     // 9. Clients
-    '/addresses',               // ⚠️ exclure id_customer=0
     '/guests',
     '/customers',
 ];

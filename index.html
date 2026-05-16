@@ -3,26 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PrestaShop UI Dev Environment</title>
+    <title>PrestaShop UI | Dev</title>
     <style>
-        body { font-family: system-ui, sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; }
-        .card { border: 1px solid #ddd; padding: 1.5rem; margin-bottom: 1rem; border-radius: 8px; }
-        a { color: #2563eb; text-decoration: none; font-weight: bold; }
-        a:hover { text-decoration: underline; }
+        :root {
+            --color-bg: #ffffff;
+            --color-text: #111111;
+            --color-line: #e5e5e5;
+            --color-hover: #fafafa;
+            --spacing: 2rem;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.2;
+            padding: var(--spacing);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 4rem auto;
+        }
+
+        header {
+            margin-bottom: 6rem;
+        }
+
+        h1 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+            color: #888;
+            margin-bottom: 1rem;
+        }
+
+        .hero-text {
+            font-size: 3rem;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            max-width: 600px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            border-top: 1px solid var(--color-line);
+        }
+
+        .card {
+            padding: 3rem 0;
+            text-decoration: none;
+            color: var(--color-text);
+            border-bottom: 1px solid var(--color-line);
+            transition: padding-left 0.3s ease;
+        }
+
+        .card:hover {
+            padding-left: 1rem;
+            background-color: var(--color-hover);
+        }
+
+        .card-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #888;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 1rem;
+        }
+
+        .card-desc {
+            font-size: 0.9rem;
+            color: #666;
+            max-width: 280px;
+        }
+
+        @media (min-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .card:nth-child(odd) {
+                border-right: 1px solid var(--color-line);
+                padding-right: 3rem;
+            }
+            .card:nth-child(even) {
+                padding-left: 3rem;
+            }
+            .card:hover {
+                padding-left: 4rem;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>PrestaShop UI Dev Environment</h1>
-    <p>Select the application you want to work on:</p>
-    
-    <div class="card">
-        <h2>🛍️ <a href="/index.front.html">Front-Office</a></h2>
-        <p>The public store interface.</p>
-    </div>
+    <div class="container">
+        <header>
+            <h1>Environment</h1>
+            <div class="hero-text">PrestaShop UI Development System.</div>
+        </header>
+        
+        <nav class="grid">
+            <a href="/index.front.html" class="card">
+                <span class="card-label">Module 01</span>
+                <div class="card-title">Front-Office</div>
+                <p class="card-desc">Public-facing store interface with refined customer experience.</p>
+            </a>
 
-    <div class="card">
-        <h2>⚙️ <a href="/index.back.html">Back-Office</a></h2>
-        <p>The administration panel.</p>
+            <a href="/index.back.html" class="card">
+                <span class="card-label">Module 02</span>
+                <div class="card-title">Back-Office</div>
+                <p class="card-desc">Administrative control panel for systems and inventory management.</p>
+            </a>
+        </nav>
     </div>
 </body>
 </html>
+
