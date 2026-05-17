@@ -35,7 +35,29 @@
     </div>
 
     <!-- Daily Stock Evolution section -->
-    <h2 class="section-title">Évolution journalière du stock</h2>
+    <div class="section-header">
+      <h2 class="section-title">Évolution journalière du stock</h2>
+      <div class="filter-container">
+        <div class="filter-group">
+          <label class="filter-label">Filtrer par produit</label>
+          <select v-model="filterProduct" class="filter-input">
+            <option value="all">Tous les produits</option>
+            <option v-for="product in productStore.products" :key="product.id_product || (product as any).id" :value="String(product.id_product || (product as any).id)">
+              {{ extractLanguageValue(product.name) || `Produit #${product.id_product || (product as any).id}` }}
+            </option>
+          </select>
+        </div>
+        <div class="filter-group" v-if="filterCombinations.length > 0">
+          <label class="filter-label">Déclinaison</label>
+          <select v-model="filterCombination" class="filter-input">
+            <option value="all">Toutes les déclinaisons</option>
+            <option v-for="combo in filterCombinations" :key="combo.id" :value="String(combo.id)">
+              {{ combo.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
 
     <div v-if="stockStore.loading" class="loading">Chargement des données...</div>
     <div v-else class="table-container">
@@ -44,7 +66,8 @@
           <tr>
             <th>Date</th>
             <th>Produit</th>
-            <th>Mouvement</th>
+            <th class="text-right">Mouvement</th>
+            <th class="text-right">Quantité après</th>
           </tr>
         </thead>
         <tbody>
@@ -54,23 +77,26 @@
               {{ getProductName(entry.id_product) }}
               <span v-if="entry.combination_name" class="combination-tag">{{ entry.combination_name }}</span>
             </td>
-            <td class="col-movement">
+            <td class="col-movement text-right">
               <span :class="entry.sign > 0 ? 'text-positive' : 'text-negative'">
                 {{ entry.sign > 0 ? '+' : '-' }}{{ entry.physical_quantity }}
               </span>
             </td>
+            <td class="col-quantity text-right">
+              {{ entry.running_total ?? '-' }}
+            </td>
           </tr>
-          <tr v-if="stockStore.stockMovements.length === 0">
-            <td colspan="3" class="empty-state">Aucune donnée disponible</td>
+          <tr v-if="filteredMovements.length === 0">
+            <td colspan="4" class="empty-state">Aucune donnée disponible</td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <BasePagination
-      v-if="!stockStore.loading && stockStore.stockMovements.length > 0"
+      v-if="!stockStore.loading && filteredMovements.length > 0"
       v-model:current-page="currentPage"
-      :total-items="stockStore.stockMovements.length"
+      :total-items="filteredMovements.length"
       :items-per-page="itemsPerPage"
     />
   </div>
@@ -92,22 +118,55 @@ const selectedProduct = ref('');
 const selectedCombination = ref('');
 const quantity = ref(1);
 
+const filterProduct = ref('all');
+const filterCombination = ref('all');
+
 const currentPage = ref(1);
 const itemsPerPage = 10;
 
+// Filter and sort movements
+const filteredMovements = computed(() => {
+  let list = [...stockStore.stockMovements];
+  
+  // Apply product filter
+  if (filterProduct.value !== 'all') {
+    list = list.filter(m => String(m.id_product) === filterProduct.value);
+    
+    // Apply combination filter only if a product is selected
+    if (filterCombination.value !== 'all') {
+      list = list.filter(m => String(m.id_product_attribute || '0') === filterCombination.value);
+    }
+  }
+
+  // Sort by date ascending to calculate running total
+  list.sort((a, b) => new Date(a.date_add).getTime() - new Date(b.date_add).getTime());
+
+  // Calculate running totals per unique product/attribute
+  const totals: Record<string, number> = {};
+  const withTotals = list.map(m => {
+    const key = `${m.id_product}_${m.id_product_attribute || '0'}`;
+    const movementValue = m.sign * m.physical_quantity;
+    totals[key] = (totals[key] || 0) + movementValue;
+    return { ...m, running_total: totals[key] };
+  });
+
+  // Sort back to descending for display (most recent first)
+  return withTotals.sort((a, b) => new Date(b.date_add).getTime() - new Date(a.date_add).getTime());
+});
+
 const paginatedMovements = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
-  return stockStore.stockMovements.slice(start, start + itemsPerPage);
+  return filteredMovements.value.slice(start, start + itemsPerPage);
 });
 
 interface ComboOption { id: string; name: string }
 const productCombinations = ref<ComboOption[]>([]);
+const filterCombinations = ref<ComboOption[]>([]);
 const loadingCombinations = ref(false);
 
-watch(selectedProduct, async (productId) => {
-    selectedCombination.value = '';
-    productCombinations.value = [];
-    if (!productId) return;
+const loadCombinations = async (productId: string, targetRef: any) => {
+    targetRef.value = [];
+    if (!productId || productId === 'all') return;
 
     loadingCombinations.value = true;
     try {
@@ -122,7 +181,7 @@ watch(selectedProduct, async (productId) => {
             if (id) ovNames[id] = extractLanguageValue(ov.name);
         }
 
-        productCombinations.value = combinations.map((c: any) => {
+        targetRef.value = combinations.map((c: any) => {
             const cId = extractIdValue(c.id);
             const ovAssoc = c.associations?.product_option_values?.product_option_value;
             const ovIds = ovAssoc
@@ -134,6 +193,21 @@ watch(selectedProduct, async (productId) => {
     } finally {
         loadingCombinations.value = false;
     }
+};
+
+watch(selectedProduct, (val) => {
+    selectedCombination.value = '';
+    loadCombinations(val, productCombinations);
+});
+
+watch(filterProduct, (val) => {
+    filterCombination.value = 'all';
+    currentPage.value = 1;
+    loadCombinations(val, filterCombinations);
+});
+
+watch(filterCombination, () => {
+    currentPage.value = 1;
 });
 
 onMounted(async () => {
@@ -184,11 +258,46 @@ const handleAddStock = async () => {
   color: var(--text-main, #1e293b);
 }
 
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
 .section-title {
   font-size: 1.25rem;
   font-weight: 600;
-  margin-bottom: 1rem;
   color: var(--text-main, #1e293b);
+  margin: 0;
+}
+
+.filter-container {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.filter-input {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background-color: #ffffff;
 }
 
 .add-stock-card {
@@ -303,6 +412,15 @@ const handleAddStock = async () => {
 
 .col-product {
   color: #475569;
+}
+
+.col-quantity {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.text-right {
+  text-align: right;
 }
 
 .combination-tag {
