@@ -248,21 +248,28 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
     if (!attributeValueId) continue;
 
     // ── Combinaison ──
-    const combinationKey = `${reference}-${valeur}`;
-    let combinationId = combinationMap.get(combinationKey)?.id;
+
+    const comboKey = `${reference}_${specificite}_${valeur}`;
+    let combinationId = combinationMap.get(comboKey)?.id;
 
     if (!combinationId) {
-      // Vérifier si la combinaison existe déjà dans PS par référence
+      // Vérifier si la combinaison existe déjà dans PS pour ce produit AVEC cet attribut
       try {
         const existing = await apiService.get<any>(
-            `/combinations?filter[reference]=${encodeURIComponent(`${reference}-${valeur}`)}&display=full`
+            `/combinations?filter[id_product]=${productId}&display=full`
         );
-        const existingCombo = existing?.prestashop?.combinations?.combination;
-        const found = Array.isArray(existingCombo) ? existingCombo[0] : existingCombo;
-        if (found?.id) {
-          combinationId = Number(extractIdValue(found.id));
-          combinationMap.set(combinationKey, { id: combinationId, prix_ttc: productData.prix_ttc });
-          console.log(`Combination already exists: ${combinationKey} → ${combinationId}`);
+        const combosRaw = existing?.prestashop?.combinations?.combination;
+        const combosArr = Array.isArray(combosRaw) ? combosRaw : (combosRaw ? [combosRaw] : []);
+        
+        for (const combo of combosArr) {
+            const associations = combo.associations?.product_option_values?.product_option_value;
+            const assocArr = Array.isArray(associations) ? associations : (associations ? [associations] : []);
+            if (assocArr.some((a: any) => Number(extractIdValue(a.id)) === attributeValueId)) {
+                combinationId = Number(extractIdValue(combo.id));
+                combinationMap.set(comboKey, { id: combinationId, prix_ttc: productData.prix_ttc });
+                console.log(`Combination already exists for ${comboKey} → ${combinationId}`);
+                break;
+            }
         }
       } catch (_) { /* pas trouvée, on crée */ }
 
@@ -279,7 +286,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
 
         const combinationData: CombinationPost = {
           id_product: productId,
-          reference: `${reference}-${valeur}`,
+          reference: reference,
           price: parseFloat(impactHt.toFixed(6)),
           minimal_quantity: 1,
           associations: {
@@ -294,11 +301,11 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
           const id = Number(extractIdValue(response?.prestashop?.combination?.id));
           if (id) {
             combinationId = id;
-            combinationMap.set(combinationKey, { id: combinationId, prix_ttc: prixVenteTtc });
-            console.log(`Combination created: ${combinationKey} → ${combinationId}`);
+            combinationMap.set(comboKey, { id: combinationId, prix_ttc: prixVenteTtc });
+            console.log(`Combination created: ${comboKey} → ${combinationId}`);
           }
         } catch (err) {
-          console.error(`Error creating combination for ${combinationKey}`, err);
+          console.error(`Error creating combination for ${comboKey}`, err);
           continue;
         }
       }
@@ -308,54 +315,57 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
 
     // ── Stock déclinaison ──
     try {
+      // Recherche plus robuste du stock : on filtre par produit ET déclinaison
       const stockGetRes = await apiService.get<any>(
-          `/stock_availables?filter[id_product_attribute]=${combinationId}&display=full`,
+          `/stock_availables?filter[id_product]=${productId}&filter[id_product_attribute]=${combinationId}&display=full`,
       );
 
       const rawCombo = stockGetRes?.prestashop?.stock_availables?.stock_available;
       const allComboStocks: StockAvailableGet[] = Array.isArray(rawCombo) ? rawCombo : (rawCombo ? [rawCombo] : []);
       const quantity = stock_initial ? parseInt(stock_initial, 10) : 0;
 
-      console.log(`Stock combo ${combinationId}: entries=${allComboStocks.length}, qty=${quantity}`);
-
       if (allComboStocks.length > 0) {
-        // Ligne existante → PUT
-        const stockRecord = allComboStocks[0];
-        const stockId = extractIdValue(stockRecord.id);
-        const stockData: StockAvailablePut = {
-          id: Number(stockId),
-          id_product: productId,
-          id_product_attribute: combinationId,
-          id_shop: Number(extractIdValue(stockRecord.id_shop) || 1),
-          id_shop_group: Number(extractIdValue(stockRecord.id_shop_group) || 0),
-          quantity: quantity,
-          depends_on_stock: 0,
-          out_of_stock: 2,
-          location: stockRecord.location || ''
-        };
-        await apiService.put(`/stock_availables/${stockId}`, { stock_available: stockData });
-        console.log(`Stock updated (PUT) for combination ${combinationId}: qty=${quantity}`);
+        // On met à jour toutes les lignes de stock trouvées (cas multi-boutique)
+        for (const stockRecord of allComboStocks) {
+          const stockId = extractIdValue(stockRecord.id);
+          const stockData: StockAvailablePut = {
+            id: Number(stockId),
+            id_product: productId,
+            id_product_attribute: combinationId,
+            id_shop: Number(extractIdValue(stockRecord.id_shop) || 1),
+            id_shop_group: Number(extractIdValue(stockRecord.id_shop_group) || 0),
+            quantity: quantity,
+            depends_on_stock: 0,
+            out_of_stock: 2,
+            location: stockRecord.location || ''
+          };
+          await apiService.put(`/stock_availables/${stockId}`, { stock_available: stockData });
+          console.log(`[combinationImport] Stock mis à jour pour combo ${combinationId} (ID Stock: ${stockId}) : qty=${quantity}`);
+        }
+
+        // Créer un mouvement de stock (un seul suffit généralement)
         try {
           const stockMovementPayload: StockMovement = {
             id_product: productId,
-            id_product_attribute: 0, // 0 car c'est un produit simple
-            physical_quantity: +row.stock_initial,
-            sign: 1, // 1 pour une augmentation
-            id_stock_mvt_reason: 1, // Raison "Augmentation de stock"
-            date_add: new Date().toISOString().slice(0, 19).replace('T', ' '), // Format YYYY-MM-DD HH:MM:SS
+            id_product_attribute: combinationId,
+            physical_quantity: quantity,
+            sign: 1,
+            id_stock_mvt_reason: 1,
+            date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
           };
 
           await apiService.postStockMvt('/stockmvtapi/stockmvt', {
             stock_mvt: stockMovementPayload
           });
-          console.log(`Created stock movement for simple product ${productId}`);
+          console.log(`[combinationImport] Mouvement de stock créé pour combo ${combinationId}`);
         } catch (mvtError) {
-          console.error(`Failed to create stock movement for simple product ${productId}`, mvtError);
-          // On continue même si le mouvement de stock échoue, car le stock principal est à jour.
+          console.error(`[combinationImport] Échec mouvement stock pour combo ${combinationId}`, mvtError);
         }
+      } else {
+        console.error(`[combinationImport] AUCUNE ligne de stock trouvée dans PS pour id_product=${productId} et id_product_attribute=${combinationId}. Le stock n'a pas pu être mis à jour.`);
       }
     } catch (err) {
-      console.error(`Error processing simple product stock for ${productId}`, err);
+      console.error(`[combinationImport] Erreur lors du traitement du stock pour combo ${combinationId}`, err);
     }
   }
 };

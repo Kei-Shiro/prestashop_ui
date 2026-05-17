@@ -267,14 +267,26 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
 
         if (tuple.valeur) {
             // combinationMap est rempli par combinationImportService.ts
-            // La clé est "reference-valeur"
-            const comboKey = `${tuple.ref}-${tuple.valeur}`;
-            const combo = combinationMap.get(comboKey);
-            if (combo) {
-                id_product_attribute = combo.id;
-                unit_price_ttc = combo.prix_ttc;
+            // La clé est "reference_specificite_valeur" (voir combinationImportService.ts)
+            // Mais attention : le CSV d'achat ne contient souvent que reference et valeur.
+            // On cherche une clé dans la map qui COMMENCE par "reference_" et FINIT par "_valeur"
+            const prefix = `${tuple.ref}_`;
+            const suffix = `_${tuple.valeur}`;
+            
+            let foundEntry = null;
+            for (const [key, value] of combinationMap.entries()) {
+                if (key.startsWith(prefix) && key.endsWith(suffix)) {
+                    foundEntry = value;
+                    break;
+                }
+            }
+
+            if (foundEntry) {
+                id_product_attribute = foundEntry.id;
+                unit_price_ttc = foundEntry.prix_ttc;
             } else {
-                console.warn(`[orderImport] Combination not found for key: ${comboKey}. Map size: ${combinationMap.size}`);
+                console.warn(`[orderImport] Combination not found for ref: ${tuple.ref}, valeur: ${tuple.valeur}.`);
+                console.log(`[orderImport] Available keys in combinationMap:`, Array.from(combinationMap.keys()));
             }
         }
 
