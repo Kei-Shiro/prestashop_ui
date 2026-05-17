@@ -1,8 +1,17 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
-import { useOrders } from '@shared/composables/useOrders';
+import { ref, onMounted, computed } from 'vue';
+import { useOrders } from '@features/checkout/composables/useOrders';
+import BasePagination from '@shared/ui/components/BasePagination.vue';
 
 const { orders, orderStates, allowedStateIds, isLoading, error, updatingOrderId, loadOrdersAndMetadata, changeOrderStatus } = useOrders();
+
+const currentPage = ref(1);
+const itemsPerPage = 15;
+
+const paginatedOrders = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  return orders.value.slice(start, start + itemsPerPage);
+});
 
 onMounted(() => {
   loadOrdersAndMetadata();
@@ -29,54 +38,69 @@ onMounted(() => {
       {{ error }}
     </div>
 
-    <div v-else class="table-wrapper">
-      <table class="table">
-        <thead>
-        <tr>
-          <th>ID</th>
-          <th>Référence</th>
-          <th>Client</th>
-          <th>Date</th>
-          <th>Paiement</th>
-          <th class="text-right">Total</th>
-          <th>État</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-if="orders.length === 0">
-          <td colspan="7" class="empty-cell">Aucune commande trouvée.</td>
-        </tr>
-        <tr v-for="order in orders" :key="order.id">
-          <td class="cell-id">#{{ order.id }}</td>
-          <td class="cell-ref">{{ order.reference }}</td>
-          <td>{{ order.customerName }}</td>
-          <td class="cell-mono">{{ order.dateAdd }}</td>
-          <td>{{ order.payment }}</td>
-          <td class="cell-mono text-right cell-total">{{ order.totalPaid }} €</td>
-          <td>
-            <div class="status-cell">
-              <span class="status-dot" :style="{ backgroundColor: order.currentState.color }"></span>
+    <div v-else class="table-container">
+      <div class="table-wrapper">
+        <table class="table">
+          <thead>
+          <tr>
+            <th>ID</th>
+            <th>Référence</th>
+            <th>Client</th>
+            <th>Date</th>
+            <th>Paiement</th>
+            <th class="text-right">Total</th>
+            <th>État</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr v-if="orders.length === 0">
+            <td colspan="7" class="empty-cell">Aucune commande trouvée.</td>
+          </tr>
+          <tr v-for="order in paginatedOrders" :key="order.id">
+            <td class="cell-id">#{{ order.id }}</td>
+            <td class="cell-ref">{{ order.reference }}</td>
+            <td>{{ order.customerName }}</td>
+            <td class="cell-mono">{{ order.dateAdd }}</td>
+            <td>{{ order.payment }}</td>
+            <td class="cell-mono text-right cell-total">{{ order.totalPaid }} €</td>
+            <td>
+              <div class="status-cell">
+                <span class="status-dot" :style="{ backgroundColor: order.currentState.color }"></span>
 
-              <select
-                class="status-select"
-                :value="order.currentState.id"
-                :disabled="updatingOrderId === order.id"
-                @change="changeOrderStatus(order.id, Number(($event.target as HTMLSelectElement).value))"
-              >
-                <option
-                  v-for="state in orderStates.filter(s => allowedStateIds.includes(s.id) || s.id === order.currentState.id)"
-                  :key="state.id"
-                  :value="state.id"
+                <select
+                  class="status-select"
+                  :value="order.currentState.id"
+                  :disabled="updatingOrderId === order.id"
+                  @change="changeOrderStatus(order.id, Number(($event.target as HTMLSelectElement).value))"
                 >
-                  {{ state.label }}
-                </option>
-              </select>
-              <span v-if="updatingOrderId === order.id" class="spinner-small"></span>
-            </div>
-          </td>
-        </tr>
-        </tbody>
-      </table>
+                  <option
+                    v-if="!orderStates.some(s => s.id === order.currentState.id)"
+                    :value="order.currentState.id"
+                  >
+                    {{ order.currentState.label }}
+                  </option>
+                  <option
+                    v-for="state in orderStates.filter(s => allowedStateIds.includes(s.id) || s.id === order.currentState.id)"
+                    :key="state.id"
+                    :value="state.id"
+                  >
+                    {{ state.label }}
+                  </option>
+                </select>
+                <span v-if="updatingOrderId === order.id" class="spinner-small"></span>
+              </div>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <BasePagination
+        v-if="!isLoading && !error && orders.length > 0"
+        v-model:current-page="currentPage"
+        :total-items="orders.length"
+        :items-per-page="itemsPerPage"
+      />
     </div>
 
   </div>

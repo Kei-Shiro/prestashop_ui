@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory } from 'vue-router';
 import UserSelectionPage from '../pages/UserSelectionPage.vue';
 import ShopPage from '../pages/ShopPage.vue';
 import ProductDetailPage from '../pages/ProductDetailPage.vue';
@@ -7,7 +7,7 @@ import CheckoutPage from '../pages/CheckoutPage.vue';
 import OrderConfirmationPage from '../pages/OrderConfirmationPage.vue';
 import MyOrdersPage from '../pages/MyOrderPage.vue';
 import DefaultLayout from '../layouts/DefaultLayout.vue';
-import { useAuthStore } from '../stores/auth';
+import { useAuthStore } from '@features/auth/stores/customerAuthStore';
 
 const routes = [
   {
@@ -29,7 +29,7 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes
 });
 

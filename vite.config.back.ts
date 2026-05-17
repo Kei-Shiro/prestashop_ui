@@ -23,6 +23,11 @@ export default defineConfig({
             '/prestashop/api': {
                 target: 'http://localhost',
                 changeOrigin: true,
+            },
+            // Endpoint stock personnalisé (POST /stock_movements interdit par le WS)
+            '/prestashop/update_stock_custom.php': {
+                target: 'http://localhost',
+                changeOrigin: true,
             }
         }
     },

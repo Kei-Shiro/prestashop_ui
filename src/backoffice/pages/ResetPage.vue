@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import resetService from '@shared/services/reset-service';
-import PageHeader from '../components/PageHeader.vue';
+import resetService from '@features/auth/services/reset-service';
+import PageHeader from '@features/dashboard/components/PageHeader.vue';
 
 const isConfirming = ref(false);
 const isResetting = ref(false);

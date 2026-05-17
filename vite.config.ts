@@ -20,12 +20,12 @@ export default defineConfig({
                 changeOrigin: true,
                 secure: false,
             },
-            // Proxy spécifique pour le script custom de stock
-            '/prestashop/update_stock_custom.php': {
+            // Proxy pour les modules (comme stockmvtapi)
+            '/prestashop/module': {
                 target: 'http://localhost',
                 changeOrigin: true,
                 secure: false,
-            }
+            },
         }
     },
     envPrefix: ['VITE_', 'FRONT_', 'BACK_'],

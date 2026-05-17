@@ -168,10 +168,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { importProducts, taxRateMap, categoryMap, productMap } from '@features/import/services/productImportService';
-import { importCombinationsAndStocks, attributeMap, attributeValueMap, combinationMap } from '@features/import/services/combinationImportService';
-import { importOrders, customerMap, addressMap, orderCountMap } from '@features/import/services/orderImportService';
-import { importImages } from '@features/import/services/imageImportService';
+import { importProducts, taxRateMap, categoryMap, productMap } from '@features/inventory/import/services/productImportService';
+import { importCombinationsAndStocks, attributeMap, attributeValueMap, combinationMap } from '@features/inventory/import/services/combinationImportService';
+import { importOrders, customerMap, addressMap, orderCountMap } from '@features/inventory/import/services/orderImportService';
+import { importImages } from '@features/inventory/import/services/imageImportService';
 
 // --- State Global ---
 const isImporting = ref(false);

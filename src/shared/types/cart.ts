@@ -10,5 +10,7 @@ export interface Cart {
 export interface CartItem {
     product: Product;
     quantity: number;
+    unit_price: number;
     total_price: number;
+    id_product_attribute?: string;
 }
