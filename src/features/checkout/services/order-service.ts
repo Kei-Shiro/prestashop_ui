@@ -173,97 +173,79 @@ export const orderService = {
     },
 
     async createCart(customerId: number, items: any[], addressId: number = 0): Promise<number> {
-        let associationsBlock = '';
-        if (items.length > 0) {
-            let cartRows = items.map(item => `
-            <cart_row>
-                <id_product>${item.id_product}</id_product>
-                <id_product_attribute>${item.id_product_attribute || 0}</id_product_attribute>
-                <id_address_delivery>${addressId}</id_address_delivery>
-                <id_customization>0</id_customization>
-                <quantity>${item.quantity}</quantity>
-            </cart_row>`).join('');
-            
-            associationsBlock = `
-        <associations>
-            <cart_rows>
-                ${cartRows}
-            </cart_rows>
-        </associations>`;
-        }
-
         const carrierId = await this.detectCarrierId();
         const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-        const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<prestashop>
-    <cart>
-        <id_customer>${customerId}</id_customer>
-        <id_address_delivery>${addressId}</id_address_delivery>
-        <id_address_invoice>${addressId}</id_address_invoice>
-        <id_currency>1</id_currency>
-        <id_lang>1</id_lang>
-        <id_shop>1</id_shop>
-        <id_shop_group>1</id_shop_group>
-        <id_carrier>${carrierId}</id_carrier>
-        <date_add>${now}</date_add>
-        <date_upd>${now}</date_upd>${associationsBlock}
-    </cart>
-</prestashop>`;
-        const response: any = await apiService.post('/carts', xml, {
-            headers: { 'Content-Type': 'application/xml' }
-        });
+        const payload: any = {
+            cart: {
+                id_customer: customerId,
+                id_address_delivery: addressId,
+                id_address_invoice: addressId,
+                id_currency: 1,
+                id_lang: 1,
+                id_shop: 1,
+                id_shop_group: 1,
+                id_carrier: carrierId,
+                date_add: now,
+                date_upd: now
+            }
+        };
+
+        if (items.length > 0) {
+            payload.cart.associations = {
+                cart_rows: {
+                    cart_row: items.map(item => ({
+                        id_product: item.id_product,
+                        id_product_attribute: item.id_product_attribute || 0,
+                        id_address_delivery: addressId,
+                        id_customization: 0,
+                        quantity: item.quantity
+                    }))
+                }
+            };
+        }
+
+        const response: any = await apiService.post('/carts', payload);
         return parseInt(extractIdValue(response.prestashop.cart.id));
     },
 
     async updateCart(cartId: number, customerId: number, items: any[], addressId: number = 0): Promise<number> {
-        let associationsBlock = '';
-        if (items.length > 0) {
-            let cartRows = items.map(item => `
-            <cart_row>
-                <id_product>${item.id_product}</id_product>
-                <id_product_attribute>${item.id_product_attribute || 0}</id_product_attribute>
-                <id_address_delivery>${addressId}</id_address_delivery>
-                <id_customization>0</id_customization>
-                <quantity>${item.quantity}</quantity>
-            </cart_row>`).join('');
-            
-            associationsBlock = `
-        <associations>
-            <cart_rows>
-                ${cartRows}
-            </cart_rows>
-        </associations>`;
-        } else {
-            // Si on vide le panier, PrestaShop exige soit un tableau vide d'associations, soit la suppression.
-            // Le plus sûr pour "vider" le panier via webservice est d'envoyer un <cart_rows> vide pour forcer la mise à jour
-            associationsBlock = `
-        <associations>
-            <cart_rows></cart_rows>
-        </associations>`;
-        }
-
         const carrierId = await this.detectCarrierId();
         const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-        const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<prestashop>
-    <cart>
-        <id>${cartId}</id>
-        <id_customer>${customerId}</id_customer>
-        <id_address_delivery>${addressId}</id_address_delivery>
-        <id_address_invoice>${addressId}</id_address_invoice>
-        <id_currency>1</id_currency>
-        <id_lang>1</id_lang>
-        <id_shop>1</id_shop>
-        <id_shop_group>1</id_shop_group>
-        <id_carrier>${carrierId}</id_carrier>
-        <date_upd>${now}</date_upd>${associationsBlock}
-    </cart>
-</prestashop>`;
-        await apiService.put(`/carts/${cartId}`, xml, {
-            headers: { 'Content-Type': 'application/xml' }
-        });
+        const payload: any = {
+            cart: {
+                id: cartId,
+                id_customer: customerId,
+                id_address_delivery: addressId,
+                id_address_invoice: addressId,
+                id_currency: 1,
+                id_lang: 1,
+                id_shop: 1,
+                id_shop_group: 1,
+                id_carrier: carrierId,
+                date_upd: now,
+                associations: {
+                    cart_rows: {}
+                }
+            }
+        };
+
+        if (items.length > 0) {
+            payload.cart.associations.cart_rows.cart_row = items.map(item => ({
+                id_product: item.id_product,
+                id_product_attribute: item.id_product_attribute || 0,
+                id_address_delivery: addressId,
+                id_customization: 0,
+                quantity: item.quantity
+            }));
+        } else {
+            // Un tableau vide est ignoré par le parser XML pour des tags simples (il n'écrit rien).
+            // Pour forcer un tag vide <cart_rows></cart_rows>, on peut passer une chaîne vide ou ne pas passer l'attribut cart_row.
+            payload.cart.associations.cart_rows = '';
+        }
+
+        await apiService.put(`/carts/${cartId}`, payload);
         return cartId;
     },
 
@@ -277,57 +259,52 @@ export const orderService = {
         carrierId: number = 1,
         moduleName: string = 'ps_cashondelivery'
     ): Promise<number> {
-        const total = totalAmount.toFixed(6);
+        const total = parseFloat(totalAmount.toFixed(6));
         
-        let orderRows = items.map(item => `
-        <order_row>
-            <product_id>${item.id_product}</product_id>
-            <product_attribute_id>${item.id_product_attribute || 0}</product_attribute_id>
-            <product_quantity>${item.quantity}</product_quantity>
-        </order_row>`).join('');
+        const payload: any = {
+            order: {
+                id_shop: 1,
+                id_shop_group: 1,
+                id_address_delivery: addressId,
+                id_address_invoice: addressId,
+                id_cart: cartId,
+                id_currency: 1,
+                id_lang: 1,
+                id_customer: customerId,
+                id_carrier: carrierId,
+                current_state: initialStateId,
+                module: moduleName,
+                payment: 'Paiement à la livraison',
+                total_discounts: 0.000000,
+                total_discounts_tax_incl: 0.000000,
+                total_discounts_tax_excl: 0.000000,
+                total_paid: total,
+                total_paid_tax_incl: total,
+                total_paid_tax_excl: total,
+                total_paid_real: total,
+                total_products: total,
+                total_products_wt: total,
+                total_shipping: 0.000000,
+                total_shipping_tax_incl: 0.000000,
+                total_shipping_tax_excl: 0.000000,
+                total_wrapping: 0.000000,
+                total_wrapping_tax_incl: 0.000000,
+                total_wrapping_tax_excl: 0.000000,
+                conversion_rate: 1.000000,
+                valid: 1,
+                associations: {
+                    order_rows: {
+                        order_row: items.map(item => ({
+                            product_id: item.id_product,
+                            product_attribute_id: item.id_product_attribute || 0,
+                            product_quantity: item.quantity
+                        }))
+                    }
+                }
+            }
+        };
 
-        const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<prestashop>
-    <order>
-        <id_shop>1</id_shop>
-        <id_shop_group>1</id_shop_group>
-        <id_address_delivery>${addressId}</id_address_delivery>
-        <id_address_invoice>${addressId}</id_address_invoice>
-        <id_cart>${cartId}</id_cart>
-        <id_currency>1</id_currency>
-        <id_lang>1</id_lang>
-        <id_customer>${customerId}</id_customer>
-        <id_carrier>${carrierId}</id_carrier>
-        <current_state>${initialStateId}</current_state>
-        <module>${moduleName}</module>
-        <payment>Paiement à la livraison</payment>
-        <total_discounts>0.000000</total_discounts>
-        <total_discounts_tax_incl>0.000000</total_discounts_tax_incl>
-        <total_discounts_tax_excl>0.000000</total_discounts_tax_excl>
-        <total_paid>${total}</total_paid>
-        <total_paid_tax_incl>${total}</total_paid_tax_incl>
-        <total_paid_tax_excl>${total}</total_paid_tax_excl>
-        <total_paid_real>${total}</total_paid_real>
-        <total_products>${total}</total_products>
-        <total_products_wt>${total}</total_products_wt>
-        <total_shipping>0.000000</total_shipping>
-        <total_shipping_tax_incl>0.000000</total_shipping_tax_incl>
-        <total_shipping_tax_excl>0.000000</total_shipping_tax_excl>
-        <total_wrapping>0.000000</total_wrapping>
-        <total_wrapping_tax_incl>0.000000</total_wrapping_tax_incl>
-        <total_wrapping_tax_excl>0.000000</total_wrapping_tax_excl>
-        <conversion_rate>1.000000</conversion_rate>
-        <valid>1</valid>
-        <associations>
-            <order_rows>
-                ${orderRows}
-            </order_rows>
-        </associations>
-    </order>
-</prestashop>`;
-        const response: any = await apiService.post('/orders', xml, {
-            headers: { 'Content-Type': 'application/xml' }
-        });
+        const response: any = await apiService.post('/orders', payload);
         // PrestaShop renvoie HTTP 200 avec corps PHP d'erreur si la création échoue
         if (!response?.prestashop?.order?.id) {
             throw new Error(
@@ -339,16 +316,13 @@ export const orderService = {
     },
 
     async updateOrderStatus(orderId: number, newStateId: number): Promise<void> {
-        const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<prestashop>
-    <order_history>
-        <id_order>${orderId}</id_order>
-        <id_order_state>${newStateId}</id_order_state>
-    </order_history>
-</prestashop>`;
-        await apiService.post('/order_histories', xml, {
-            headers: { 'Content-Type': 'application/xml' }
-        });
+        const payload = {
+            order_history: {
+                id_order: orderId,
+                id_order_state: newStateId
+            }
+        };
+        await apiService.post('/order_histories', payload);
     }
 
 };

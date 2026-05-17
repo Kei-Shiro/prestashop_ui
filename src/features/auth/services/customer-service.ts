@@ -1,5 +1,6 @@
 import apiService from '@shared/api/api-service';
 import { AddressData, Address } from '@shared/types/customer';
+import { extractIdValue } from '@shared/utils/extractIdValue';
 
 export const customerService = {
 
@@ -51,42 +52,36 @@ export const customerService = {
     },
 
     async createCustomer(data: { email: string, firstname: string, lastname: string, password?: string }): Promise<number> {
-        const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<prestashop>
-    <customer>
-        <passwd>${data.password || '123456789'}</passwd>
-        <lastname>${data.lastname}</lastname>
-        <firstname>${data.firstname}</firstname>
-        <email>${data.email}</email>
-        <id_gender>1</id_gender>
-        <id_default_group>3</id_default_group>
-        <active>1</active>
-    </customer>
-</prestashop>`;
-        const response: any = await apiService.post('/customers', xml, {
-            headers: { 'Content-Type': 'application/xml' }
-        });
-        return parseInt(response.prestashop.customer.id);
+        const payload = {
+            customer: {
+                passwd: data.password || '123456789',
+                lastname: data.lastname,
+                firstname: data.firstname,
+                email: data.email,
+                id_gender: 1,
+                id_default_group: 3,
+                active: 1
+            }
+        };
+        const response: any = await apiService.post('/customers', payload);
+        return parseInt(extractIdValue(response.prestashop.customer.id));
     },
 
     async createAddress(data: any): Promise<number> {
-        const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<prestashop>
-    <address>
-        <id_customer>${data.id_customer}</id_customer>
-        <id_country>${data.id_country || 8}</id_country>
-        <alias>${data.alias || 'Mon adresse'}</alias>
-        <lastname>${data.lastname}</lastname>
-        <firstname>${data.firstname}</firstname>
-        <address1>${data.address1}</address1>
-        <city>${data.city}</city>
-        <postal_code>${data.postal_code}</postal_code>
-        <phone>${data.phone || ''}</phone>
-    </address>
-</prestashop>`;
-        const response: any = await apiService.post('/addresses', xml, {
-            headers: { 'Content-Type': 'application/xml' }
-        });
-        return parseInt(response.prestashop.address.id);
+        const payload = {
+            address: {
+                id_customer: data.id_customer,
+                id_country: data.id_country || 8,
+                alias: data.alias || 'Mon adresse',
+                lastname: data.lastname,
+                firstname: data.firstname,
+                address1: data.address1,
+                city: data.city,
+                postal_code: data.postal_code,
+                phone: data.phone || ''
+            }
+        };
+        const response: any = await apiService.post('/addresses', payload);
+        return parseInt(extractIdValue(response.prestashop.address.id));
     }
 };

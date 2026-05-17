@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import apiService from "@shared/api/api-service";
 import { productMap } from "./productImportService";
-import type { StockCSVRow, CombinationMapEntry, ProductOption, ProductOptionValue, CombinationPost, StockAvailablePut, StockAvailableGet, LValue } from "@shared/types/import";
+import type { StockCSVRow, CombinationMapEntry, ProductOption, ProductOptionValue, CombinationPost, StockAvailablePut, StockAvailableGet, LValue, StockMovement } from "@shared/types/import";
 import { Serializer } from "@shared/utils/serializer";
 import { extractIdValue } from "@shared/utils/extractIdValue";
 
@@ -126,11 +126,29 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
           };
           await apiService.put(`/stock_availables/${extractIdValue(stockId)}`, { stock_available: stockData });
           console.log(`Stock updated for simple product ${productId}: qty=${quantity}`);
-        } else {
-          console.warn(`No stock_available entry found for simple product ${productId}`);
+
+          try {
+            const stockMovementPayload: StockMovement = {
+              id_product: productId,
+              id_product_attribute: 0, // 0 car c'est un produit simple
+              physical_quantity: +row.stock_initial,
+              sign: 1, // 1 pour une augmentation
+              id_stock_mvt_reason: 1, // Raison "Augmentation de stock"
+              date_add: new Date().toISOString().slice(0, 19).replace('T', ' '), // Format YYYY-MM-DD HH:MM:SS
+            };
+
+            await apiService.postStockMvt('/stockmvtapi/stockmvt', {
+              stock_mvt: stockMovementPayload
+            });
+            console.log(`Created stock movement for simple product ${productId}`);
+          } catch (mvtError) {
+            console.error(`Failed to create stock movement for simple product ${productId}`, mvtError);
+            // On continue même si le mouvement de stock échoue, car le stock principal est à jour.
+          }
+          continue;
         }
       } catch (err) {
-        console.error(`Error updating stock for simple product ${reference}`, err);
+        console.error(`Error processing simple product stock for ${productId}`, err);
       }
       continue;
     }
@@ -317,11 +335,27 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         };
         await apiService.put(`/stock_availables/${stockId}`, { stock_available: stockData });
         console.log(`Stock updated (PUT) for combination ${combinationId}: qty=${quantity}`);
-      } else {
-        console.warn(`No stock_available entry found for combination ${combinationId}`);
+        try {
+          const stockMovementPayload: StockMovement = {
+            id_product: productId,
+            id_product_attribute: 0, // 0 car c'est un produit simple
+            physical_quantity: +row.stock_initial,
+            sign: 1, // 1 pour une augmentation
+            id_stock_mvt_reason: 1, // Raison "Augmentation de stock"
+            date_add: new Date().toISOString().slice(0, 19).replace('T', ' '), // Format YYYY-MM-DD HH:MM:SS
+          };
+
+          await apiService.postStockMvt('/stockmvtapi/stockmvt', {
+            stock_mvt: stockMovementPayload
+          });
+          console.log(`Created stock movement for simple product ${productId}`);
+        } catch (mvtError) {
+          console.error(`Failed to create stock movement for simple product ${productId}`, mvtError);
+          // On continue même si le mouvement de stock échoue, car le stock principal est à jour.
+        }
       }
     } catch (err) {
-      console.error(`Error updating stock for combination ${combinationId}`, err);
+      console.error(`Error processing simple product stock for ${productId}`, err);
     }
   }
 };

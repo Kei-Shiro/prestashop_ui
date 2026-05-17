@@ -2,7 +2,7 @@ import Papa from "papaparse";
 import apiService from "@shared/api/api-service";
 import { productMap } from "./productImportService";
 import { combinationMap } from "./combinationImportService";
-import type { OrderCSVRow, AchatTuple, ResolvedTuple, Customer, Address, Cart, CartRow, Order, CarrierPost, LValue } from "@shared/types/import";
+import type { OrderCSVRow, AchatTuple, ResolvedTuple, Customer, Address, Cart, CartRow, Order, CarrierPost, LValue, StockMovement } from "@shared/types/import";
 
 export const customerMap = new Map<string, number>();
 export const addressMap = new Map<string, number>();
@@ -334,7 +334,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     }
 
     // État vide dans le CSV → on s'arrête au panier, aucune commande créée.
-    if (!etat) {
+    if (!etat || etat.trim() === "dans le panier") {
         console.log(`État vide pour ${email} → panier ${id_cart} créé, aucune commande.`);
         return;
     }
@@ -399,6 +399,27 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         const id_order = parseInt(id, 10);
         orderCountMap.set(id_order, true);
         console.log(`Order created: ${id_order}`);
+
+        // ========== STOCK MOVEMENT ==========
+        for (const t of resolvedTuples) {
+            try {
+                const stockMovementPayload: StockMovement = {
+                    id_product: t.id_product,
+                    id_product_attribute: t.id_product_attribute,
+                    physical_quantity: t.qty,
+                    sign: -1, // -1 pour une diminution
+                    id_stock_mvt_reason: 3, // Raison "Commande client"
+                    date_add: dateFormatted,
+                };
+
+                await apiService.postStockMvt('/stockmvtapi/stockmvt', {
+                    stock_mvt: stockMovementPayload
+                });
+                console.log(`Created stock movement for order ${id_order}, product ${t.id_product}`);
+            } catch (mvtError) {
+                console.error(`Failed to create stock movement for order ${id_order}, product ${t.id_product}`, mvtError);
+            }
+        }
 
         // validateOrder (PrestaShop) force date_add = date d'import. On réaligne
         // la commande sur la date du CSV via un PUT (sans associations pour ne

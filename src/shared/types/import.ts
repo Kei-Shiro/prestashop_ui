@@ -320,3 +320,12 @@ export interface CombinationMapEntry {
   id: number;
   prix_ttc: number;
 }
+
+export interface StockMovement {
+  id_product: number,
+  id_product_attribute: number,
+  physical_quantity: number,
+  sign: number,
+  id_stock_mvt_reason: number,
+  date_add: string
+}
