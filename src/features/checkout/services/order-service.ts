@@ -84,6 +84,41 @@ export const orderService = {
     },
 
     /**
+     * Trouve l'ID du panier ouvert le plus récent pour un client.
+     */
+    async getLatestOpenCartId(customerId: number): Promise<number | null> {
+        try {
+            // 1. Trouver les cart IDs déjà convertis en commande pour ce client
+            const ordersRes: any = await apiService.get(
+                `/orders?filter[id_customer]=${customerId}&display=[id,id_cart]`
+            );
+            const ordersRaw = ordersRes?.prestashop?.orders?.order || [];
+            const ordersArr = Array.isArray(ordersRaw) ? ordersRaw : [ordersRaw];
+            const usedCartIds = new Set(
+                ordersArr.map((o: any) => extractIdValue(o.id_cart)).filter(Boolean)
+            );
+
+            // 2. Récupérer les paniers du client, triés du plus récent au plus ancien
+            const cartsRes: any = await apiService.get(
+                `/carts?filter[id_customer]=${customerId}&sort=[id_DESC]&display=[id]`
+            );
+            const cartsRaw = cartsRes?.prestashop?.carts?.cart;
+            if (!cartsRaw) return null;
+            const cartsArr = Array.isArray(cartsRaw) ? cartsRaw : [cartsRaw];
+
+            for (const cart of cartsArr) {
+                const id = extractIdValue(cart.id);
+                if (id && !usedCartIds.has(id)) {
+                    return Number(id);
+                }
+            }
+        } catch (e) {
+            console.warn('[orderService] getLatestOpenCartId failed:', e);
+        }
+        return null;
+    },
+
+    /**
      * Trouve l'ID du premier transporteur actif dans PS.
      * Nécessaire car le carrier ID 1 peut ne pas exister selon la config.
      */
@@ -137,15 +172,25 @@ export const orderService = {
         return 'ps_cashondelivery';
     },
 
-    async createCart(customerId: number, items: any[], addressId: number = 1): Promise<number> {
-        let cartRows = items.map(item => `
-        <cart_row>
-            <id_product>${item.id_product}</id_product>
-            <id_product_attribute>${item.id_product_attribute || 0}</id_product_attribute>
-            <id_address_delivery>${addressId}</id_address_delivery>
-            <id_customization>0</id_customization>
-            <quantity>${item.quantity}</quantity>
-        </cart_row>`).join('');
+    async createCart(customerId: number, items: any[], addressId: number = 0): Promise<number> {
+        let associationsBlock = '';
+        if (items.length > 0) {
+            let cartRows = items.map(item => `
+            <cart_row>
+                <id_product>${item.id_product}</id_product>
+                <id_product_attribute>${item.id_product_attribute || 0}</id_product_attribute>
+                <id_address_delivery>${addressId}</id_address_delivery>
+                <id_customization>0</id_customization>
+                <quantity>${item.quantity}</quantity>
+            </cart_row>`).join('');
+            
+            associationsBlock = `
+        <associations>
+            <cart_rows>
+                ${cartRows}
+            </cart_rows>
+        </associations>`;
+        }
 
         const carrierId = await this.detectCarrierId();
         const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -158,14 +203,11 @@ export const orderService = {
         <id_address_invoice>${addressId}</id_address_invoice>
         <id_currency>1</id_currency>
         <id_lang>1</id_lang>
+        <id_shop>1</id_shop>
+        <id_shop_group>1</id_shop_group>
         <id_carrier>${carrierId}</id_carrier>
         <date_add>${now}</date_add>
-        <date_upd>${now}</date_upd>
-        <associations>
-            <cart_rows>
-                ${cartRows}
-            </cart_rows>
-        </associations>
+        <date_upd>${now}</date_upd>${associationsBlock}
     </cart>
 </prestashop>`;
         const response: any = await apiService.post('/carts', xml, {
@@ -174,9 +216,61 @@ export const orderService = {
         return parseInt(extractIdValue(response.prestashop.cart.id));
     },
 
+    async updateCart(cartId: number, customerId: number, items: any[], addressId: number = 0): Promise<number> {
+        let associationsBlock = '';
+        if (items.length > 0) {
+            let cartRows = items.map(item => `
+            <cart_row>
+                <id_product>${item.id_product}</id_product>
+                <id_product_attribute>${item.id_product_attribute || 0}</id_product_attribute>
+                <id_address_delivery>${addressId}</id_address_delivery>
+                <id_customization>0</id_customization>
+                <quantity>${item.quantity}</quantity>
+            </cart_row>`).join('');
+            
+            associationsBlock = `
+        <associations>
+            <cart_rows>
+                ${cartRows}
+            </cart_rows>
+        </associations>`;
+        } else {
+            // Si on vide le panier, PrestaShop exige soit un tableau vide d'associations, soit la suppression.
+            // Le plus sûr pour "vider" le panier via webservice est d'envoyer un <cart_rows> vide pour forcer la mise à jour
+            associationsBlock = `
+        <associations>
+            <cart_rows></cart_rows>
+        </associations>`;
+        }
+
+        const carrierId = await this.detectCarrierId();
+        const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<prestashop>
+    <cart>
+        <id>${cartId}</id>
+        <id_customer>${customerId}</id_customer>
+        <id_address_delivery>${addressId}</id_address_delivery>
+        <id_address_invoice>${addressId}</id_address_invoice>
+        <id_currency>1</id_currency>
+        <id_lang>1</id_lang>
+        <id_shop>1</id_shop>
+        <id_shop_group>1</id_shop_group>
+        <id_carrier>${carrierId}</id_carrier>
+        <date_upd>${now}</date_upd>${associationsBlock}
+    </cart>
+</prestashop>`;
+        await apiService.put(`/carts/${cartId}`, xml, {
+            headers: { 'Content-Type': 'application/xml' }
+        });
+        return cartId;
+    },
+
     async createOrder(
         customerId: number,
         cartId: number,
+        items: any[],
         totalAmount: number,
         addressId: number = 1,
         initialStateId: number = 2,
@@ -184,9 +278,19 @@ export const orderService = {
         moduleName: string = 'ps_cashondelivery'
     ): Promise<number> {
         const total = totalAmount.toFixed(6);
+        
+        let orderRows = items.map(item => `
+        <order_row>
+            <product_id>${item.id_product}</product_id>
+            <product_attribute_id>${item.id_product_attribute || 0}</product_attribute_id>
+            <product_quantity>${item.quantity}</product_quantity>
+        </order_row>`).join('');
+
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <prestashop>
     <order>
+        <id_shop>1</id_shop>
+        <id_shop_group>1</id_shop_group>
         <id_address_delivery>${addressId}</id_address_delivery>
         <id_address_invoice>${addressId}</id_address_invoice>
         <id_cart>${cartId}</id_cart>
@@ -214,6 +318,11 @@ export const orderService = {
         <total_wrapping_tax_excl>0.000000</total_wrapping_tax_excl>
         <conversion_rate>1.000000</conversion_rate>
         <valid>1</valid>
+        <associations>
+            <order_rows>
+                ${orderRows}
+            </order_rows>
+        </associations>
     </order>
 </prestashop>`;
         const response: any = await apiService.post('/orders', xml, {

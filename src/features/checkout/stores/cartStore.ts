@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { Product } from '@shared/types/product';
 import type { CartItem } from '@shared/types/cart';
+import { extractIdValue } from '@shared/utils/extractIdValue';
 
 const STORAGE_PREFIX = 'front_cart_';
 
@@ -19,6 +20,43 @@ export const useCartStore = defineStore('cart', () => {
                 JSON.stringify(items.value)
             );
         } catch (_) { /* quota? ignore */ }
+    }
+
+    /**
+     * Synchronise le panier local avec PrestaShop pour les utilisateurs connectés.
+     * Pour les visiteurs anonymes, le panier reste local jusqu'au checkout.
+     */
+    async function syncToServer() {
+        if (currentUserKey.value === 'anonymous') return;
+        
+        const customerId = Number(currentUserKey.value);
+        if (!customerId || isNaN(customerId)) return;
+
+        const cartItems = items.value.map(item => ({
+            id_product: extractIdValue(item.product.id_product),
+            id_product_attribute: extractIdValue(item.id_product_attribute || '0'),
+            quantity: item.quantity
+        }));
+
+        try {
+            // Import dynamique pour éviter les dépendances circulaires
+            const { orderService } = await import('@features/checkout/services/order-service');
+            const existingCartId = await orderService.getLatestOpenCartId(customerId);
+            
+            // On utilise 0 comme ID d'adresse par défaut pour le panier,
+            // l'adresse réelle sera définie au moment du checkout.
+            const addressId = 0;
+
+            if (existingCartId) {
+                await orderService.updateCart(existingCartId, customerId, cartItems, addressId);
+                console.log(`[cartStore] Panier PS ${existingCartId} mis à jour via syncToServer`);
+            } else if (cartItems.length > 0) {
+                const newCartId = await orderService.createCart(customerId, cartItems, addressId);
+                console.log(`[cartStore] Nouveau panier PS ${newCartId} créé via syncToServer`);
+            }
+        } catch (e) {
+            console.error('[cartStore] Erreur lors de la synchronisation du panier avec PS:', e);
+        }
     }
 
     /**
@@ -53,6 +91,7 @@ export const useCartStore = defineStore('cart', () => {
 
         // Fusionner si demandé
         if (mergeAnonymous && anonymousItems.length > 0) {
+            let hasChanges = false;
             anonymousItems.forEach(anonItem => {
                 const existing = items.value.find(i => 
                     String(i.product.id_product) === String(anonItem.product.id_product) &&
@@ -68,8 +107,13 @@ export const useCartStore = defineStore('cart', () => {
                 } else {
                     items.value.push({ ...anonItem, unit_price: anonPrice });
                 }
+                hasChanges = true;
             });
             _saveToStorage();
+            
+            if (hasChanges) {
+                syncToServer();
+            }
 
             // Vider le panier anonyme local pour qu'il ne réapparaisse pas
             localStorage.removeItem(STORAGE_PREFIX + 'anonymous');
@@ -109,6 +153,8 @@ export const useCartStore = defineStore('cart', () => {
 
         _saveToStorage();
         console.log(`[cartStore] Panier synchronisé avec PS : ${serverItems.length} article(s) traités`);
+        
+        // On ne resync pas vers le serveur ici car les données viennent du serveur
     }
 
     // ─── Computed ────────────────────────────────────────────────
@@ -132,9 +178,9 @@ export const useCartStore = defineStore('cart', () => {
     function openCartDrawer()   { isCartDrawerOpen.value = true; }
     function closeCartDrawer()  { isCartDrawerOpen.value = false; }
 
-    // ─── Mutations (avec sauvegarde automatique) ─────────────────
+    // ─── Mutations (avec sauvegarde automatique et sync) ─────────
 
-    function addProduct(product: Product, quantity: number = 1, id_product_attribute: string = '0', unitPrice?: number) {
+    async function addProduct(product: Product, quantity: number = 1, id_product_attribute: string = '0', unitPrice?: number) {
         const existing = items.value.find(
             i => String(i.product.id_product) === String(product.id_product) &&
                  String(i.id_product_attribute || '0') === String(id_product_attribute || '0')
@@ -151,35 +197,39 @@ export const useCartStore = defineStore('cart', () => {
         }
         _saveToStorage();
         openCartDrawer();
+        await syncToServer();
     }
 
-    function updateQuantity(productId: string | number, quantity: number, id_product_attribute: string = '0') {
+    async function updateQuantity(productId: string | number, quantity: number, id_product_attribute: string = '0') {
         const existing = items.value.find(
             i => String(i.product.id_product) === String(productId) &&
                  String(i.id_product_attribute || '0') === String(id_product_attribute || '0')
         );
         if (existing) {
             if (quantity <= 0) {
-                removeProduct(productId, id_product_attribute);
+                await removeProduct(productId, id_product_attribute);
                 return;
             }
             existing.quantity = quantity;
             existing.total_price = existing.unit_price * existing.quantity;
             _saveToStorage();
+            await syncToServer();
         }
     }
 
-    function removeProduct(productId: string | number, id_product_attribute: string = '0') {
+    async function removeProduct(productId: string | number, id_product_attribute: string = '0') {
         items.value = items.value.filter(
             i => !(String(i.product.id_product) === String(productId) && String(i.id_product_attribute || '0') === String(id_product_attribute || '0'))
         );
         _saveToStorage();
+        await syncToServer();
     }
 
 
-    function clearCart() {
+    async function clearCart() {
         items.value = [];
         _saveToStorage();
+        await syncToServer();
     }
 
     /**
@@ -213,4 +263,3 @@ export const useCartStore = defineStore('cart', () => {
         setItemsFromServer,
     };
 });
-

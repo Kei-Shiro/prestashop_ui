@@ -122,12 +122,26 @@ export function useCheckout() {
                 totalToUse = cartStore.items.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
             }
 
-            const cartId = await orderService.createCart(customerId, items, addressId);
-            const orderId = await orderService.createOrder(customerId, cartId, totalToUse, addressId, initialStateId, carrierId, moduleName);
+            // On commande LE panier ouvert existant (panier importé affiché au
+            // frontoffice) : il devient une commande → exclu de
+            // getOpenCartItemsForCustomer → ne réapparaît plus au frontoffice.
+            // Pas de panier ouvert → on en crée un neuf.
+            const existingCartId = await orderService.getLatestOpenCartId(customerId);
+            let cartId: number;
+
+            if (existingCartId) {
+                console.log(`[useCheckout] Commande du panier ouvert existant : ${existingCartId}`);
+                cartId = await orderService.updateCart(existingCartId, customerId, items, addressId);
+            } else {
+                console.log(`[useCheckout] Création d'un nouveau panier`);
+                cartId = await orderService.createCart(customerId, items, addressId);
+            }
+
+            const orderId = await orderService.createOrder(customerId, cartId, items, totalToUse, addressId, initialStateId, carrierId, moduleName);
             
             // Ajouter explicitement à l'historique pour valider l'état
             await orderService.updateOrderStatus(orderId, initialStateId);
-            
+
             cartStore.clearCart();
             return orderId;
         } catch (err: any) {
