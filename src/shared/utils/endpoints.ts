@@ -3,6 +3,7 @@
  * Ordre strict : du plus dépendant au moins dépendant (contraintes FK).
  */
 export const erasableEndpoints: string[] = [
+    '/stockmvtapi/stockmvt',
     // 1. Supply chain (Advanced Stock Management) — du plus enfant au parent
     '/supply_order_receipt_histories',
     '/supply_order_histories',

@@ -47,6 +47,33 @@ const specialHandlingEndpoints: Record<string, {
 
 async function deleteAll(endpoint: string): Promise<string[]> {
     let items: any[]
+
+    if (endpoint === '/stockmvtapi/stockmvt') {
+        console.log('tonga za')
+        try {
+            // On récupère la liste via le webservice standard (stock_movements)
+            // car l'endpoint du module ne liste pas forcément tout.
+            const res: any = await apiService.get('/stock_movements?display=[id]')
+            items = res?.prestashop?.stock_mvts?.stock_mvt || []
+            
+            console.log(`[resetService] ${items.length} mouvements de stock à supprimer via module API`);
+            
+            for (const item of items) {
+                const id = extractId(item?.id)
+                if (id) {
+                    try {
+                        await apiService.deleteStockMvt(`/stockmvtapi/stockmvt?id=${id}`)
+                    } catch (err) {
+                        console.warn(`[resetService] Échec suppression mouvement ${id} via module`, err)
+                    }
+                }
+            }
+            return [] // Terminé pour cet endpoint spécial
+        } catch (error) {
+            console.warn(`[resetService] Initialisation reset ${endpoint} échouée`, error)
+            return []
+        }
+    }
     try {
         const res: any = await apiService.get(`${endpoint}?display=[id]`)
         items = extractList(res, endpoint)

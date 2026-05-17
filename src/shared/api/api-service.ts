@@ -19,8 +19,6 @@ const apiService = {
     async postStockMvt<T>(url: string, data?: string | object, config?: AxiosRequestConfig): Promise<T> {
         const payload = typeof data === 'object' ? Serializer.toXml(data) : data;
         const r = await defaultStock.post(url, payload, { ...config, responseType: 'text' });
-        // Log le body brut pour débugger
-        console.log(`[POST ${url}] status:`, r.status, '| body:', r.data?.substring(0, 500));
         return Serializer.fromXml<T>(r.data)
     },
 
@@ -33,6 +31,12 @@ const apiService = {
     async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
         const r = await api.delete(url, { ...config, responseType: 'text' })
         return Serializer.fromXml<T>(r.data)
+    },
+
+    async deleteStockMvt<T>(url: string, data?: string | object, config?: AxiosRequestConfig): Promise<T> {
+        const payload = typeof data === 'object' ? Serializer.toXml(data) : data;
+        const r = await defaultStock.delete(url, { ...config, responseType: 'text' });
+        return Serializer.fromXml<T>(r.data);
     },
 
     /**

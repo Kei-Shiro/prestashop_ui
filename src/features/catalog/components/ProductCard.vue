@@ -42,14 +42,14 @@ const goToDetails = () => router.push(`/product/${props.product.id_product}`);
 const addToCart = () => cartStore.addProduct(props.product, 1);
 
 const isHot = computed(() => {
-  const dateStr = props.product.date_availability || props.product.date_add;
+  const dateStr = props.product.date_availability;
   if (!dateStr) return false;
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
   return diff >= 0 && diff <= 1;
 });
 
 const isNew = computed(() => {
-  const dateStr = props.product.date_availability || props.product.date_add;
+  const dateStr = props.product.date_availability;
   if (!dateStr) return false;
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
   return diff > 1 && diff <= 7;

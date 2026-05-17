@@ -56,7 +56,7 @@ const productService = {
                     id_default_image: defaultImage,
                     category: extractIdValue(p.id_category_default) || '2',
                     categories: productCategories,
-                    date_availability: p.date_availability || '',
+                    date_availability: p.available_date || '',
                     date_add: p.date_add || ''
                 };
             })
