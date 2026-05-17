@@ -46,6 +46,7 @@ class CartService {
             this.cart.items.push({
                 product,
                 quantity,
+                unit_price: parseFloat(product.price),
                 total_price: parseFloat((quantity * parseFloat(product.price)).toFixed(2))
             });
         }

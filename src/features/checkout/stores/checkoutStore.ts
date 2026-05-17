@@ -29,7 +29,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
             // 1. Create a Cart in backend
             const cartId = await orderService.createCart(customerId, itemsForApi);
             // 2. Create the Order in backend
-            await orderService.createOrder(customerId, cartId, cartStore.totalAmount);
+            await orderService.createOrder(customerId, cartId, itemsForApi, cartStore.totalAmount);
             
             cartStore.clearCart();
             orderSuccess.value = true;

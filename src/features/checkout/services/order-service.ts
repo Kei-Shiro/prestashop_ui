@@ -1,5 +1,6 @@
 import apiService from '@shared/api/api-service';
 import { extractIdValue } from '@shared/utils/extractIdValue';
+import {StockMovement} from "@shared/types/import";
 
 export const orderService = {
     async getOrders(): Promise<any[]> {
@@ -144,31 +145,10 @@ export const orderService = {
     },
 
     /**
-     * Détecte le nom du module COD actif : 'ps_cashondelivery' ou 'cashondelivery'.
-     * PS 1.7.7+ / 8.x → 'ps_cashondelivery'
-     * PS 1.7.0–1.7.6 → 'cashondelivery'
+     * Retourne le nom du module COD par défaut ('ps_cashondelivery').
+     * L'API /modules n'est pas exposée par défaut, donc on évite les requêtes qui génèrent des erreurs 400.
      */
     async detectCodModuleName(): Promise<string> {
-        const candidates = ['ps_cashondelivery', 'cashondelivery'];
-        for (const name of candidates) {
-            try {
-                // On utilise une recherche simplifiée sans le paramètre display qui peut poser souci sur certains serveurs
-                const response: any = await apiService.get(
-                    `/modules?filter[name]=${name}`
-                );
-                
-                const modulesRaw = response?.prestashop?.modules?.module;
-                if (!modulesRaw) continue;
-                
-                // Si on a un résultat, on vérifie l'ID pour confirmer qu'il existe
-                const arr = Array.isArray(modulesRaw) ? modulesRaw : [modulesRaw];
-                if (arr.length > 0 && arr[0].id) {
-                    console.log(`[orderService] Module COD détecté : ${name}`);
-                    return name;
-                }
-            } catch (_) { /* continue */ }
-        }
-        console.warn('[orderService] Aucun module COD détecté via API, fallback ps_cashondelivery');
         return 'ps_cashondelivery';
     },
 
@@ -312,6 +292,19 @@ export const orderService = {
                 `Vérifiez dans PS admin : module COD actif, transporteur existant, et état de commande valide.`
             );
         }
+        for(const item of items) {
+            const stockMvt : StockMovement = {
+                id_product: item.id_product,
+                id_product_attribute: item.id_product_attribute || 0,
+                physical_quantity: item.quantity,
+                sign: -1,
+                id_stock_mvt_reason: 3,
+                date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
+            }
+            await apiService.postStockMvt('/stockmvtapi/stockmvt', { stock_mvt: stockMvt });
+            console.log(`[orderService] Stock mis à jour : -${item.quantity} pour produit ${item.id_product} (déclinaison ${item.id_product_attribute || 0})`);
+        }
+
         return parseInt(extractIdValue(response.prestashop.order.id));
     },
 

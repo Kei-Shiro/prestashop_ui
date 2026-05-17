@@ -329,3 +329,14 @@ export interface StockMovement {
   id_stock_mvt_reason: number,
   date_add: string
 }
+
+export interface StockMovementDisplay {
+  id_stock_mvt?: string;
+  id_stock?: string;
+  id_product: string;
+  id_product_attribute?: string;
+  combination_name?: string;
+  sign: number;
+  physical_quantity: number;
+  date_add: string;
+}

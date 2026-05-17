@@ -198,7 +198,8 @@ const productService = {
             return `/prestashop/api/images/products/${productId}/${imageId}${urlParams}`;
         }
         return `/prestashop/api/images/products/${productId}/${urlParams}`;
-    }
+    },
+
 
 
 };

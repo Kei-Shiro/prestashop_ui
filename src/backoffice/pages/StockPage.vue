@@ -15,9 +15,18 @@
             </option>
           </select>
         </div>
+        <div class="form-group flex-1" v-if="productCombinations.length > 0">
+          <label class="form-label">Déclinaison</label>
+          <select v-model="selectedCombination" required class="form-input" :disabled="loadingCombinations">
+            <option value="" disabled>{{ loadingCombinations ? 'Chargement...' : 'Sélectionner une déclinaison' }}</option>
+            <option v-for="combo in productCombinations" :key="combo.id" :value="combo.id">
+              {{ combo.name }}
+            </option>
+          </select>
+        </div>
         <div class="form-group w-32">
           <label class="form-label">Quantité</label>
-          <input type="number" v-model.number="quantity" required min="1" class="form-input" />
+          <input type="number" v-model.number="quantity"  class="form-input" />
         </div>
         <button type="submit" class="submit-btn" :disabled="stockStore.loading">
           {{ stockStore.loading ? 'Ajout...' : 'Ajouter' }}
@@ -39,9 +48,12 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="entry in stockStore.stockMovements" :key="entry.id_stock_mvt || entry.date_add">
+          <tr v-for="entry in paginatedMovements" :key="entry.id_stock_mvt || entry.date_add">
             <td class="col-date">{{ formatDate(entry.date_add) }}</td>
-            <td class="col-product">{{ getProductName(entry.id_product) }}</td>
+            <td class="col-product">
+              {{ getProductName(entry.id_product) }}
+              <span v-if="entry.combination_name" class="combination-tag">{{ entry.combination_name }}</span>
+            </td>
             <td class="col-movement">
               <span :class="entry.sign > 0 ? 'text-positive' : 'text-negative'">
                 {{ entry.sign > 0 ? '+' : '-' }}{{ entry.physical_quantity }}
@@ -54,20 +66,75 @@
         </tbody>
       </table>
     </div>
+
+    <BasePagination
+      v-if="!stockStore.loading && stockStore.stockMovements.length > 0"
+      v-model:current-page="currentPage"
+      :total-items="stockStore.stockMovements.length"
+      :items-per-page="itemsPerPage"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { useProductStore } from '@features/catalog/stores/adminProductStore';
 import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
-import {useStockStore} from "@features/inventory/stores/stockStore";
+import { extractIdValue } from '@shared/utils/extractIdValue';
+import { useStockStore } from '@features/inventory/stores/stockStore';
+import productService from '@features/catalog/services/product-service';
+import BasePagination from '@shared/ui/components/BasePagination.vue';
 
 const productStore = useProductStore();
 const stockStore = useStockStore();
 
 const selectedProduct = ref('');
+const selectedCombination = ref('');
 const quantity = ref(1);
+
+const currentPage = ref(1);
+const itemsPerPage = 10;
+
+const paginatedMovements = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  return stockStore.stockMovements.slice(start, start + itemsPerPage);
+});
+
+interface ComboOption { id: string; name: string }
+const productCombinations = ref<ComboOption[]>([]);
+const loadingCombinations = ref(false);
+
+watch(selectedProduct, async (productId) => {
+    selectedCombination.value = '';
+    productCombinations.value = [];
+    if (!productId) return;
+
+    loadingCombinations.value = true;
+    try {
+        const [combinations, optionValues] = await Promise.all([
+            productService.getCombinations(Number(productId)),
+            productService.getProductOptionValues(),
+        ]);
+
+        const ovNames: Record<string, string> = {};
+        for (const ov of optionValues) {
+            const id = extractIdValue(ov.id);
+            if (id) ovNames[id] = extractLanguageValue(ov.name);
+        }
+
+        productCombinations.value = combinations.map((c: any) => {
+            const cId = extractIdValue(c.id);
+            const ovAssoc = c.associations?.product_option_values?.product_option_value;
+            const ovIds = ovAssoc
+                ? (Array.isArray(ovAssoc) ? ovAssoc : [ovAssoc]).map((o: any) => extractIdValue(o))
+                : [];
+            const names = ovIds.map((id: string) => ovNames[id]).filter(Boolean);
+            return { id: cId, name: names.length > 0 ? names.join(', ') : extractIdValue(c.reference) || `#${cId}` };
+        });
+    } finally {
+        loadingCombinations.value = false;
+    }
+});
 
 onMounted(async () => {
     await Promise.all([
@@ -88,12 +155,18 @@ const formatDate = (dateStr: string) => {
 };
 
 const handleAddStock = async () => {
-    if (!selectedProduct.value || quantity.value <= 0) return;
+    if (!selectedProduct.value || quantity.value === 0) return;
+    if (productCombinations.value.length > 0 && !selectedCombination.value) return;
 
-    await stockStore.addStock(selectedProduct.value, quantity.value);
+    await stockStore.addStock(
+        selectedProduct.value,
+        quantity.value,
+        selectedCombination.value || '0'
+    );
 
     quantity.value = 1;
     selectedProduct.value = '';
+    selectedCombination.value = '';
 };
 </script>
 
@@ -230,6 +303,18 @@ const handleAddStock = async () => {
 
 .col-product {
   color: #475569;
+}
+
+.combination-tag {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #1d4ed8;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.25rem;
 }
 
 .text-positive {
