@@ -22,13 +22,12 @@ export const useCheckoutStore = defineStore('checkout', () => {
 
         try {
             const itemsForApi = cartStore.items.map((item: any) => ({
-                product: { id_product: Number(item.product.id_product) },
+                id_product: Number(item.product.id_product),
+                id_product_attribute: Number(item.id_product_attribute || 0),
                 quantity: item.quantity
             }));
 
-            // 1. Create a Cart in backend
             const cartId = await orderService.createCart(customerId, itemsForApi);
-            // 2. Create the Order in backend
             await orderService.createOrder(customerId, cartId, itemsForApi, cartStore.totalAmount);
             
             cartStore.clearCart();

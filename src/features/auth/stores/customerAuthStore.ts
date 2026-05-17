@@ -12,9 +12,6 @@ export const useAuthStore = defineStore('auth', () => {
     const isAuthenticated = ref(false);
     const isAnonymous = ref(false);
 
-    /**
-     * Récupère les paniers ouverts sur PS et les fusionne avec le panier local.
-     */
     const syncServerCarts = async (customerId: number) => {
         const cartStore = useCartStore();
         try {
@@ -24,9 +21,6 @@ export const useAuthStore = defineStore('auth', () => {
                 return;
             }
 
-            console.log(`[authStore] Synchronisation de ${serverItems.length} articles pour client ${customerId}`);
-
-            // Récupérer les détails des produits pour chaque article
             const fullItems = await Promise.all(
                 serverItems.map(async (si) => {
                     const cleanId = extractIdValue(si.id_product);
@@ -37,7 +31,6 @@ export const useAuthStore = defineStore('auth', () => {
                         const product = await productService.getProduct(Number(cleanId));
                         let price = typeof product.price === 'string' ? parseFloat(product.price) : Number(product.price);
                         
-                        // Handle price for combinations
                         if (cleanIdAttr !== '0') {
                             try {
                                 const combinations = await productService.getCombinations(Number(cleanId));
@@ -65,7 +58,6 @@ export const useAuthStore = defineStore('auth', () => {
                 })
             );
 
-            // Filtrer les erreurs et fusionner
             const validItems = fullItems.filter((i): i is NonNullable<typeof i> => i !== null);
             cartStore.mergeServerItems(validItems);
         } catch (e) {
@@ -73,7 +65,6 @@ export const useAuthStore = defineStore('auth', () => {
         }
     };
 
-    // Connexion avec mot de passe (authentification réelle)
     const login = async (email: string, password: string): Promise<boolean> => {
         const success = await authFrontService.login(email, password);
         if (success) {
@@ -85,7 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
                 localStorage.setItem('user', JSON.stringify(customer));
                 
                 const cartStore = useCartStore();
-                cartStore.loadForUser(String(customer.id), true); // true = fusionner panier anonyme
+                cartStore.loadForUser(String(customer.id), true);
                 await syncServerCarts(Number(customer.id));
                 return true;
             }
@@ -93,7 +84,6 @@ export const useAuthStore = defineStore('auth', () => {
         return false;
     };
 
-    // Connexion sans mot de passe (pour la sélection simplifiée)
     const loginWithoutPassword = async (customer: any) => {
         user.value = customer;
         isAuthenticated.value = true;
@@ -101,18 +91,18 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('user', JSON.stringify(customer));
         
         const cartStore = useCartStore();
-        cartStore.loadForUser(String(customer.id), true); // true = fusionner panier anonyme
+        cartStore.loadForUser(String(customer.id), true);
         await syncServerCarts(Number(customer.id));
     };
 
     const loginAnonymous = () => {
         user.value = null;
-        isAuthenticated.value = true;   // on considère qu'il est "connecté" en tant qu'anonyme
+        isAuthenticated.value = true;
         isAnonymous.value = true;
         localStorage.removeItem('user');
         
         const cartStore = useCartStore();
-        cartStore.clearAnonymousCart(); // repartir à zéro pour un nouveau visiteur
+        cartStore.clearAnonymousCart();
         cartStore.loadForUser('anonymous');
     };
 
@@ -128,7 +118,7 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.removeItem('user');
         
         const cartStore = useCartStore();
-        cartStore.clearAnonymousCart(); // nettoyer avant de repasser en anonyme
+        cartStore.clearAnonymousCart();
         cartStore.loadForUser('anonymous');
     };
 
@@ -140,11 +130,9 @@ export const useAuthStore = defineStore('auth', () => {
                 user.value = parsed;
                 isAuthenticated.value = true;
                 isAnonymous.value = false;
-                // Restaurer le panier de l'utilisateur si pas encore chargé
                 const cartStore = useCartStore();
                 if (cartStore.currentUserKey !== String(parsed.id)) {
                     cartStore.loadForUser(String(parsed.id));
-                    // Add cart sync here for imported carts when user refreshes page!
                     await syncServerCarts(Number(parsed.id));
                 }
             } catch (e) {
@@ -152,7 +140,6 @@ export const useAuthStore = defineStore('auth', () => {
                 localStorage.removeItem('user');
             }
         } else {
-            // Pas d'utilisateur → charger le panier anonyme si nécessaire
             const cartStore = useCartStore();
             if (cartStore.currentUserKey === 'anonymous' && cartStore.items.length === 0) {
                 cartStore.loadForUser('anonymous');

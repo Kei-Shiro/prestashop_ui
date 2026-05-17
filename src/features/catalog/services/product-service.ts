@@ -166,16 +166,10 @@ const productService = {
         return list;
     },
 
-    /**
-     * Extrait la valeur d'un champ multilingue (name, description, etc.)
-     */
     extractLanguageValue(field: any): string {
         return extractLanguageValue(field);
     },
 
-    /**
-     * Extrait l'ID d'un champ PrestaShop (gère le format #text du parser XML)
-     */
     extractIdValue(val: any): string {
         return extractIdValue(val);
     },

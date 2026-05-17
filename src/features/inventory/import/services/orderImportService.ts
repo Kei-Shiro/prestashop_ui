@@ -46,10 +46,6 @@ function parseAchat(raw: string): AchatTuple[] {
     return results;
 }
 
-/**
- * Sérialisation PHP robuste pour delivery_option
- * Utilise TextEncoder pour la longueur des chaînes (compatible navigateur)
- */
 function phpSerializeArray(obj: Record<string, string>): string {
     const entries = Object.entries(obj);
     const inner = entries.map(([key, value]) => {
@@ -102,7 +98,6 @@ async function getDefaultCarrierId(): Promise<number> {
 }
 
 export async function importOrders(csvFile: File): Promise<void> {
-    // Repartir de zéro à chaque import (les maps sont des singletons de module).
     customerMap.clear();
     addressMap.clear();
     orderCountMap.clear();
@@ -130,7 +125,6 @@ export async function importOrders(csvFile: File): Promise<void> {
                         achat: (row["achat"] ?? "").trim(),
                         etat: (row["etat"] ?? "").trim(),
                     }));
-                    console.log("Parsed order rows:", rows);
                     const id_carrier = await getDefaultCarrierId();
                     for (const row of rows) {
                         await processOrderRow(row, id_carrier);
@@ -214,9 +208,6 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     let id_cart: number;
     let secureKey = "";
     try {
-        // Pas d'associations à la création : un <cart_rows> vide fait générer à
-        // PrestaShop un « INSERT ... VALUES » sans ligne (erreur SQL). Les produits
-        // sont ajoutés ensuite via le PUT plus bas.
         const cartData: Cart = {
             id_customer: id_customer,
             id_address_delivery: id_address,
@@ -254,7 +245,6 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     // ========== RESOLVE PRODUCTS ==========
     const resolvedTuples: ResolvedTuple[] = [];
     for (const tuple of tuples) {
-        // Le productMap est rempli par productImportService.ts
         const productData = productMap.get(tuple.ref);
         if (!productData) {
             console.warn(`[orderImport] Product not found in Map for ref: ${tuple.ref}. Maps size: ${productMap.size}`);
@@ -266,10 +256,6 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         let rate = productData.rate;
 
         if (tuple.valeur) {
-            // combinationMap est rempli par combinationImportService.ts
-            // La clé est "reference_specificite_valeur" (voir combinationImportService.ts)
-            // Mais attention : le CSV d'achat ne contient souvent que reference et valeur.
-            // On cherche une clé dans la map qui COMMENCE par "reference_" et FINIT par "_valeur"
             const prefix = `${tuple.ref}_`;
             const suffix = `_${tuple.valeur}`;
             
@@ -327,8 +313,6 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             id_shop: 1,
             id_shop_group: 1,
             secure_key: secureKey,
-            // PUT remplace tout l'objet : sans date_add, PS réécrit la date du
-            // panier à la date d'import. On renvoie la date du CSV.
             date_add: formatDate(date),
             delivery_option: phpSerialized,
             associations: {
@@ -403,8 +387,6 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             }
         };
 
-        console.log("ORDER Data envoyée :", orderData);
-
         const res = await apiService.post<any>("/orders", { order: orderData });
         const id = res?.prestashop?.order?.id;
         if (!id) throw new Error("No order id returned");
@@ -419,8 +401,8 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
                     id_product: t.id_product,
                     id_product_attribute: t.id_product_attribute,
                     physical_quantity: t.qty,
-                    sign: -1, // -1 pour une diminution
-                    id_stock_mvt_reason: 3, // Raison "Commande client"
+                    sign: -1,
+                    id_stock_mvt_reason: 3,
                     date_add: dateFormatted,
                 };
 
@@ -433,9 +415,6 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             }
         }
 
-        // validateOrder (PrestaShop) force date_add = date d'import. On réaligne
-        // la commande sur la date du CSV via un PUT (sans associations pour ne
-        // pas re-synchroniser order_rows).
         try {
             const orderPut: any = { ...orderData, id: id_order };
             delete orderPut.associations;

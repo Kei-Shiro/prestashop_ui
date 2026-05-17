@@ -14,29 +14,19 @@ export const useStockStore = defineStore('stock', () => {
   const fetchStockMovements = async () => {
     loading.value = true;
     try {
-      // Dans PrestaShop API, la ressource est stock_movements, 
-      // mais le tag XML renvoyé est souvent stock_mvts
       const response: any = await apiService.get('/stock_movements?display=full');
       
-      // Essayer les deux tags possibles (standard vs raccourci PS)
-      const pStock = response?.prestashop?.stock_mvts?.stock_mvt || 
+      const pStock = response?.prestashop?.stock_mvts?.stock_mvt ||
                      response?.prestashop?.stock_movements?.stock_movement;
-      
+
       if (pStock) {
         const rawMovements: any[] = Array.isArray(pStock) ? pStock : [pStock];
 
-        // stock_mvt expose id_stock (= clé primaire de stock_available), pas id_product.
-        // On résout la correspondance id_stock -> id_product via stock_availables.
-        // (avec display=full, les clés étrangères PS arrivent en objets { '#text', '@_xlink:href' })
         const uniqueStockAvailableIds = [...new Set(
           rawMovements.map((m: any) => extractIdValue(m.id_stock)).filter(Boolean)
         )];
 
-        // stock_available est la source fiable pour id_product ET id_product_attribute :
-        // update_stock_custom.php met toujours id_product_attribute=0 dans stock_mvt,
-        // donc on lit la déclinaison depuis la ligne stock_available pointée par id_stock.
-        type SAInfo = { id_product: string; id_product_attribute: string };
-        const stockAvailableMap: Record<string, SAInfo> = {};
+        const stockAvailableMap: Record<string, { id_product: string; id_product_attribute: string }> = {};
 
         if (uniqueStockAvailableIds.length > 0) {
           try {
@@ -60,15 +50,10 @@ export const useStockStore = defineStore('stock', () => {
           }
         }
 
-        // Filtre par id_product (plus fiable que par combination id) :
-        // on ramène toutes les déclinaisons de chaque produit présent dans les mouvements,
-        // même quand stock_available.id_product_attribute = 0 (stock de base).
         const uniqueProductIds = [...new Set(
           Object.values(stockAvailableMap).map((sa) => sa.id_product).filter(Boolean)
         )];
 
-        // combinationMap : combination_id -> nom lisible (ex. « ngoza »)
-        // productCombinationsMap : product_id -> combination_id (pour les mouvements de stock de base)
         const combinationMap: Record<string, string> = {};
         const productCombinationsMap: Record<string, string[]> = {};
 

@@ -1,4 +1,3 @@
-// src/services/reset-service.ts
 import apiService from '@shared/api/api-service';
 import { erasableEndpoints } from '@shared/utils/endpoints'
 import type { StockAvailablePut } from '@shared/types/import'
@@ -10,12 +9,6 @@ const extractId = (v: any): string => {
 
 const toNum = (v: any): number => Number(extractId(v)) || 0;
 
-/**
- * Extrait la liste d'items d'une réponse webservice.
- * Le tag enfant (singulier) est irrégulier en anglais (categories→category,
- * addresses→address, deliveries→delivery, order_histories→order_history…) :
- * on prend donc la première clé non-attribut du conteneur pluriel.
- */
 function extractList(res: any, endpoint: string): any[] {
     const container = res?.prestashop?.[endpoint.slice(1)]
     if (!container || typeof container !== 'object') return []
@@ -49,10 +42,7 @@ async function deleteAll(endpoint: string): Promise<string[]> {
     let items: any[]
 
     if (endpoint === '/stockmvtapi/stockmvt') {
-        console.log('tonga za')
         try {
-            // On récupère la liste via le webservice standard (stock_movements)
-            // car l'endpoint du module ne liste pas forcément tout.
             const res: any = await apiService.get('/stock_movements?display=[id]')
             items = res?.prestashop?.stock_mvts?.stock_mvt || []
             
@@ -83,8 +73,6 @@ async function deleteAll(endpoint: string): Promise<string[]> {
         console.warn(`GET ${endpoint} échoué — endpoint ignoré`, error)
         return []
     }
-    // PrestaShop n'a aucune contrainte FK : on supprime du plus grand id au plus petit
-    // pour retirer les enfants (créés après) avant leurs parents.
     items.sort((a: any, b: any) => Number(extractId(a?.id)) - Number(extractId(b?.id)))
     const failedIds: string[] = []
     for (const item of items) {
@@ -218,10 +206,7 @@ const resetService = {
                 const { failed } = await resetEndpoint(ep)
                 if (failed.length > 0) hasFailures = true
             } catch (error) {
-                // Un endpoint qui échoue ne doit JAMAIS interrompre le reset :
-                // sinon les endpoints suivants (dont /categories, traité en
-                // dernier) ne sont jamais atteints.
-                console.error(`resetEndpoint(${ep}) a échoué — on poursuit`, error)
+                        console.error(`resetEndpoint(${ep}) a échoué — on poursuit`, error)
                 hasFailures = true
             }
             processed.add(ep)

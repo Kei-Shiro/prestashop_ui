@@ -1,4 +1,3 @@
-// shared/services/auth-front.service.ts
 import axios from 'axios';
 
 const frontApi = axios.create({
@@ -17,7 +16,6 @@ export const authFrontService = {
         try {
             const response = await frontApi.post('/connexion?back=my-account', params);
             const html = response.data;
-            // Vérifier la présence d'un élément indiquant connexion réussie
             return html.includes('<title>Mon compte</title>') || html.includes('my-account');
         } catch {
             return false;
@@ -26,14 +24,7 @@ export const authFrontService = {
 
     async logout(): Promise<void> {
         try {
-            // Utiliser fetch avec mode: 'no-cors' pour tenter de vider la session PS 
-            // sans déclencher d'erreur CORS bloquante sur la redirection (302) de PrestaShop.
-            await fetch('http://localhost/prestashop/?mylogout=', {
-                mode: 'no-cors',
-                credentials: 'include'
-            });
-        } catch (e) {
-            // Silence total pour ne pas polluer la console, le logout local suffit.
-        }
+            await fetch('http://localhost/prestashop/?mylogout=', { mode: 'no-cors', credentials: 'include' });
+        } catch (_) {}
     }
 };

@@ -11,8 +11,6 @@ const apiService = {
     async post<T>(url: string, data?: string | object, config?: AxiosRequestConfig): Promise<T> {
         const payload = typeof data === 'object' ? Serializer.toXml(data) : data;
         const r = await api.post(url, payload, { ...config, responseType: 'text' });
-        // Log le body brut pour débugger
-        console.log(`[POST ${url}] status:`, r.status, '| body:', r.data?.substring(0, 500));
         return Serializer.fromXml<T>(r.data)
     },
 
@@ -39,10 +37,6 @@ const apiService = {
         return Serializer.fromXml<T>(r.data);
     },
 
-    /**
-     * Envoie un FormData (multipart/form-data) — utilisé pour l'upload d'images.
-     * Ne parse pas la réponse XML automatiquement.
-     */
     async postFormData<T = any>(url: string, formData: FormData): Promise<T> {
         const r = await api.post(url, formData, {
             headers: {
@@ -50,7 +44,6 @@ const apiService = {
             },
             responseType: 'text',
         })
-        // Tenter de parser la réponse XML si possible
         try {
             return Serializer.fromXml<T>(r.data)
         } catch {

@@ -83,7 +83,7 @@
               </span>
             </td>
             <td class="col-quantity text-right">
-              {{ entry.running_total ?? '-' }}
+              <span class="quantity-value">{{ filterCombination !== 'all' ? entry.variant_total : entry.product_total }}</span>
             </td>
           </tr>
           <tr v-if="filteredMovements.length === 0">
@@ -124,34 +124,62 @@ const filterCombination = ref('all');
 const currentPage = ref(1);
 const itemsPerPage = 10;
 
-// Filter and sort movements
-const filteredMovements = computed(() => {
-  let list = [...stockStore.stockMovements];
+/**
+ * Calcule les totaux cumulés sur l'ENSEMBLE des mouvements
+ * avant d'appliquer les filtres d'affichage.
+ */
+const allMovementsWithTotals = computed(() => {
+  // 1. Trier chronologiquement (ID comme fallback pour les imports massifs à 00:00:00)
+  const list = [...stockStore.stockMovements].sort((a, b) => {
+    const da = new Date(a.date_add).getTime();
+    const db = new Date(b.date_add).getTime();
+    if (da !== db) return da - db;
+    return Number(a.id_stock_mvt || 0) - Number(b.id_stock_mvt || 0);
+  });
+
+  // 2. Calculer les stocks cumulés par variante et par produit
+  const vTotals: Record<string, number> = {};
+  const pTotals: Record<string, number> = {};
   
-  // Apply product filter
+  return list.map(m => {
+    const vKey = `${m.id_product}_${m.id_product_attribute || '0'}`;
+    const pKey = String(m.id_product);
+    const delta = m.sign * m.physical_quantity;
+    
+    vTotals[vKey] = (vTotals[vKey] || 0) + delta;
+    pTotals[pKey] = (pTotals[pKey] || 0) + delta;
+    
+    return {
+      ...m,
+      variant_total: vTotals[vKey],
+      product_total: pTotals[pKey]
+    };
+  });
+});
+
+/**
+ * Filtre les mouvements pour l'affichage
+ */
+const filteredMovements = computed(() => {
+  let list = allMovementsWithTotals.value;
+  
+  // Filtre par produit
   if (filterProduct.value !== 'all') {
     list = list.filter(m => String(m.id_product) === filterProduct.value);
     
-    // Apply combination filter only if a product is selected
+    // Filtre par déclinaison (si produit sélectionné)
     if (filterCombination.value !== 'all') {
       list = list.filter(m => String(m.id_product_attribute || '0') === filterCombination.value);
     }
   }
 
-  // Sort by date ascending to calculate running total
-  list.sort((a, b) => new Date(a.date_add).getTime() - new Date(b.date_add).getTime());
-
-  // Calculate running totals per unique product/attribute
-  const totals: Record<string, number> = {};
-  const withTotals = list.map(m => {
-    const key = `${m.id_product}_${m.id_product_attribute || '0'}`;
-    const movementValue = m.sign * m.physical_quantity;
-    totals[key] = (totals[key] || 0) + movementValue;
-    return { ...m, running_total: totals[key] };
+  // Trier par date décroissante pour l'affichage (plus récent en haut)
+  return list.sort((a, b) => {
+    const da = new Date(a.date_add).getTime();
+    const db = new Date(b.date_add).getTime();
+    if (da !== db) return db - da;
+    return Number(b.id_stock_mvt || 0) - Number(a.id_stock_mvt || 0);
   });
-
-  // Sort back to descending for display (most recent first)
-  return withTotals.sort((a, b) => new Date(b.date_add).getTime() - new Date(a.date_add).getTime());
 });
 
 const paginatedMovements = computed(() => {
@@ -417,6 +445,14 @@ const handleAddStock = async () => {
 .col-quantity {
   font-weight: 600;
   color: #0f172a;
+}
+
+.quantity-value {
+  font-weight: 600;
+  color: #0f172a;
+  background-color: #f1f5f9;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
 }
 
 .text-right {

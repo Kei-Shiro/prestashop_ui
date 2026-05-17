@@ -19,9 +19,6 @@ export const useCustomerOrderStore = defineStore('customerOrder', () => {
     const isLoading = ref<boolean>(false);
     const error = ref<string | null>(null);
 
-    // Hardcode customerId to 1 for evaluation purposes unless a real auth exists
-    const customerId = 1;
-
     async function fetchMyOrders() {
         isLoading.value = true;
         error.value = null;

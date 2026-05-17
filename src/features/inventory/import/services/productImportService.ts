@@ -15,8 +15,6 @@ const toLValue = (text: string): LValue => ({
 });
 
 export async function importProducts(csvFile: File): Promise<void> {
-  // Repartir de zéro : les maps sont des singletons de module qui survivraient
-  // sinon d'un import à l'autre (et feraient sauter la recréation après un reset).
   taxRateMap.clear();
   categoryMap.clear();
   productMap.clear();
@@ -87,7 +85,6 @@ async function processTaxes(uniqueTaxes: string[]) {
         continue;
       }
 
-      // Vérifier si le groupe de taxe existe déjà
       let id_tax_rules_group: string | null = null;
       try {
         const existingGroup = await apiService.get<any>(
@@ -101,7 +98,6 @@ async function processTaxes(uniqueTaxes: string[]) {
         }
       } catch (_) { /* pas trouvé, on crée */ }
 
-      // Vérifier si la taxe existe déjà
       let id_tax: string | null = null;
       try {
         const existingTax = await apiService.get<any>(
@@ -135,7 +131,6 @@ async function processTaxes(uniqueTaxes: string[]) {
       }
 
       if (id_tax && id_tax_rules_group) {
-        // id_country=8 (France, seul pays actif)
         const ruleData: TaxRulePost = {
           id_tax_rules_group: parseInt(id_tax_rules_group, 10),
           id_tax: parseInt(id_tax, 10),
@@ -158,7 +153,6 @@ async function processCategories(uniqueCategories: string[]) {
     if (categoryMap.has(catName)) continue;
 
     try {
-      // Vérifier si la catégorie existe déjà
       const filterUrl = `/categories?filter[name]=${encodeURIComponent(catName)}&display=full`;
       const getRes = await apiService.get<any>(filterUrl);
       const catNode = getRes?.prestashop?.categories?.category;
@@ -175,7 +169,6 @@ async function processCategories(uniqueCategories: string[]) {
         continue;
       }
 
-      // Générer un link_rewrite valide (URL friendly)
       const linkRewrite = catName
           .toLowerCase()
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -231,7 +224,6 @@ async function processProducts(rows: ProductCSVRow[]) {
         continue;
       }
 
-      // Vérifier si le produit existe déjà par référence
       if (productMap.has(row.reference)) {
         console.log(`Product already in map: ${row.reference}`);
         continue;
@@ -283,7 +275,6 @@ async function processProducts(rows: ProductCSVRow[]) {
       const priceHt = cleanPrixTtc / (1 + taxData.rate_numeric / 100);
       const availableDate = convertDate(row.date_availability);
 
-      // Générer link_rewrite pour le produit
       const linkRewrite = row.produit
           .toLowerCase()
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "")

@@ -17,7 +17,6 @@ const toLValue = (text: string): LValue => ({
 });
 
 export const importCombinationsAndStocks = async (csvFile: File): Promise<void> => {
-  // Repartir de zéro à chaque import (les maps sont des singletons de module).
   attributeMap.clear();
   attributeValueMap.clear();
   combinationMap.clear();
@@ -48,8 +47,6 @@ export const importCombinationsAndStocks = async (csvFile: File): Promise<void> 
             else if (lowerField.includes("vente") || lowerField.includes("ttc") || lowerField.includes("prix")) colMapping["prix_vente_ttc"] = field;
           }
 
-          console.log("Col Mapping:", colMapping);
-
           const rows = results.data.map((row: any) => {
             const normalizedRow: any = {};
             const originalFieldForReference   = results.meta.fields?.find(f => f.trim().replace(/^\uFEFF/, '') === colMapping["reference"]);
@@ -67,7 +64,6 @@ export const importCombinationsAndStocks = async (csvFile: File): Promise<void> 
             return normalizedRow as StockCSVRow;
           });
 
-          console.log("Parsed clean rows:", rows);
           await processCombinationsAndStocks(rows);
           resolve();
         } catch (err) {
@@ -130,11 +126,11 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
           try {
             const stockMovementPayload: StockMovement = {
               id_product: productId,
-              id_product_attribute: 0, // 0 car c'est un produit simple
+              id_product_attribute: 0,
               physical_quantity: +row.stock_initial,
-              sign: 1, // 1 pour une augmentation
-              id_stock_mvt_reason: 1, // Raison "Augmentation de stock"
-              date_add: new Date().toISOString().slice(0, 19).replace('T', ' '), // Format YYYY-MM-DD HH:MM:SS
+              sign: 1,
+              id_stock_mvt_reason: 1,
+              date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
             };
 
             await apiService.postStockMvt('/stockmvtapi/stockmvt', {
@@ -143,7 +139,6 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
             console.log(`Created stock movement for simple product ${productId}`);
           } catch (mvtError) {
             console.error(`Failed to create stock movement for simple product ${productId}`, mvtError);
-            // On continue même si le mouvement de stock échoue, car le stock principal est à jour.
           }
           continue;
         }

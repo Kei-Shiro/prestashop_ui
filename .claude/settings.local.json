@@ -6,7 +6,9 @@
       "WebFetch(domain:devdocs.prestashop-project.org)",
       "Bash(node *)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(del *)",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'src\\\\**\\\\*.vue' -Recurse | Measure-Object | Select-Object -ExpandProperty Count\")"
     ]
   }
 }

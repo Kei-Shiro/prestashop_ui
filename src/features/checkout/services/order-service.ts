@@ -1,6 +1,13 @@
 import apiService from '@shared/api/api-service';
 import { extractIdValue } from '@shared/utils/extractIdValue';
-import {StockMovement} from "@shared/types/import";
+import { StockMovement } from "@shared/types/import";
+
+async function getUsedCartIds(customerId: number): Promise<Set<string>> {
+    const res: any = await apiService.get(`/orders?filter[id_customer]=${customerId}&display=[id,id_cart]`);
+    const orders = res?.prestashop?.orders?.order || [];
+    const arr = Array.isArray(orders) ? orders : [orders];
+    return new Set(arr.map((o: any) => extractIdValue(o.id_cart)).filter(Boolean));
+}
 
 export const orderService = {
     async getOrders(): Promise<any[]> {
@@ -23,34 +30,17 @@ export const orderService = {
         return response.prestashop?.carriers?.carrier || [];
     },
 
-    /**
-     * Retourne les articles de TOUS les paniers ouverts (non commandés) d'un client.
-     * Les quantités sont agrégées par produit.
-     * @returns tableau de {id_product, id_product_attribute, quantity} ou [] si aucun panier ouvert
-     */
     async getOpenCartItemsForCustomer(
         customerId: number
     ): Promise<Array<{ id_product: string; id_product_attribute: string; quantity: number }>> {
         try {
-            // 1. Trouver les cart IDs déjà convertis en commande pour ce client
-            const ordersRes: any = await apiService.get(
-                `/orders?filter[id_customer]=${customerId}&display=[id,id_cart]`
-            );
-            const ordersRaw = ordersRes?.prestashop?.orders?.order || [];
-            const ordersArr = Array.isArray(ordersRaw) ? ordersRaw : [ordersRaw];
-            const usedCartIds = new Set(
-                ordersArr.map((o: any) => extractIdValue(o.id_cart)).filter(Boolean)
-            );
+            const usedCartIds = await getUsedCartIds(customerId);
 
-            // 2. Récupérer tous les paniers du client
-            const cartsRes: any = await apiService.get(
-                `/carts?filter[id_customer]=${customerId}&display=full`
-            );
+            const cartsRes: any = await apiService.get(`/carts?filter[id_customer]=${customerId}&display=full`);
             const cartsRaw = cartsRes?.prestashop?.carts?.cart;
             if (!cartsRaw) return [];
             const cartsArr = Array.isArray(cartsRaw) ? cartsRaw : [cartsRaw];
 
-            // 3. Agréger les produits de tous les paniers non utilisés
             const aggregatedItems = new Map<string, number>();
 
             for (const cart of cartsArr) {
@@ -72,7 +62,6 @@ export const orderService = {
             }
 
             if (aggregatedItems.size > 0) {
-                console.log(`[orderService] ${aggregatedItems.size} produits agrégés depuis les paniers PS ouverts pour client ${customerId}`);
                 return Array.from(aggregatedItems.entries()).map(([key, quantity]) => {
                     const [id_product, id_product_attribute] = key.split('_');
                     return { id_product, id_product_attribute, quantity };
@@ -84,34 +73,18 @@ export const orderService = {
         return [];
     },
 
-    /**
-     * Trouve l'ID du panier ouvert le plus récent pour un client.
-     */
     async getLatestOpenCartId(customerId: number): Promise<number | null> {
         try {
-            // 1. Trouver les cart IDs déjà convertis en commande pour ce client
-            const ordersRes: any = await apiService.get(
-                `/orders?filter[id_customer]=${customerId}&display=[id,id_cart]`
-            );
-            const ordersRaw = ordersRes?.prestashop?.orders?.order || [];
-            const ordersArr = Array.isArray(ordersRaw) ? ordersRaw : [ordersRaw];
-            const usedCartIds = new Set(
-                ordersArr.map((o: any) => extractIdValue(o.id_cart)).filter(Boolean)
-            );
+            const usedCartIds = await getUsedCartIds(customerId);
 
-            // 2. Récupérer les paniers du client, triés du plus récent au plus ancien
-            const cartsRes: any = await apiService.get(
-                `/carts?filter[id_customer]=${customerId}&sort=[id_DESC]&display=[id]`
-            );
+            const cartsRes: any = await apiService.get(`/carts?filter[id_customer]=${customerId}&sort=[id_DESC]&display=[id]`);
             const cartsRaw = cartsRes?.prestashop?.carts?.cart;
             if (!cartsRaw) return null;
             const cartsArr = Array.isArray(cartsRaw) ? cartsRaw : [cartsRaw];
 
             for (const cart of cartsArr) {
                 const id = extractIdValue(cart.id);
-                if (id && !usedCartIds.has(id)) {
-                    return Number(id);
-                }
+                if (id && !usedCartIds.has(id)) return Number(id);
             }
         } catch (e) {
             console.warn('[orderService] getLatestOpenCartId failed:', e);
@@ -119,36 +92,21 @@ export const orderService = {
         return null;
     },
 
-    /**
-     * Trouve l'ID du premier transporteur actif dans PS.
-     * Nécessaire car le carrier ID 1 peut ne pas exister selon la config.
-     */
     async detectCarrierId(): Promise<number> {
         try {
-            const response: any = await apiService.get(
-                '/carriers?display=full&filter[active]=1&filter[deleted]=0'
-            );
+            const response: any = await apiService.get('/carriers?display=full&filter[active]=1&filter[deleted]=0');
             const carriers = response?.prestashop?.carriers?.carrier;
             if (!carriers) return 1;
             const arr = Array.isArray(carriers) ? carriers : [carriers];
-            const active = arr.find(
-                (c: any) => String(c.active) === '1' && String(c.deleted) !== '1'
-            );
-            if (active) {
-                console.log(`[orderService] Carrier actif trouvé : ID ${active.id} (${active.name})`);
-                return Number(active.id);
-            }
+            const active = arr.find((c: any) => String(c.active) === '1' && String(c.deleted) !== '1');
+            if (active) return Number(active.id);
         } catch (e) {
             console.warn('[orderService] detectCarrierId failed, using 1', e);
         }
         return 1;
     },
 
-    /**
-     * Retourne le nom du module COD par défaut ('ps_cashondelivery').
-     * L'API /modules n'est pas exposée par défaut, donc on évite les requêtes qui génèrent des erreurs 400.
-     */
-    async detectCodModuleName(): Promise<string> {
+    detectCodModuleName(): string {
         return 'ps_cashondelivery';
     },
 
@@ -220,8 +178,6 @@ export const orderService = {
                 quantity: item.quantity
             }));
         } else {
-            // Un tableau vide est ignoré par le parser XML pour des tags simples (il n'écrit rien).
-            // Pour forcer un tag vide <cart_rows></cart_rows>, on peut passer une chaîne vide ou ne pas passer l'attribut cart_row.
             payload.cart.associations.cart_rows = '';
         }
 
@@ -240,7 +196,7 @@ export const orderService = {
         moduleName: string = 'ps_cashondelivery'
     ): Promise<number> {
         const total = parseFloat(totalAmount.toFixed(6));
-        
+
         const payload: any = {
             order: {
                 id_shop: 1,
@@ -285,37 +241,34 @@ export const orderService = {
         };
 
         const response: any = await apiService.post('/orders', payload);
-        // PrestaShop renvoie HTTP 200 avec corps PHP d'erreur si la création échoue
         if (!response?.prestashop?.order?.id) {
             throw new Error(
                 `La création de commande a échoué (module: ${moduleName}, carrier: ${carrierId}, state: ${initialStateId}). ` +
                 `Vérifiez dans PS admin : module COD actif, transporteur existant, et état de commande valide.`
             );
         }
-        for(const item of items) {
-            const stockMvt : StockMovement = {
+
+        for (const item of items) {
+            const stockMvt: StockMovement = {
                 id_product: item.id_product,
                 id_product_attribute: item.id_product_attribute || 0,
                 physical_quantity: item.quantity,
                 sign: -1,
                 id_stock_mvt_reason: 3,
                 date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
-            }
+            };
             await apiService.postStockMvt('/stockmvtapi/stockmvt', { stock_mvt: stockMvt });
-            console.log(`[orderService] Stock mis à jour : -${item.quantity} pour produit ${item.id_product} (déclinaison ${item.id_product_attribute || 0})`);
         }
 
         return parseInt(extractIdValue(response.prestashop.order.id));
     },
 
     async updateOrderStatus(orderId: number, newStateId: number): Promise<void> {
-        const payload = {
+        await apiService.post('/order_histories', {
             order_history: {
                 id_order: orderId,
                 id_order_state: newStateId
             }
-        };
-        await apiService.post('/order_histories', payload);
+        });
     }
-
 };

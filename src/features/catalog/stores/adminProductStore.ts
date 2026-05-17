@@ -19,14 +19,9 @@ export const useProductStore = defineStore('product', () => {
     }
   }
 
-  function setProducts(newProducts: Product[]) {
-    products.value = newProducts;
-  }
-
   return {
     products,
     loading,
-    fetchProducts,
-    setProducts
+    fetchProducts
   };
 });
