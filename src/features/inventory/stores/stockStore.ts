@@ -143,16 +143,23 @@ export const useStockStore = defineStore('stock', () => {
   const addStock = async (id_product: string, delta: number, id_product_attribute = '0') => {
     loading.value = true;
     try {
+      const stockGetRes: any = await apiService.get(`/stock_availables?filter[id_product]=${id_product}&filter[id_product_attribute]=${id_product_attribute}&display=[id]`);
+      const stockAvailable = stockGetRes?.prestashop?.stock_availables?.stock_available;
+      const idStockAvailable = Array.isArray(stockAvailable) ? stockAvailable[0]?.id : stockAvailable?.id;
+
+      if (!idStockAvailable) throw new Error("ID Stock non trouvé");
+
       const payload: StockMovementPayload = {
-        id_product: Number(id_product),
-        id_product_attribute: Number(id_product_attribute),
+        id_employee: 1,
+        id_stock: Number(extractIdValue(idStockAvailable)),
         physical_quantity: Math.abs(delta),
         sign: delta > 0 ? 1 : -1,
         id_stock_mvt_reason: 1,
+        price_te: 0,
         date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
       };
 
-      await apiService.postStockMvt('/stockmvtapi/stockmvt', { stock_mvt: payload });
+      await apiService.post('/stock_movements', { stock_mvt: payload });
       console.log(`[stockStore] Stock mis à jour : ${delta > 0 ? '+' : ''}${delta} pour produit ${id_product} (déclinaison ${id_product_attribute})`);
       await fetchStockMovements();
     } catch (error) {

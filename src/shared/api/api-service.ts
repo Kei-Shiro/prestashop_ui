@@ -1,6 +1,7 @@
-import { defaultClient as api, defaultStock } from '../api/client'
+import {defaultClient as api, defaultState} from '../api/client'
 import { Serializer } from '../utils/serializer'
 import type { AxiosRequestConfig } from 'axios'
+import {defaultClient} from "../api/client";
 
 const apiService = {
     async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
@@ -14,15 +15,16 @@ const apiService = {
         return Serializer.fromXml<T>(r.data)
     },
 
-    async postStockMvt<T>(url: string, data?: string | object, config?: AxiosRequestConfig): Promise<T> {
-        const payload = typeof data === 'object' ? Serializer.toXml(data) : data;
-        const r = await defaultStock.post(url, payload, { ...config, responseType: 'text' });
-        return Serializer.fromXml<T>(r.data)
-    },
 
     async put<T>(url: string, data?: string | object, config?: AxiosRequestConfig): Promise<T> {
         const payload = typeof data === 'object' ? Serializer.toXml(data) : data;
         const r = await api.put(url, payload, { ...config, responseType: 'text' })
+        return Serializer.fromXml<T>(r.data)
+    },
+
+    async putstate<T>(url: string, data?: string | object, config?: AxiosRequestConfig): Promise<T> {
+        const payload = typeof data === 'object' ? Serializer.toXml(data) : data;
+        const r = await defaultState.put(url, payload, { ...config, responseType: 'text' })
         return Serializer.fromXml<T>(r.data)
     },
 
@@ -31,10 +33,6 @@ const apiService = {
         return Serializer.fromXml<T>(r.data)
     },
 
-    async deleteStockMvt<T>(url: string, data?: string | object, config?: AxiosRequestConfig): Promise<T> {
-        const r = await defaultStock.delete(url, { ...config, responseType: 'text' });
-        return Serializer.fromXml<T>(r.data);
-    },
 
     async postFormData<T = any>(url: string, formData: FormData): Promise<T> {
         const r = await api.post(url, formData, {

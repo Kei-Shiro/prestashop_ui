@@ -40,7 +40,7 @@ function createClient(defaultBaseURL: string, config: ApiClientConfig = {}): Axi
 }
 
 const defaultClient = createClient('/prestashop/api');
-const defaultStock = createClient('/prestashop/module');
+const defaultState = createClient('/prestashop/module');
 
-export { defaultClient, defaultStock };
+export { defaultClient, defaultState };
 export default defaultClient;

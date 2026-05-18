@@ -19,6 +19,11 @@
         </div>
       </div>
 
+
+      <h2 class="section-title">Stocks par Catégorie</h2>
+      <div v-if="statsStore.isStockLoading" class="loading">Analyse des stocks en cours...</div>
+      <StockStatsTable v-else :stocks="statsStore.categoryStocks || []" />
+
       <h2 class="section-title">Statistiques par jour</h2>
       <div class="table-container">
         <table class="data-table">
@@ -55,9 +60,12 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useOrderStore } from '@features/checkout/stores/adminOrderStore';
+import { useStatsStore } from '@features/dashboard/stores/statsStore';
 import BasePagination from '@shared/ui/components/BasePagination.vue';
+import StockStatsTable from '@features/dashboard/components/StockStatsTable.vue';
 
 const orderStore = useOrderStore();
+const statsStore = useStatsStore();
 
 const currentPage = ref(1);
 const itemsPerPage = 10;
@@ -68,7 +76,11 @@ const paginatedStats = computed(() => {
 });
 
 onMounted(async () => {
-  await orderStore.fetchOrders();
+  // Chargement parallèle
+  await Promise.all([
+    orderStore.fetchOrders(),
+    statsStore.fetchStocks()
+  ]);
 });
 </script>
 

@@ -14,7 +14,7 @@ export function useCheckout() {
 
     const resolveInitialStateId = async (): Promise<number> => {
         // En attente de paiement à la livraison (ID 13)
-        return 13;
+        return 2;
     };
 
     const submitOrder = async (form: CheckoutForm) => {

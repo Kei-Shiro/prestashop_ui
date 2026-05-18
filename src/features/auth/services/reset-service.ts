@@ -52,9 +52,9 @@ async function deleteAll(endpoint: string): Promise<string[]> {
                 const id = extractId(item?.id)
                 if (id) {
                     try {
-                        await apiService.deleteStockMvt(`/stockmvtapi/stockmvt?id=${id}`)
+                        await apiService.delete(`/stock_movements/${id}`)
                     } catch (err) {
-                        console.warn(`[resetService] Échec suppression mouvement ${id} via module`, err)
+                        console.warn(`[resetService] Échec suppression mouvement ${id}`, err)
                     }
                 }
             }

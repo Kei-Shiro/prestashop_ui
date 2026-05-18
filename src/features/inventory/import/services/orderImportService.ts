@@ -4,6 +4,7 @@ import { productMap } from "./productImportService";
 import { combinationMap } from "./combinationImportService";
 import type { OrderCSVRow, AchatTuple, ResolvedTuple, Customer, Address, Cart, CartRow, Order, CarrierPost, LValue, StockMovement } from "@shared/types/import";
 import { ImportValidator } from "@shared/utils/import-validator";
+import {extractIdValue} from "@shared/utils/extractIdValue";
 
 export const customerMap = new Map<string, number>();
 export const addressMap = new Map<string, number>();
@@ -18,11 +19,8 @@ const toLValue = (text: string): LValue => ({
 
 const STATUS_MAP: Record<string, number> = {
     "paiement accepté": 2,
-    "en cours de préparation": 3,
-    "expédié": 4,
     "livré": 5,
     "annulé": 6,
-    "remboursé": 7,
 };
 
 function formatDate(raw: string): string {
@@ -354,6 +352,9 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     
     const dateFormatted = formatDate(date);
 
+    // Résolution de l'état
+    const initialStateId = STATUS_MAP[etat] || 11;
+
     // ========== ORDER CREATE ==========
     try {
         const orderData: Order = {
@@ -376,7 +377,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             total_paid_real: parseFloat(total_paid.toFixed(6)),
             total_paid_tax_incl: parseFloat(total_paid.toFixed(6)),
             total_paid_tax_excl: parseFloat(total_products.toFixed(6)),
-            current_state: 11,
+            current_state: initialStateId,
             date_add: dateFormatted,
             associations: {
                 order_rows: {
@@ -396,24 +397,34 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         orderCountMap.set(id_order, true);
         console.log(`Order created: ${id_order}`);
 
-        // ========== STOCK MOVEMENT ==========
-        for (const t of resolvedTuples) {
-            try {
-                const stockMovementPayload: StockMovement = {
-                    id_product: t.id_product,
-                    id_product_attribute: t.id_product_attribute,
-                    physical_quantity: t.qty,
-                    sign: -1,
-                    id_stock_mvt_reason: 3,
-                    date_add: dateFormatted,
-                };
+        if(initialStateId === 5) {
 
-                await apiService.postStockMvt('/stockmvtapi/stockmvt', {
-                    stock_mvt: stockMovementPayload
-                });
-                console.log(`Created stock movement for order ${id_order}, product ${t.id_product}`);
-            } catch (mvtError) {
-                console.error(`Failed to create stock movement for order ${id_order}, product ${t.id_product}`, mvtError);
+            // ========== STOCK MOVEMENT ==========
+            for (const t of resolvedTuples) {
+                try {
+                    const stockGetRes: any = await apiService.get(`/stock_availables?filter[id_product]=${t.id_product}&filter[id_product_attribute]=${t.id_product_attribute}&display=[id]`);
+                    const stockAvailable = stockGetRes?.prestashop?.stock_availables?.stock_available;
+                    const idStockAvailable = Array.isArray(stockAvailable) ? stockAvailable[0]?.id : stockAvailable?.id;
+
+                    if (idStockAvailable) {
+                        const stockMovementPayload: StockMovement = {
+                            id_employee: 1,
+                            id_stock: Number(extractIdValue(idStockAvailable)),
+                            physical_quantity: t.qty,
+                            sign: -1,
+                            id_stock_mvt_reason: 3,
+                            price_te: 0,
+                            date_add: dateFormatted,
+                        };
+
+                        await apiService.post('/stock_movements', {
+                            stock_mvt: stockMovementPayload
+                        });
+                        console.log(`Created stock movement for order ${id_order}, product ${t.id_product}`);
+                    }
+                } catch (mvtError) {
+                    console.error(`Failed to create stock movement for order ${id_order}, product ${t.id_product}`, mvtError);
+                }
             }
         }
 

@@ -18,9 +18,10 @@ export const useOrderStore = defineStore('order', () => {
   const fetchOrders = async () => {
     loading.value = true;
     try {
-      const [orderRes, cartRes] = await Promise.all([
-        apiService.get<any>('/orders?display=full'),
-        apiService.get<any>('/carts?display=[id]&filter[id_customer]=![0]')
+      const [orderRes, cartRes, allOrderCartsRes] = await Promise.all([
+        apiService.get<any>('/orders?filter[current_state]=![6]&display=full'),
+        apiService.get<any>('/carts?display=[id]&filter[id_customer]=![0]'),
+        apiService.get<any>('/orders?display=[id_cart]')
       ]);
       
       const pOrders = orderRes?.prestashop?.orders?.order;
@@ -32,8 +33,12 @@ export const useOrderStore = defineStore('order', () => {
       
       const pCarts = cartRes?.prestashop?.carts?.cart;
       const cartsList = Array.isArray(pCarts) ? pCarts : (pCarts ? [pCarts] : []);
-      // On soustrait les carts qui sont déjà des commandes
-      const usedCartIds = new Set(orders.value.map(o => extractIdValue((o as any).id_cart)));
+      
+      // On soustrait les carts qui sont déjà des commandes (incluant les commandes annulées)
+      const allOrders = allOrderCartsRes?.prestashop?.orders?.order;
+      const allOrdersList = Array.isArray(allOrders) ? allOrders : (allOrders ? [allOrders] : []);
+      const usedCartIds = new Set(allOrdersList.map(o => extractIdValue((o as any).id_cart)));
+      
       activeCartsCount.value = cartsList.filter(c => {
         const cid = extractIdValue(c.id);
         return !usedCartIds.has(cid);

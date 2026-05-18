@@ -323,11 +323,12 @@ export interface CombinationMapEntry {
 }
 
 export interface StockMovement {
-  id_product: number,
-  id_product_attribute: number,
+  id_employee: number,
+  id_stock: number,
   physical_quantity: number,
   sign: number,
   id_stock_mvt_reason: number,
+  price_te: number,
   date_add: string
 }
 

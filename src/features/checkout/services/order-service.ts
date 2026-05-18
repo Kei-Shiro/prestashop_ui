@@ -255,23 +255,46 @@ export const orderService = {
             );
         }
 
-        for (const item of items) {
-            const stockMvt: StockMovement = {
-                id_product: item.id_product,
-                id_product_attribute: item.id_product_attribute || 0,
-                physical_quantity: item.quantity,
-                sign: -1,
-                id_stock_mvt_reason: 3,
-                date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
-            };
-            await apiService.postStockMvt('/stockmvtapi/stockmvt', { stock_mvt: stockMvt });
-        }
+        /*for (const item of items) {
+            try {
+                const stockGetRes: any = await apiService.get(`/stock_availables?filter[id_product]=${item.id_product}&filter[id_product_attribute]=${item.id_product_attribute || 0}&display=[id]`);
+                const stockAvailable = stockGetRes?.prestashop?.stock_availables?.stock_available;
+                const idStockAvailable = Array.isArray(stockAvailable) ? stockAvailable[0]?.id : stockAvailable?.id;
+
+                if (idStockAvailable) {
+                    const stockMvt: StockMovement = {
+                        id_employee: 1,
+                        id_stock: Number(extractIdValue(idStockAvailable)),
+                        physical_quantity: item.quantity,
+                        sign: -1,
+                        id_stock_mvt_reason: 3,
+                        price_te: 0,
+                        date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
+                    };
+                    await apiService.post('/stock_movements', { stock_mvt: stockMvt });
+                    console.log(`[orderService] Mouvement de stock créé pour produit ${item.id_product}`);
+                }
+            } catch (err) {
+                console.warn(`[orderService] Échec création mouvement de stock pour produit ${item.id_product}`, err);
+            }
+        }*/
 
         return parseInt(extractIdValue(response.prestashop.order.id));
     },
 
 
     async updateOrderStatus(orderId: number, newStateId: number): Promise<void> {
+
+        if(newStateId === 5 || newStateId === 6) {
+            await apiService.putstate('/stockmvtapi/orderstate', {
+                order_states: {
+                    order_state: {
+                        id_order: orderId,
+                        id_order_state: newStateId
+                    }
+                }
+            });
+        }
 
         await apiService.post('/order_histories', {
             order_history: {

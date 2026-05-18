@@ -125,18 +125,27 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
                 : new Date().toISOString().slice(0, 19).replace('T', ' ');
 
             const stockMovementPayload: StockMovement = {
-              id_product: productId,
-              id_product_attribute: 0,
+              id_employee: 1,
+              id_stock: Number(extractIdValue(stockId)),
               physical_quantity: quantity,
               sign: 1,
               id_stock_mvt_reason: 1,
+              price_te: 0,
               date_add: movementDate,
             };
 
-            await apiService.postStockMvt('/stockmvtapi/stockmvt', {
+            const mvtRes = await apiService.post<any>('/stock_movements', {
               stock_mvt: stockMovementPayload
             });
-            console.log(`Created stock movement for simple product ${productId}`);
+
+            // PrestaShop écrase date_add en "now" au POST, on fait un PUT direct pour forcer la date
+            if (mvtRes?.prestashop?.stock_mvt?.id) {
+              const mvtId = Number(extractIdValue(mvtRes.prestashop.stock_mvt.id));
+              await apiService.put(`/stock_movements/${mvtId}`, {
+                stock_mvt: { ...stockMovementPayload, id: mvtId }
+              });
+            }
+            console.log(`Created and updated stock movement date for simple product ${productId}`);
           } catch (mvtError) {
             console.error(`Failed to create stock movement for simple product ${productId}`, mvtError);
           }
@@ -330,24 +339,38 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
           console.log(`[combinationImport] Stock updated for combo ${combinationId} (ID Stock: ${stockId}) : qty=${quantity}`);
         }
 
+
         try {
           const movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
               ? productData.available_date + ' 00:00:00'
               : new Date().toISOString().slice(0, 19).replace('T', ' ');
 
+          // Use the stockId from the current stockRecord in the loop
+          const currentStockId = Number(extractIdValue(allComboStocks[0].id));
+
           const stockMovementPayload: StockMovement = {
-            id_product: productId,
-            id_product_attribute: combinationId,
+            id_employee: 1,
+            id_stock: currentStockId,
             physical_quantity: quantity,
             sign: 1,
             id_stock_mvt_reason: 1,
+            price_te: 0,
             date_add: movementDate,
           };
 
-          await apiService.postStockMvt('/stockmvtapi/stockmvt', {
+          const mvtRes = await apiService.post<any>('/stock_movements', {
             stock_mvt: stockMovementPayload
           });
-          console.log(`[combinationImport] Stock movement created for combo ${combinationId}`);
+          
+          // PrestaShop écrase date_add en "now" au POST, on fait un PUT direct pour forcer la date
+          if (mvtRes?.prestashop?.stock_mvt?.id) {
+            const mvtId = Number(extractIdValue(mvtRes.prestashop.stock_mvt.id));
+            await apiService.put(`/stock_movements/${mvtId}`, {
+              stock_mvt: { ...stockMovementPayload, id: mvtId }
+            });
+          }
+          
+          console.log(`[combinationImport] Stock movement created and date forced via PUT for combo ${combinationId}`);
         } catch (mvtError) {
           console.error(`[combinationImport] Failed stock movement for combo ${combinationId}`, mvtError);
         }
