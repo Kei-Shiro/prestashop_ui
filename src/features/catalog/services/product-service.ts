@@ -2,12 +2,14 @@ import apiService from '@shared/api/api-service';
 import type { Product } from '@shared/types/product';
 import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
 import { extractIdValue } from '@shared/utils/extractIdValue';
+import taxService from './tax-service';
 
 const productService = {
     async getAll(): Promise<Product[]> {
-        const [res, stockRes] = await Promise.all([
+        const [res, stockRes, taxRates] = await Promise.all([
             apiService.get<any>('/products?display=full&limit=100'),
-            apiService.get<any>('/stock_availables?display=[id_product,quantity]&filter[id_product_attribute]=0')
+            apiService.get<any>('/stock_availables?display=[id_product,quantity]&filter[id_product_attribute]=0'),
+            taxService.getTaxRates()
         ]);
 
         let list = res?.prestashop?.products?.product ?? [];
@@ -43,11 +45,16 @@ const productService = {
                 }
 
                 const pid = extractIdValue(p.id);
+                const taxRuleGroupId = extractIdValue(p.id_tax_rules_group);
+                const taxRate = taxRates.get(taxRuleGroupId) || 0;
+                const priceHT = parseFloat(p.price || '0');
+                const priceTTC = priceHT * (1 + taxRate / 100);
 
                 return {
                     id_product: pid,
                     name: extractLanguageValue(p.name),
-                    price: parseFloat(p.price).toFixed(2),
+                    price: priceTTC.toFixed(2),
+                    tax_rate: taxRate,
                     description: extractLanguageValue(p.description),
                     description_short: extractLanguageValue(p.description_short),
                     quantity: stockMap.get(pid) || '0',
@@ -66,9 +73,10 @@ const productService = {
     },
 
     async getProduct(id: number): Promise<Product> {
-        const [res, stockRes] = await Promise.all([
+        const [res, stockRes, taxRates] = await Promise.all([
             apiService.get<any>(`/products/${id}?display=full`),
-            apiService.get<any>(`/stock_availables?filter[id_product]=${id}&filter[id_product_attribute]=0&display=[quantity]`)
+            apiService.get<any>(`/stock_availables?filter[id_product]=${id}&filter[id_product_attribute]=0&display=[quantity]`),
+            taxService.getTaxRates()
         ]);
         const p = res?.prestashop?.product;
 
@@ -100,11 +108,16 @@ const productService = {
         }
 
         const pid = extractIdValue(p.id);
+        const taxRuleGroupId = extractIdValue(p.id_tax_rules_group);
+        const taxRate = taxRates.get(taxRuleGroupId) || 0;
+        const priceHT = parseFloat(p.price || '0');
+        const priceTTC = priceHT * (1 + taxRate / 100);
 
         return {
             id_product: pid,
             name: extractLanguageValue(p.name),
-            price: parseFloat(p.price).toFixed(2),
+            price: priceTTC.toFixed(2),
+            tax_rate: taxRate,
             description: extractLanguageValue(p.description),
             description_short: extractLanguageValue(p.description_short),
             quantity: String(quantity),

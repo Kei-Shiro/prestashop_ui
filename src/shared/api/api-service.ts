@@ -32,7 +32,6 @@ const apiService = {
     },
 
     async deleteStockMvt<T>(url: string, data?: string | object, config?: AxiosRequestConfig): Promise<T> {
-        const payload = typeof data === 'object' ? Serializer.toXml(data) : data;
         const r = await defaultStock.delete(url, { ...config, responseType: 'text' });
         return Serializer.fromXml<T>(r.data);
     },

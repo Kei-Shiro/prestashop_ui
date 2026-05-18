@@ -83,12 +83,15 @@ const selectedCombination = computed(() => {
 
 const displayPrice = computed(() => {
     if (!product.value) return '0.00';
-    const basePrice = parseFloat(product.value.price);
+    const basePriceTTC = parseFloat(product.value.price);
+    const taxRate = product.value.tax_rate || 0;
+    
     if (selectedCombination.value) {
-        const impact = parseFloat(selectedCombination.value.price || '0');
-        return (basePrice + impact).toFixed(2);
+        const impactHT = parseFloat(selectedCombination.value.price || '0');
+        const impactTTC = impactHT * (1 + taxRate / 100);
+        return (basePriceTTC + impactTTC).toFixed(2);
     }
-    return basePrice.toFixed(2);
+    return basePriceTTC.toFixed(2);
 });
 
 const displayStock = computed(() => {

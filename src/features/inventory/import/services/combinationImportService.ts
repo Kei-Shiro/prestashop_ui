@@ -2,8 +2,8 @@ import Papa from "papaparse";
 import apiService from "@shared/api/api-service";
 import { productMap } from "./productImportService";
 import type { StockCSVRow, CombinationMapEntry, ProductOption, ProductOptionValue, CombinationPost, StockAvailablePut, StockAvailableGet, LValue, StockMovement } from "@shared/types/import";
-import { Serializer } from "@shared/utils/serializer";
 import { extractIdValue } from "@shared/utils/extractIdValue";
+import { ImportValidator } from "@shared/utils/import-validator";
 
 export const attributeMap = new Map<string, number>();
 export const attributeValueMap = new Map<string, Map<string, number>>();
@@ -23,50 +23,46 @@ export const importCombinationsAndStocks = async (csvFile: File): Promise<void> 
   const text = await csvFile.text();
 
   return new Promise((resolve, reject) => {
-    Papa.parse<Record<string, string>>(text, {
+    Papa.parse<any>(text, {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
         try {
           const metaFields = (results.meta.fields || []).map(f => f.trim().replace(/^\uFEFF/, ''));
+          const requiredCols = ['reference', 'specificité', 'karazany', 'stock_initial', 'prix_vente_ttc'];
 
-          const colMapping: Record<string, string> = {
-            reference:      metaFields[0],
-            specificite:    metaFields[1],
-            valeur:         metaFields[2],
-            stock_initial:  metaFields[3],
-            prix_vente_ttc: metaFields[4],
-          };
+          // 1. Validation des colonnes (insensible à la casse)
+          const colMap = ImportValidator.validateColumns(metaFields, requiredCols);
 
-          for (const field of metaFields) {
-            const lowerField = field.toLowerCase();
-            if (lowerField.includes("ref") || lowerField.includes("réf")) colMapping["reference"] = field;
-            else if (lowerField.includes("cificit") || lowerField.includes("spec") || lowerField.includes("spéc")) colMapping["specificite"] = field;
-            else if (lowerField.includes("valeur") || lowerField.includes("val") || lowerField.includes("karazany")) colMapping["valeur"] = field;
-            else if (lowerField.includes("stock") || lowerField.includes("qte") || lowerField.includes("quant")) colMapping["stock_initial"] = field;
-            else if (lowerField.includes("vente") || lowerField.includes("ttc") || lowerField.includes("prix")) colMapping["prix_vente_ttc"] = field;
-          }
+          const cleanRows = results.data.map((row: any) => {
+            const refVal = (row[colMap['reference']] || "").trim();
+            const specVal = (row[colMap['specificité']] || "").trim();
+            const valVal = (row[colMap['karazany']] || "").trim();
+            const stockVal = (row[colMap['stock_initial']] || "").trim();
+            const prixVal = (row[colMap['prix_vente_ttc']] || "").trim();
 
-          const rows = results.data.map((row: any) => {
-            const normalizedRow: any = {};
-            const originalFieldForReference   = results.meta.fields?.find(f => f.trim().replace(/^\uFEFF/, '') === colMapping["reference"]);
-            const originalFieldForSpecificite = results.meta.fields?.find(f => f.trim().replace(/^\uFEFF/, '') === colMapping["specificite"]);
-            const originalFieldForValeur      = results.meta.fields?.find(f => f.trim().replace(/^\uFEFF/, '') === colMapping["valeur"]);
-            const originalFieldForStock       = results.meta.fields?.find(f => f.trim().replace(/^\uFEFF/, '') === colMapping["stock_initial"]);
-            const originalFieldForPrix        = results.meta.fields?.find(f => f.trim().replace(/^\uFEFF/, '') === colMapping["prix_vente_ttc"]);
+            // 2. Validation : le stock_initial est obligatoire (mais peut être 0)
+            ImportValidator.validatePositiveAmount(stockVal, 'stock_initial', true);
 
-            normalizedRow.reference      = originalFieldForReference   ? row[originalFieldForReference]?.trim()   : undefined;
-            normalizedRow.specificite    = originalFieldForSpecificite ? row[originalFieldForSpecificite]?.trim() : undefined;
-            normalizedRow.valeur         = originalFieldForValeur      ? row[originalFieldForValeur]?.trim()      : undefined;
-            normalizedRow.stock_initial  = originalFieldForStock       ? row[originalFieldForStock]?.trim()       : undefined;
-            normalizedRow.prix_vente_ttc = originalFieldForPrix        ? row[originalFieldForPrix]?.trim()        : undefined;
+            // 3. Validation : le prix est OPTIONNEL (ex: produits simples), mais doit être positif SI fourni
+            if (prixVal !== "") {
+              ImportValidator.validatePositiveAmount(prixVal, 'prix_vente_ttc');
+            }
 
-            return normalizedRow as StockCSVRow;
+            return {
+              reference: refVal,
+              specificite: specVal,
+              valeur: valVal,
+              stock_initial: stockVal,
+              prix_vente_ttc: prixVal,
+            } as StockCSVRow;
           });
 
-          await processCombinationsAndStocks(rows);
+          console.log("Parsed combinations:", cleanRows);
+          await processCombinationsAndStocks(cleanRows);
           resolve();
         } catch (err) {
+          console.error("Combination import failed validation:", err);
           reject(err);
         }
       },
@@ -108,7 +104,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         console.log(`Stock simple product ${productId}: stockId=${stockId}, entries=${allSimpleStocks.length}`);
 
         if (stockId) {
-          const quantity = stock_initial ? parseInt(stock_initial, 10) : 0;
+          const quantity = ImportValidator.validatePositiveAmount(stock_initial, 'stock_initial', true);
           const stockData: StockAvailablePut = {
             id: Number(extractIdValue(stockId)),
             id_product: productId,
@@ -124,13 +120,17 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
           console.log(`Stock updated for simple product ${productId}: qty=${quantity}`);
 
           try {
+            const movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
+                ? productData.available_date + ' 00:00:00'
+                : new Date().toISOString().slice(0, 19).replace('T', ' ');
+
             const stockMovementPayload: StockMovement = {
               id_product: productId,
               id_product_attribute: 0,
-              physical_quantity: +row.stock_initial,
+              physical_quantity: quantity,
               sign: 1,
               id_stock_mvt_reason: 1,
-              date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
+              date_add: movementDate,
             };
 
             await apiService.postStockMvt('/stockmvtapi/stockmvt', {
@@ -156,7 +156,6 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
 
     // ── Attribut (product_option) ──
     if (!attributeMap.has(specificite)) {
-      // Vérifier si l'attribut existe déjà dans PS
       try {
         const existing = await apiService.get<any>(
             `/product_options?filter[name]=${encodeURIComponent(specificite)}&display=full`
@@ -169,7 +168,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
           if (!attributeValueMap.has(specificite)) attributeValueMap.set(specificite, new Map());
           console.log(`Attribute already exists: ${specificite} → ${id}`);
         }
-      } catch (_) { /* pas trouvé, on crée */ }
+      } catch (_) { /* pas trouvé */ }
 
       if (!attributeMap.has(specificite)) {
         const optionData: ProductOption = {
@@ -204,7 +203,6 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
     const valMap = attributeValueMap.get(specificite)!;
 
     if (!valMap.has(valeur)) {
-      // Vérifier si la valeur existe déjà dans PS
       try {
         const existing = await apiService.get<any>(
             `/product_option_values?filter[id_attribute_group]=${attributeId}&filter[name]=${encodeURIComponent(valeur)}&display=full`
@@ -216,7 +214,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
           valMap.set(valeur, id);
           console.log(`Attribute value already exists: ${valeur} → ${id}`);
         }
-      } catch (_) { /* pas trouvée, on crée */ }
+      } catch (_) { /* pas trouvée */ }
 
       if (!valMap.has(valeur)) {
         const optionValueData: ProductOptionValue = {
@@ -243,12 +241,10 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
     if (!attributeValueId) continue;
 
     // ── Combinaison ──
-
     const comboKey = `${reference}_${specificite}_${valeur}`;
     let combinationId = combinationMap.get(comboKey)?.id;
 
     if (!combinationId) {
-      // Vérifier si la combinaison existe déjà dans PS pour ce produit AVEC cet attribut
       try {
         const existing = await apiService.get<any>(
             `/combinations?filter[id_product]=${productId}&display=full`
@@ -266,17 +262,15 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
                 break;
             }
         }
-      } catch (_) { /* pas trouvée, on crée */ }
+      } catch (_) { /* pas trouvée */ }
 
       if (!combinationId) {
         let impactHt = 0;
         let prixVenteTtc = productData.prix_ttc;
         if (row.prix_vente_ttc) {
-          const parsed = parseFloat(row.prix_vente_ttc.replace(",", "."));
-          if (!isNaN(parsed)) {
-            prixVenteTtc = parsed;
-            impactHt = (prixVenteTtc - productData.prix_ttc) / (1 + productData.rate / 100);
-          }
+          const parsed = ImportValidator.validatePositiveAmount(row.prix_vente_ttc, 'prix_vente_ttc');
+          prixVenteTtc = parsed;
+          impactHt = (prixVenteTtc - productData.prix_ttc) / (1 + productData.rate / 100);
         }
 
         const combinationData: CombinationPost = {
@@ -310,17 +304,15 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
 
     // ── Stock déclinaison ──
     try {
-      // Recherche plus robuste du stock : on filtre par produit ET déclinaison
       const stockGetRes = await apiService.get<any>(
           `/stock_availables?filter[id_product]=${productId}&filter[id_product_attribute]=${combinationId}&display=full`,
       );
 
       const rawCombo = stockGetRes?.prestashop?.stock_availables?.stock_available;
       const allComboStocks: StockAvailableGet[] = Array.isArray(rawCombo) ? rawCombo : (rawCombo ? [rawCombo] : []);
-      const quantity = stock_initial ? parseInt(stock_initial, 10) : 0;
+      const quantity = ImportValidator.validatePositiveAmount(stock_initial, 'stock_initial', true);
 
       if (allComboStocks.length > 0) {
-        // On met à jour toutes les lignes de stock trouvées (cas multi-boutique)
         for (const stockRecord of allComboStocks) {
           const stockId = extractIdValue(stockRecord.id);
           const stockData: StockAvailablePut = {
@@ -335,32 +327,35 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
             location: stockRecord.location || ''
           };
           await apiService.put(`/stock_availables/${stockId}`, { stock_available: stockData });
-          console.log(`[combinationImport] Stock mis à jour pour combo ${combinationId} (ID Stock: ${stockId}) : qty=${quantity}`);
+          console.log(`[combinationImport] Stock updated for combo ${combinationId} (ID Stock: ${stockId}) : qty=${quantity}`);
         }
 
-        // Créer un mouvement de stock (un seul suffit généralement)
         try {
+          const movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
+              ? productData.available_date + ' 00:00:00'
+              : new Date().toISOString().slice(0, 19).replace('T', ' ');
+
           const stockMovementPayload: StockMovement = {
             id_product: productId,
             id_product_attribute: combinationId,
             physical_quantity: quantity,
             sign: 1,
             id_stock_mvt_reason: 1,
-            date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
+            date_add: movementDate,
           };
 
           await apiService.postStockMvt('/stockmvtapi/stockmvt', {
             stock_mvt: stockMovementPayload
           });
-          console.log(`[combinationImport] Mouvement de stock créé pour combo ${combinationId}`);
+          console.log(`[combinationImport] Stock movement created for combo ${combinationId}`);
         } catch (mvtError) {
-          console.error(`[combinationImport] Échec mouvement stock pour combo ${combinationId}`, mvtError);
+          console.error(`[combinationImport] Failed stock movement for combo ${combinationId}`, mvtError);
         }
       } else {
-        console.error(`[combinationImport] AUCUNE ligne de stock trouvée dans PS pour id_product=${productId} et id_product_attribute=${combinationId}. Le stock n'a pas pu être mis à jour.`);
+        console.error(`[combinationImport] NO stock row found for combo ${combinationId}.`);
       }
     } catch (err) {
-      console.error(`[combinationImport] Erreur lors du traitement du stock pour combo ${combinationId}`, err);
+      console.error(`[combinationImport] Error processing stock for combo ${combinationId}`, err);
     }
   }
 };

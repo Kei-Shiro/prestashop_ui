@@ -8,7 +8,13 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "mcp__ide__getDiagnostics",
       "Bash(del *)",
-      "Bash(powershell -Command \"Get-ChildItem -Path 'src\\\\**\\\\*.vue' -Recurse | Measure-Object | Select-Object -ExpandProperty Count\")"
+      "Bash(powershell -Command \"Get-ChildItem -Path 'src\\\\**\\\\*.vue' -Recurse | Measure-Object | Select-Object -ExpandProperty Count\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Etude\\\\Projet\\\\Evaluation\\\\prestashop_ui\\\\src\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(python -c \"import docx; print\\('python-docx OK'\\)\")",
+      "Bash(pip install *)",
+      "Bash(python gen_doc.py)",
+      "Bash(python *)"
     ]
   }
 }

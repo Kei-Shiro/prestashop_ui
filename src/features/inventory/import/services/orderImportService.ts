@@ -3,6 +3,7 @@ import apiService from "@shared/api/api-service";
 import { productMap } from "./productImportService";
 import { combinationMap } from "./combinationImportService";
 import type { OrderCSVRow, AchatTuple, ResolvedTuple, Customer, Address, Cart, CartRow, Order, CarrierPost, LValue, StockMovement } from "@shared/types/import";
+import { ImportValidator } from "@shared/utils/import-validator";
 
 export const customerMap = new Map<string, number>();
 export const addressMap = new Map<string, number>();
@@ -25,10 +26,7 @@ const STATUS_MAP: Record<string, number> = {
 };
 
 function formatDate(raw: string): string {
-    if (!raw || !raw.includes("/")) return raw;
-    const parts = raw.trim().split("/");
-    if (parts.length !== 3) return raw;
-    return `${parts[2]}-${parts[1]}-${parts[0]} 00:00:00`;
+    return ImportValidator.validateDateFormat(raw, 'date');
 }
 
 function parseAchat(raw: string): AchatTuple[] {
@@ -39,13 +37,16 @@ function parseAchat(raw: string): AchatTuple[] {
     while ((match = regex.exec(raw)) !== null) {
         results.push({
             ref: match[1].trim(),
-            qty: parseInt(match[2], 10),
+            qty: ImportValidator.validatePositiveAmount(match[2], 'quantité achat'),
             valeur: match[3].trim(),
         });
     }
     return results;
 }
 
+/**
+ * Sérialisation PHP robuste pour delivery_option
+ */
 function phpSerializeArray(obj: Record<string, string>): string {
     const entries = Object.entries(obj);
     const inner = entries.map(([key, value]) => {
@@ -70,7 +71,7 @@ async function getDefaultCarrierId(): Promise<number> {
     } catch (err) {
         console.error("Cannot fetch carriers:", err);
     }
-    // Fallback : création d'un transporteur par défaut si aucun n'existe
+    // Fallback
     try {
         const carrierData: CarrierPost = {
             name: 'Default carrier',
@@ -94,7 +95,7 @@ async function getDefaultCarrierId(): Promise<number> {
     } catch (err) {
         console.error("Cannot create fallback carrier:", err);
     }
-    return 1; // dernier recours
+    return 1;
 }
 
 export async function importOrders(csvFile: File): Promise<void> {
@@ -103,35 +104,42 @@ export async function importOrders(csvFile: File): Promise<void> {
     orderCountMap.clear();
     const text = await csvFile.text();
     return new Promise((resolve, reject) => {
-        Papa.parse<Record<string, string>>(text, {
+        Papa.parse<any>(text, {
             header: true,
             skipEmptyLines: true,
-            delimiter: ",",
             complete: async (results) => {
                 try {
                     const metaFields = (results.meta.fields || []).map((f) => f.trim().replace(/^\uFEFF/, ""));
-                    const required = ["date", "nom", "email", "pwd", "adresse", "achat"];
-                    for (const col of required) {
-                        if (!metaFields.includes(col)) {
-                            throw new Error(`VALIDATION_ERROR: Missing required column: ${col}`);
-                        }
-                    }
-                    const rows: OrderCSVRow[] = results.data.map((row: any) => ({
-                        date: (row["date"] ?? "").trim(),
-                        nom: (row["nom"] ?? "").trim(),
-                        email: (row["email"] ?? "").trim(),
-                        pwd: (row["pwd"] ?? "").trim(),
-                        adresse: (row["adresse"] ?? "").trim(),
-                        achat: (row["achat"] ?? "").trim(),
-                        etat: (row["etat"] ?? "").trim(),
-                    }));
+                    const required = ["date", "nom", "email", "pwd", "adresse", "achat", "etat"];
+
+                    // 1. Validation des colonnes (insensible à la casse)
+                    const colMap = ImportValidator.validateColumns(metaFields, required);
+
+                    const rows: OrderCSVRow[] = results.data.map((row: any) => {
+                        const dateVal = row[colMap['date']];
+                        
+                        // 2. Validation format date
+                        ImportValidator.validateDateFormat(dateVal, 'date');
+
+                        return {
+                            date: (dateVal || "").trim(),
+                            nom: (row[colMap['nom']] || "").trim(),
+                            email: (row[colMap['email']] || "").trim(),
+                            pwd: (row[colMap['pwd']] || "").trim(),
+                            adresse: (row[colMap['adresse']] || "").trim(),
+                            achat: (row[colMap['achat']] || "").trim(),
+                            etat: (row[colMap['etat']] || "").trim(),
+                        };
+                    });
+
+                    console.log("Parsed orders:", rows);
                     const id_carrier = await getDefaultCarrierId();
                     for (const row of rows) {
                         await processOrderRow(row, id_carrier);
                     }
                     resolve();
                 } catch (err) {
-                    console.error("Order import error:", err);
+                    console.error("Order import failed validation:", err);
                     reject(err);
                 }
             },
@@ -247,7 +255,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     for (const tuple of tuples) {
         const productData = productMap.get(tuple.ref);
         if (!productData) {
-            console.warn(`[orderImport] Product not found in Map for ref: ${tuple.ref}. Maps size: ${productMap.size}`);
+            console.warn(`[orderImport] Product not found for ref: ${tuple.ref}.`);
             continue;
         }
 
@@ -272,7 +280,6 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
                 unit_price_ttc = foundEntry.prix_ttc;
             } else {
                 console.warn(`[orderImport] Combination not found for ref: ${tuple.ref}, valeur: ${tuple.valeur}.`);
-                console.log(`[orderImport] Available keys in combinationMap:`, Array.from(combinationMap.keys()));
             }
         }
 
@@ -329,7 +336,6 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         return;
     }
 
-    // État vide dans le CSV → on s'arrête au panier, aucune commande créée.
     if (!etat || etat.trim() === "dans le panier") {
         console.log(`État vide pour ${email} → panier ${id_cart} créé, aucune commande.`);
         return;
@@ -346,10 +352,6 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     const total_shipping = 0;
     const total_paid = total_products_wt + total_shipping;
     
-    if (isNaN(total_paid) || total_paid <= 0) {
-        console.error(`Invalid total_paid for ${email}: ${total_paid} — check productMap prices`);
-        return;
-    }
     const dateFormatted = formatDate(date);
 
     // ========== ORDER CREATE ==========
@@ -436,12 +438,6 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         console.log(`Order history added for ${id_order}`);
         
     } catch (err: any) {
-        console.error("ORDER ERROR:");
-        if (err.response) {
-            console.error("STATUS:", err.response.status);
-            console.error("DATA:", err.response.data);
-        } else {
-            console.error(err);
-        }
+        console.error("ORDER ERROR:", err);
     }
 }

@@ -1,7 +1,8 @@
 import Papa from 'papaparse';
 import apiService from '@shared/api/api-service';
 import type { ProductCSVRow, ProductMapEntry, Category, Tax, TaxRuleGroup, TaxRulePost, ProductPost, LValue } from '@shared/types/import';
-import { Serializer } from '@shared/utils/serializer';
+import { ImportValidator } from '@shared/utils/import-validator';
+import { extractIdValue } from '@shared/utils/extractIdValue';
 
 export const taxRateMap = new Map<string, { id_tax_rules_group: number; rate_numeric: number }>();
 export const categoryMap = new Map<string, number>();
@@ -18,42 +19,40 @@ export async function importProducts(csvFile: File): Promise<void> {
   taxRateMap.clear();
   categoryMap.clear();
   productMap.clear();
+  
+  const text = await csvFile.text();
   return new Promise((resolve, reject) => {
-    Papa.parse<ProductCSVRow>(csvFile, {
+    Papa.parse<any>(text, {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
         try {
           const metaFields = (results.meta.fields || []).map(f => f.trim().replace(/^\uFEFF/, ''));
-          const requiredCols = ['date_availability', 'produit', 'reference', 'prix_ttc', 'Taxe', 'categorie', 'prix_achat'];
+          const requiredCols = ['date_availability_produit', 'nom', 'reference', 'prix_ttc', 'Taxe', 'categorie', 'prix_achat'];
 
-          for (const col of requiredCols) {
-            const found = metaFields.some(f => f.includes(col) || (col === 'produit' && f.includes('nom')));
-            if (!found) {
-              throw new Error(`VALIDATION_ERROR: Missing required column: ${col}`);
-            }
-          }
+          // 1. Validation des colonnes (insensible à la casse)
+          const colMap = ImportValidator.validateColumns(metaFields, requiredCols);
 
-          const colMapping: Record<string, string> = {};
-          for (const field of metaFields) {
-            if (field.includes('date_availability')) colMapping['date_availability'] = field;
-            else if (field.includes('produit') || field.includes('nom')) colMapping['produit'] = field;
-            else if (field.includes('reference')) colMapping['reference'] = field;
-            else if (field.includes('prix_ttc')) colMapping['prix_ttc'] = field;
-            else if (field.includes('Taxe')) colMapping['Taxe'] = field;
-            else if (field.includes('categorie')) colMapping['categorie'] = field;
-            else if (field.includes('prix_achat')) colMapping['prix_achat'] = field;
-          }
+          const cleanRows = results.data.map((row: any) => {
+            const dateVal = row[colMap['date_availability_produit']];
+            const prixTtcVal = row[colMap['prix_ttc']];
+            const prixAchatVal = row[colMap['prix_achat']];
 
-          const cleanRows = results.data.map((row: any) => ({
-            date_availability: row[colMapping['date_availability']],
-            produit: row[colMapping['produit']],
-            reference: row[colMapping['reference']],
-            prix_ttc: row[colMapping['prix_ttc']],
-            Taxe: row[colMapping['Taxe']],
-            categorie: row[colMapping['categorie']],
-            prix_achat: row[colMapping['prix_achat']],
-          } as ProductCSVRow));
+            // 2. Validation stricte
+            ImportValidator.validateDateFormat(dateVal, 'date_availability_produit');
+            ImportValidator.validatePositiveAmount(prixTtcVal, 'prix_ttc');
+            ImportValidator.validatePositiveAmount(prixAchatVal, 'prix_achat');
+
+            return {
+              date_availability: (dateVal || "").trim(),
+              produit: (row[colMap['nom']] || "").trim(),
+              reference: (row[colMap['reference']] || "").trim(),
+              prix_ttc: (prixTtcVal || "").trim(),
+              Taxe: (row[colMap['Taxe']] || "").trim(),
+              categorie: (row[colMap['categorie']] || "").trim(),
+              prix_achat: (prixAchatVal || "").trim(),
+            } as ProductCSVRow;
+          });
 
           const uniqueTaxes = Array.from(new Set(cleanRows.map(r => r.Taxe).filter(Boolean)));
           const uniqueCategories = Array.from(new Set(cleanRows.map(r => r.categorie).filter(Boolean)));
@@ -64,7 +63,7 @@ export async function importProducts(csvFile: File): Promise<void> {
 
           resolve();
         } catch (err) {
-          console.error("Phase 0 Error:", err);
+          console.error("Product import failed validation:", err);
           reject(err);
         }
       },
@@ -98,6 +97,7 @@ async function processTaxes(uniqueTaxes: string[]) {
         }
       } catch (_) { /* pas trouvé, on crée */ }
 
+      // Vérifier si la taxe existe déjà
       let id_tax: string | null = null;
       try {
         const existingTax = await apiService.get<any>(
@@ -131,6 +131,7 @@ async function processTaxes(uniqueTaxes: string[]) {
       }
 
       if (id_tax && id_tax_rules_group) {
+        // id_country=8 (France, seul pays actif)
         const ruleData: TaxRulePost = {
           id_tax_rules_group: parseInt(id_tax_rules_group, 10),
           id_tax: parseInt(id_tax, 10),
@@ -143,7 +144,7 @@ async function processTaxes(uniqueTaxes: string[]) {
         console.log(`Tax ready: ${rateNum}% → group ${id_tax_rules_group}`);
       }
     } catch (err) {
-      console.error(`Error processing tax ${rawTax}:`, err);
+      console.error(`API_ERROR: Error processing tax ${rawTax}:`, err);
     }
   }
 }
@@ -153,39 +154,27 @@ async function processCategories(uniqueCategories: string[]) {
     if (categoryMap.has(catName)) continue;
 
     try {
-      const filterUrl = `/categories?filter[name]=${encodeURIComponent(catName)}&display=full`;
-      const getRes = await apiService.get<any>(filterUrl);
-      const catNode = getRes?.prestashop?.categories?.category;
-      let categoryId = null;
-      if (Array.isArray(catNode)) {
-        categoryId = catNode[0]?.id;
-      } else if (catNode && typeof catNode === 'object') {
-        categoryId = catNode.id;
-      }
-
-      if (categoryId) {
-        categoryMap.set(catName, parseInt(categoryId, 10));
-        console.log(`Category already exists: ${catName} → ${categoryId}`);
+      // Rechercher par nom
+      const existing = await apiService.get<any>(
+          `/categories?filter[name]=${encodeURIComponent(catName)}&display=full`
+      );
+      const found = existing?.prestashop?.categories?.category;
+      const first = Array.isArray(found) ? found[0] : found;
+      if (first?.id) {
+        categoryMap.set(catName, parseInt(first.id, 10));
+        console.log(`Category already exists: ${catName} → ${first.id}`);
         continue;
       }
 
-      const linkRewrite = catName
-          .toLowerCase()
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '');
-
-      const finalLinkRewrite = linkRewrite || 'categorie';
-
       const catData: Category = {
         active: 1,
-        id_parent: 2, // Parent category is usually Home (id=2)
+        id_parent: 2, // Home
         name: toLValue(catName),
-        link_rewrite: toLValue(finalLinkRewrite)
+        link_rewrite: toLValue(catName.toLowerCase().replace(/[^a-z0-9]/g, '-'))
       };
 
-      const createRes = await apiService.post<any>('/categories', { category: catData });
-      const newId = createRes?.prestashop?.category?.id;
+      const res = await apiService.post<any>('/categories', { category: catData });
+      const newId = res?.prestashop?.category?.id;
       if (newId) {
         categoryMap.set(catName, parseInt(newId, 10));
         console.log(`Category created: ${catName} → ${newId}`);
@@ -199,33 +188,17 @@ async function processCategories(uniqueCategories: string[]) {
 }
 
 function convertDate(dateStr: string): string {
-  if (!dateStr) return '';
-  let cleaned = dateStr.trim();
-  if (cleaned.includes('/')) {
-    const parts = cleaned.split('/');
-    if (parts.length === 3) {
-      const [day, month, year] = parts;
-      if (day.length === 2 && month.length === 2 && (year.length === 4 || year.length === 2)) {
-        const fullYear = year.length === 2 ? `20${year}` : year;
-        return `${fullYear}-${month}-${day}`;
-      }
-    }
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) return cleaned;
-  console.warn(`Invalid date format: ${dateStr}, using today`);
-  return new Date().toISOString().split('T')[0];
+  return ImportValidator.validateDateFormat(dateStr, 'date_availability_produit');
 }
 
 async function processProducts(rows: ProductCSVRow[]) {
   for (const row of rows) {
     try {
       if (!row.reference || !row.produit) {
-        console.error(`Missing reference or name, skipping row:`, row);
-        continue;
+        throw new Error(`Missing reference or name in row: ${JSON.stringify(row)}`);
       }
 
       if (productMap.has(row.reference)) {
-        console.log(`Product already in map: ${row.reference}`);
         continue;
       }
 
@@ -237,89 +210,64 @@ async function processProducts(rows: ProductCSVRow[]) {
         const found = Array.isArray(existingProduct) ? existingProduct[0] : existingProduct;
         if (found?.id) {
           const taxData = taxRateMap.get(row.Taxe);
-          const cleanPrixTtc = parseFloat((row.prix_ttc || '0').replace(',', '.'));
+          const cleanPrixTtc = ImportValidator.validatePositiveAmount(row.prix_ttc, 'prix_ttc');
           productMap.set(row.reference, {
             id_product: parseInt(found.id, 10),
             prix_ttc: cleanPrixTtc,
-            id_tax_rules_group: taxData?.id_tax_rules_group ?? 0,
-            rate: taxData?.rate_numeric ?? 0,
+            id_tax_rules_group: parseInt(extractIdValue(found.id_tax_rules_group) || String(taxData?.id_tax_rules_group || 1), 10),
+            rate: taxData?.rate_numeric || 20,
+            available_date: found.available_date || ''
           });
-          console.log(`Product already exists: ${row.reference} → ${found.id}`);
+          console.log(`Product mapped: ${row.reference} → ${found.id}`);
           continue;
         }
-      } catch (_) { /* pas trouvé, on crée */ }
-
-      const cleanPrixTtc = parseFloat((row.prix_ttc || '0').replace(',', '.'));
-      const cleanPrixAchat = parseFloat((row.prix_achat || '0').replace(',', '.'));
-      if (isNaN(cleanPrixTtc) || isNaN(cleanPrixAchat)) {
-        console.error(`Invalid price format for ${row.reference}`);
-        continue;
-      }
-
-      if (cleanPrixTtc < 0 || cleanPrixAchat < 0) {
-        throw new Error(`VALIDATION_ERROR: Montant négatif détecté pour la référence ${row.reference}. Les montants doivent être positifs.`);
-      }
+      } catch (_) { /* ignore */ }
 
       const taxData = taxRateMap.get(row.Taxe);
-      if (!taxData) {
-        console.error(`Tax missing for ${row.Taxe}, skipping ${row.reference}`);
-        continue;
-      }
-
-      const id_category = categoryMap.get(row.categorie);
-      if (!id_category) {
-        console.error(`Category missing for ${row.categorie}, skipping ${row.reference}`);
-        continue;
-      }
-
-      const priceHt = cleanPrixTtc / (1 + taxData.rate_numeric / 100);
-      const availableDate = convertDate(row.date_availability);
-
-      const linkRewrite = row.produit
-          .toLowerCase()
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '');
+      const categoryId = categoryMap.get(row.categorie) || 2;
+      const cleanPrixTtc = ImportValidator.validatePositiveAmount(row.prix_ttc, 'prix_ttc');
+      const cleanPrixAchat = ImportValidator.validatePositiveAmount(row.prix_achat, 'prix_achat');
+      const rate = taxData?.rate_numeric || 20;
+      const priceHt = cleanPrixTtc / (1 + rate / 100);
 
       const productData: ProductPost = {
-        reference: row.reference,
         name: toLValue(row.produit),
-        link_rewrite: toLValue(linkRewrite || 'produit'),
+        reference: row.reference,
         price: parseFloat(priceHt.toFixed(6)),
         wholesale_price: cleanPrixAchat,
-        id_tax_rules_group: taxData.id_tax_rules_group,
-        id_category_default: id_category,
-        available_date: availableDate,
+        id_tax_rules_group: taxData?.id_tax_rules_group || 1,
+        id_category_default: categoryId,
+        link_rewrite: toLValue(row.produit.toLowerCase().replace(/[^a-z0-9]/g, '-')),
         active: 1,
-        available_for_order: 1,
         show_price: 1,
+        available_for_order: 1,
         state: 1,
         visibility: 'both',
         minimal_quantity: 1,
         product_type: 'standard',
         condition: 'new',
+        available_date: convertDate(row.date_availability),
         associations: {
           categories: {
-            category: [{ id: id_category }]
+            category: [{ id: 2 }, { id: categoryId }]
           }
         }
       };
 
       const res = await apiService.post<any>('/products', { product: productData });
-      const id_product = res?.prestashop?.product?.id;
-      if (id_product) {
+      const newId = res?.prestashop?.product?.id;
+      if (newId) {
         productMap.set(row.reference, {
-          id_product: parseInt(id_product, 10),
+          id_product: parseInt(newId, 10),
           prix_ttc: cleanPrixTtc,
-          id_tax_rules_group: taxData.id_tax_rules_group,
-          rate: taxData.rate_numeric,
+          id_tax_rules_group: productData.id_tax_rules_group,
+          rate: rate,
+          available_date: productData.available_date
         });
-        console.log(`Product created: ${row.reference} → ${id_product}`);
-      } else {
-        console.error(`Failed to create product ${row.reference}`);
+        console.log(`Product created: ${row.produit} → ${newId}`);
       }
     } catch (err) {
-      console.error(`Error processing product ${row.reference}:`, err);
+      console.error(`API_ERROR: Error processing product ${row.reference}:`, err);
     }
   }
 }

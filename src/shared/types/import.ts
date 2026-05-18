@@ -314,6 +314,7 @@ export interface ProductMapEntry {
   prix_ttc: number;
   id_tax_rules_group: number;
   rate: number;
+  available_date: string;
 }
 
 export interface CombinationMapEntry {

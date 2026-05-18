@@ -3,6 +3,7 @@ export interface Product {
     id_product: string;
     name: string;
     price: string;
+    tax_rate?: number;
     description: string;
     description_short?: string;
     quantity: string;
