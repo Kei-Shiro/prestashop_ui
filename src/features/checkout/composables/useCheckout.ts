@@ -13,8 +13,8 @@ export function useCheckout() {
     const authStore = useAuthStore();
 
     const resolveInitialStateId = async (): Promise<number> => {
-        // L'utilisateur demande spécifiquement le statut "Paiement accepté" (ID 2)
-        return 11;
+        // En attente de paiement à la livraison (ID 13)
+        return 13;
     };
 
     const submitOrder = async (form: CheckoutForm) => {
@@ -90,7 +90,17 @@ export function useCheckout() {
                 cartId = await orderService.createCart(customerId, items, addressId);
             }
 
-            const orderId = await orderService.createOrder(customerId, cartId, items, totalToUse, addressId, initialStateId, carrierId, moduleName);
+            const orderId = await orderService.createOrder(
+                customerId, 
+                cartId, 
+                items, 
+                totalToUse, 
+                addressId, 
+                initialStateId, 
+                carrierId, 
+                moduleName,
+                'Paiement à la livraison'
+            );
             await orderService.updateOrderStatus(orderId, initialStateId);
 
             cartStore.clearCart();

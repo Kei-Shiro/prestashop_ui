@@ -3,6 +3,7 @@ import LoginPage  from '@back/pages/LoginPage.vue'
 import ImportPage from '@back/pages/ImportPage.vue'
 import ResetPage  from '@back/pages/ResetPage.vue'
 import OrdersPage from '@back/pages/OrdersPage.vue'
+import CartsPage from '@back/pages/CartsPage.vue'
 import DashboardPage from '@back/pages/DashboardPage.vue'
 import StockPage from '@back/pages/StockPage.vue'
 
@@ -15,6 +16,7 @@ const router = createRouter({
         { path: '/import', component: ImportPage, meta: { requiresAuth: true } },
         { path: '/reset',  component: ResetPage,  meta: { requiresAuth: true } },
         { path: '/orders', component: OrdersPage, meta: { requiresAuth: true } },
+        { path: '/carts', component: CartsPage, meta: { requiresAuth: true } },
         { path: '/',       redirect: '/dashboard' },
         { path: '/:pathMatch(.*)*', redirect: '/' } // Catch-all route to prevent warnings
     ],

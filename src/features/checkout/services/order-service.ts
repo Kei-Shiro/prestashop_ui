@@ -15,6 +15,11 @@ export const orderService = {
         return response.prestashop?.orders?.order || [];
     },
 
+    async getCarts(): Promise<any[]> {
+        const response: any = await apiService.get('/carts?display=full');
+        return response.prestashop?.carts?.cart || [];
+    },
+
 
     async getOrderStates(): Promise<any[]> {
         const response: any = await apiService.get('/order_states?display=full');
@@ -194,7 +199,8 @@ export const orderService = {
         addressId: number = 1,
         initialStateId: number = 2,
         carrierId: number = 1,
-        moduleName: string = 'ps_cashondelivery'
+        moduleName: string = 'ps_cashondelivery',
+        paymentLabel: string = 'Paiement à la livraison'
     ): Promise<number> {
         const total = parseFloat(totalAmount.toFixed(6));
 
@@ -211,7 +217,7 @@ export const orderService = {
                 id_carrier: carrierId,
                 current_state: initialStateId,
                 module: moduleName,
-                payment: 'Paiement à la livraison',
+                payment: paymentLabel,
                 total_discounts: 0.000000,
                 total_discounts_tax_incl: 0.000000,
                 total_discounts_tax_excl: 0.000000,
