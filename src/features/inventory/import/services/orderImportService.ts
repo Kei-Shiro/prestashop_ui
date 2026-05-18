@@ -376,7 +376,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             total_paid_real: parseFloat(total_paid.toFixed(6)),
             total_paid_tax_incl: parseFloat(total_paid.toFixed(6)),
             total_paid_tax_excl: parseFloat(total_products.toFixed(6)),
-            current_state: STATUS_MAP[etat.toLowerCase()] || 2,
+            current_state: 11,
             date_add: dateFormatted,
             associations: {
                 order_rows: {

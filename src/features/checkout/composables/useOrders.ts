@@ -2,7 +2,8 @@ import { ref } from "vue";
 import { MappedOrder } from "@shared/types/order";
 import { orderService } from "../services/order-service";
 
-const ALLOWED_STATE_IDS = [2, 6, 13]; // Paiement accepté, Annulé, En attente de paiement à la livraison
+/*const ALLOWED_STATE_IDS = [2, 6, 13];*/ // Paiement accepté, Annulé, En attente de paiement à la livraison
+const ALLOWED_STATE_IDS = [2, 6];
 
 /**
  * Avec display=full, PrestaShop renvoie les champs FK (current_state, id_customer…)

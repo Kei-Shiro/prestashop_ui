@@ -13,35 +13,8 @@ export function useCheckout() {
     const authStore = useAuthStore();
 
     const resolveInitialStateId = async (): Promise<number> => {
-        try {
-            const allStates = await orderService.getOrderStates();
-            const states = Array.isArray(allStates) ? allStates : (allStates ? [allStates] : []);
-
-            const getLabel = (s: any): string => {
-                if (typeof s.name === 'string') return s.name;
-                if (s.name?.language) {
-                    const langs = Array.isArray(s.name.language) ? s.name.language : [s.name.language];
-                    const first = langs[0];
-                    return typeof first === 'string' ? first : (first?.value || first?.['#text'] || '');
-                }
-                return '';
-            };
-
-            const codState = states.find((s: any) => {
-                const label = getLabel(s).toLowerCase();
-                return label.includes('livraison') || label.includes('cash on delivery');
-            });
-            if (codState) return Number(extractIdValue(codState.id));
-
-            const pendingState = states.find((s: any) => {
-                const label = getLabel(s).toLowerCase();
-                return label.includes('attente') || label.includes('pending');
-            });
-            if (pendingState) return Number(extractIdValue(pendingState.id));
-
-            return 3;
-        } catch (_) { /* ignore */ }
-        return 3;
+        // L'utilisateur demande spécifiquement le statut "Paiement accepté" (ID 2)
+        return 11;
     };
 
     const submitOrder = async (form: CheckoutForm) => {

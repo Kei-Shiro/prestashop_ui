@@ -14,7 +14,8 @@
       "Bash(python -c \"import docx; print\\('python-docx OK'\\)\")",
       "Bash(pip install *)",
       "Bash(python gen_doc.py)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(pip show *)"
     ]
   }
 }

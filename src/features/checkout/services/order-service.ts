@@ -15,6 +15,7 @@ export const orderService = {
         return response.prestashop?.orders?.order || [];
     },
 
+
     async getOrderStates(): Promise<any[]> {
         const response: any = await apiService.get('/order_states?display=full');
         return response.prestashop?.order_states?.order_state || [];
@@ -263,7 +264,9 @@ export const orderService = {
         return parseInt(extractIdValue(response.prestashop.order.id));
     },
 
+
     async updateOrderStatus(orderId: number, newStateId: number): Promise<void> {
+
         await apiService.post('/order_histories', {
             order_history: {
                 id_order: orderId,
