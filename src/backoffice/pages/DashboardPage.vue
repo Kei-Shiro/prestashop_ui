@@ -25,27 +25,7 @@
       <StockStatsTable v-else :stocks="statsStore.categoryStocks || []" />
 
       <h2 class="section-title">Statistiques par jour</h2>
-      <div class="table-container">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Nombre de commandes</th>
-              <th>Montant total</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="stat in paginatedStats" :key="stat.date">
-              <td>{{ stat.date }}</td>
-              <td>{{ stat.count }}</td>
-              <td>{{ stat.amount.toFixed(2) }} €</td>
-            </tr>
-            <tr v-if="orderStore.dailyStats.length === 0">
-              <td colspan="3" class="empty-state">Aucune donnée disponible</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <DailyStatsTable :paginated-stats="paginatedStats" />
 
       <BasePagination
         v-if="orderStore.dailyStats.length > 0"
@@ -63,6 +43,7 @@ import { useOrderStore } from '@features/checkout/stores/adminOrderStore';
 import { useStatsStore } from '@features/dashboard/stores/statsStore';
 import BasePagination from '@shared/ui/components/BasePagination.vue';
 import StockStatsTable from '@features/dashboard/components/StockStatsTable.vue';
+import DailyStatsTable from '@features/dashboard/components/DailyStatsTable.vue';
 
 const orderStore = useOrderStore();
 const statsStore = useStatsStore();
@@ -135,43 +116,7 @@ onMounted(async () => {
   color: #0f172a;
 }
 
-.table-container {
-  background-color: #ffffff;
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e2e8f0;
-  overflow: hidden;
-}
 
-.data-table {
-  width: 100%;
-  text-align: left;
-  border-collapse: collapse;
-}
-
-.data-table th {
-  padding: 1rem;
-  font-weight: 500;
-  color: #334155;
-  background-color: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.data-table td {
-  padding: 1rem;
-  color: #475569;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.data-table tbody tr:hover {
-  background-color: #f8fafc;
-}
-
-.empty-state {
-  text-align: center;
-  color: #64748b;
-  padding: 1rem;
-}
 
 .loading {
   font-size: 1rem;

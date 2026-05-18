@@ -52,6 +52,7 @@ import { useRoute } from 'vue-router';
 import { useProduct } from '@features/catalog/composables/useProduct';
 import productService from '@features/catalog/services/product-service';
 import { useCartStore } from "@features/checkout/stores/cartStore";
+import { ensureArray } from '@shared/utils/arrayUtils';
 
 const route = useRoute();
 const { currentProduct, loading, error, fetchProduct } = useProduct();
@@ -72,7 +73,7 @@ const selectedCombination = computed(() => {
     
     return combinations.value.find(c => {
         const comboVals = c.associations?.product_option_values?.product_option_value;
-        const vals = Array.isArray(comboVals) ? comboVals : (comboVals ? [comboVals] : []);
+        const vals = ensureArray(comboVals);
         
         // Check if every selected option matches this combination
         return Object.entries(selectedOptions).every(([groupId, valId]) => {
@@ -118,7 +119,7 @@ onMounted(async () => {
         const usedValIds = new Set<string>();
         combinations.value.forEach(c => {
             const comboVals = c.associations?.product_option_values?.product_option_value;
-            const vals = Array.isArray(comboVals) ? comboVals : (comboVals ? [comboVals] : []);
+            const vals = ensureArray(comboVals);
             vals.forEach((v: any) => {
                 const vid = productService.extractIdValue(v.id || v);
                 if (vid) usedValIds.add(vid);

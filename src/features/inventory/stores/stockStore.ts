@@ -3,6 +3,9 @@ import { ref } from 'vue';
 import apiService from '@shared/api/api-service';
 import { extractIdValue } from '@shared/utils/extractIdValue';
 import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
+import { ensureArray } from '@shared/utils/arrayUtils';
+import { withLoading } from '@shared/utils/asyncUtils';
+import { toPrestashopDate } from '@shared/utils/dateUtils';
 import type { StockMovement as StockMovementPayload, StockMovementDisplay } from '@shared/types/import';
 
 export type { StockMovementDisplay };
@@ -12,15 +15,14 @@ export const useStockStore = defineStore('stock', () => {
   const loading = ref(false);
 
   const fetchStockMovements = async () => {
-    loading.value = true;
-    try {
+    await withLoading(loading, async () => {
       const response: any = await apiService.get('/stock_movements?display=full');
       
       const pStock = response?.prestashop?.stock_mvts?.stock_mvt ||
                      response?.prestashop?.stock_movements?.stock_movement;
 
       if (pStock) {
-        const rawMovements: any[] = Array.isArray(pStock) ? pStock : [pStock];
+        const rawMovements: any[] = ensureArray(pStock);
 
         const uniqueStockAvailableIds = [...new Set(
           rawMovements.map((m: any) => extractIdValue(m.id_stock)).filter(Boolean)
@@ -35,7 +37,7 @@ export const useStockStore = defineStore('stock', () => {
               `/stock_availables?filter[id]=[${filterIds}]&display=[id,id_product,id_product_attribute]`
             );
             const saItems = saResponse?.prestashop?.stock_availables?.stock_available;
-            const saArray = saItems ? (Array.isArray(saItems) ? saItems : [saItems]) : [];
+            const saArray = ensureArray(saItems);
             for (const sa of saArray) {
               const saId = extractIdValue(sa.id) || (sa['@_id'] != null ? String(sa['@_id']) : '');
               if (saId) {
@@ -68,20 +70,20 @@ export const useStockStore = defineStore('stock', () => {
 
             const optionValueNames: Record<string, string> = {};
             const ovItems = ovResponse?.prestashop?.product_option_values?.product_option_value;
-            const ovArray = ovItems ? (Array.isArray(ovItems) ? ovItems : [ovItems]) : [];
+            const ovArray = ensureArray(ovItems);
             for (const ov of ovArray) {
               const ovId = extractIdValue(ov.id);
               if (ovId) optionValueNames[ovId] = extractLanguageValue(ov.name);
             }
 
             const combiItems = combiResponse?.prestashop?.combinations?.combination;
-            const combiArray = combiItems ? (Array.isArray(combiItems) ? combiItems : [combiItems]) : [];
+            const combiArray = ensureArray(combiItems);
             for (const c of combiArray) {
               const cId = extractIdValue(c.id);
               const cProductId = extractIdValue(c.id_product);
               const ovAssoc = c.associations?.product_option_values?.product_option_value;
               const ovIds = ovAssoc
-                ? (Array.isArray(ovAssoc) ? ovAssoc : [ovAssoc]).map((o: any) => extractIdValue(o))
+                ? ensureArray(ovAssoc).map((o: any) => extractIdValue(o))
                 : [];
               const names = ovIds.map((id: string) => optionValueNames[id]).filter(Boolean);
               const label = names.length > 0 ? names.join(', ') : extractIdValue(c.reference);
@@ -124,7 +126,7 @@ export const useStockStore = defineStore('stock', () => {
             combination_name: combination_name || undefined,
             sign: Number(extractIdValue(m.sign)),
             physical_quantity: Number(extractIdValue(m.physical_quantity)),
-            date_add: String(m.date_add?.['#text'] ?? m.date_add ?? '').trim(),
+            date_add: String(extractIdValue(m.date_add)).trim(),
           };
         });
         console.log(`[stockStore] ${stockMovements.value.length} mouvements récupérés.`);
@@ -132,20 +134,14 @@ export const useStockStore = defineStore('stock', () => {
         stockMovements.value = [];
         console.log('[stockStore] Aucun mouvement trouvé dans le XML.', response);
       }
-    } catch (error) {
-      console.error('Failed to fetch stock movements', error);
-      stockMovements.value = [];
-    } finally {
-      loading.value = false;
-    }
+    });
   };
 
   const addStock = async (id_product: string, delta: number, id_product_attribute = '0') => {
-    loading.value = true;
-    try {
+    await withLoading(loading, async () => {
       const stockGetRes: any = await apiService.get(`/stock_availables?filter[id_product]=${id_product}&filter[id_product_attribute]=${id_product_attribute}&display=[id]`);
       const stockAvailable = stockGetRes?.prestashop?.stock_availables?.stock_available;
-      const idStockAvailable = Array.isArray(stockAvailable) ? stockAvailable[0]?.id : stockAvailable?.id;
+      const idStockAvailable = ensureArray(stockAvailable)[0]?.id;
 
       if (!idStockAvailable) throw new Error("ID Stock non trouvé");
 
@@ -156,18 +152,13 @@ export const useStockStore = defineStore('stock', () => {
         sign: delta > 0 ? 1 : -1,
         id_stock_mvt_reason: 1,
         price_te: 0,
-        date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        date_add: toPrestashopDate(new Date()),
       };
 
       await apiService.post('/stock_movements', { stock_mvt: payload });
       console.log(`[stockStore] Stock mis à jour : ${delta > 0 ? '+' : ''}${delta} pour produit ${id_product} (déclinaison ${id_product_attribute})`);
       await fetchStockMovements();
-    } catch (error) {
-      console.error('Failed to add stock', error);
-      alert("Erreur lors de l'ajout du stock.");
-    } finally {
-      loading.value = false;
-    }
+    });
   };
 
   return {

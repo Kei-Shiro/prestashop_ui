@@ -4,6 +4,7 @@ import { productMap } from "./productImportService";
 import type { StockCSVRow, CombinationMapEntry, ProductOption, ProductOptionValue, CombinationPost, StockAvailablePut, StockAvailableGet, LValue, StockMovement } from "@shared/types/import";
 import { extractIdValue } from "@shared/utils/extractIdValue";
 import { ImportValidator } from "@shared/utils/import-validator";
+import { ensureArray } from '@shared/utils/arrayUtils';
 
 export const attributeMap = new Map<string, number>();
 export const attributeValueMap = new Map<string, Map<string, number>>();
@@ -95,7 +96,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         );
 
         const rawSimple = stockGetRes?.prestashop?.stock_availables?.stock_available;
-        const allSimpleStocks: StockAvailableGet[] = Array.isArray(rawSimple) ? rawSimple : (rawSimple ? [rawSimple] : []);
+        const allSimpleStocks: StockAvailableGet[] = ensureArray(rawSimple);
         const simpleStock = allSimpleStocks.find(
             (s: any) => !s.id_product_attribute || extractIdValue(s.id_product_attribute) === '0'
         ) ?? allSimpleStocks[0];
@@ -170,7 +171,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
             `/product_options?filter[name]=${encodeURIComponent(specificite)}&display=full`
         );
         const existingOption = existing?.prestashop?.product_options?.product_option;
-        const found = Array.isArray(existingOption) ? existingOption[0] : existingOption;
+        const found = ensureArray(existingOption)[0];
         if (found?.id) {
           const id = Number(extractIdValue(found.id));
           attributeMap.set(specificite, id);
@@ -217,7 +218,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
             `/product_option_values?filter[id_attribute_group]=${attributeId}&filter[name]=${encodeURIComponent(valeur)}&display=full`
         );
         const existingVal = existing?.prestashop?.product_option_values?.product_option_value;
-        const found = Array.isArray(existingVal) ? existingVal[0] : existingVal;
+        const found = ensureArray(existingVal)[0];
         if (found?.id) {
           const id = Number(extractIdValue(found.id));
           valMap.set(valeur, id);
@@ -259,11 +260,11 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
             `/combinations?filter[id_product]=${productId}&display=full`
         );
         const combosRaw = existing?.prestashop?.combinations?.combination;
-        const combosArr = Array.isArray(combosRaw) ? combosRaw : (combosRaw ? [combosRaw] : []);
+        const combosArr = ensureArray(combosRaw);
         
         for (const combo of combosArr) {
             const associations = combo.associations?.product_option_values?.product_option_value;
-            const assocArr = Array.isArray(associations) ? associations : (associations ? [associations] : []);
+            const assocArr = ensureArray(associations);
             if (assocArr.some((a: any) => Number(extractIdValue(a.id)) === attributeValueId)) {
                 combinationId = Number(extractIdValue(combo.id));
                 combinationMap.set(comboKey, { id: combinationId, prix_ttc: productData.prix_ttc });
@@ -318,7 +319,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
       );
 
       const rawCombo = stockGetRes?.prestashop?.stock_availables?.stock_available;
-      const allComboStocks: StockAvailableGet[] = Array.isArray(rawCombo) ? rawCombo : (rawCombo ? [rawCombo] : []);
+      const allComboStocks: StockAvailableGet[] = ensureArray(rawCombo);
       const quantity = ImportValidator.validatePositiveAmount(stock_initial, 'stock_initial', true);
 
       if (allComboStocks.length > 0) {

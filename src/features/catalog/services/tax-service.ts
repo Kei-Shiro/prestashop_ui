@@ -1,5 +1,6 @@
 import apiService from '@shared/api/api-service';
 import { extractIdValue } from '@shared/utils/extractIdValue';
+import { ensureArray } from '@shared/utils/arrayUtils';
 
 export interface TaxRate {
     id_tax_rules_group: string;
@@ -17,8 +18,8 @@ const taxService = {
             const rules = rulesRes?.prestashop?.tax_rules?.tax_rule || [];
             const taxes = taxesRes?.prestashop?.taxes?.tax || [];
 
-            const rulesList = Array.isArray(rules) ? rules : [rules];
-            const taxesList = Array.isArray(taxes) ? taxes : [taxes];
+            const rulesList = ensureArray(rules);
+            const taxesList = ensureArray(taxes);
 
             const taxMap = new Map<string, number>();
             taxesList.forEach((t: any) => {

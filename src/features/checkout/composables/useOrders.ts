@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { MappedOrder } from "@shared/types/order";
 import { orderService } from "../services/order-service";
+import { ensureArray } from '@shared/utils/arrayUtils';
 
 /*const ALLOWED_STATE_IDS = [2, 6, 13];*/ // Paiement accepté, Annulé, En attente de paiement à la livraison
 const ALLOWED_STATE_IDS = [2, 5, 6];
@@ -10,10 +11,10 @@ const ALLOWED_STATE_IDS = [2, 5, 6];
  * sous forme <current_state xlink:href="...">2</current_state>. fast-xml-parser
  * les parse en objet { '@_xlink:href': '...', '#text': 2 }. On extrait la valeur.
  */
-const psNum = (v: any): number => {
-    if (v && typeof v === 'object') v = v['#text'] ?? v['value'] ?? v['@_id'];
-    return Number(v);
-};
+import { extractIdValue } from '@shared/utils/extractIdValue';
+import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
+
+const psNum = (v: any): number => Number(extractIdValue(v));
 
 export function useOrders() {
     const orders = ref<MappedOrder[]>([]);
@@ -35,18 +36,17 @@ export function useOrders() {
                 orderService.getCustomers()
             ]);
 
-            const ordersArray = Array.isArray(rawOrders) ? rawOrders : (rawOrders ? [rawOrders] : []);
-            const statesArray = Array.isArray(rawStates) ? rawStates : (rawStates ? [rawStates] : []);
-            const customersArray = Array.isArray(rawCustomers) ? rawCustomers : (rawCustomers ? [rawCustomers] : []);
+            const ordersArray = ensureArray(rawOrders);
+            const statesArray = ensureArray(rawStates);
+            const customersArray = ensureArray(rawCustomers);
 
             const statesMap = new Map();
             statesArray.forEach(state => {
                 let label = "Unknown";
                 if (typeof state.name === 'string') {
                     label = state.name;
-                } else if (state.name && state.name.language) {
-                    const langs = Array.isArray(state.name.language) ? state.name.language : [state.name.language];
-                    label = typeof langs[0] === 'string' ? langs[0] : (langs[0]?.value || langs[0]?.['#text'] || label);
+                } else if (state.name) {
+                    label = extractLanguageValue(state.name) || label;
                 }
                 statesMap.set(Number(state.id), {
                     id: Number(state.id),

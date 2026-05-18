@@ -1,20 +1,18 @@
 import apiService from '@shared/api/api-service';
+import { ensureArray } from '@shared/utils/arrayUtils';
 import { erasableEndpoints } from '@shared/utils/endpoints'
 import type { StockAvailablePut } from '@shared/types/import'
 
-const extractId = (v: any): string => {
-    if (v == null) return '';
-    return String(typeof v === 'object' ? (v['#text'] || v.id || v.value || '') : v);
-};
+import { extractIdValue } from '@shared/utils/extractIdValue';
 
-const toNum = (v: any): number => Number(extractId(v)) || 0;
+const toNum = (v: any): number => Number(extractIdValue(v)) || 0;
 
 function extractList(res: any, endpoint: string): any[] {
     const container = res?.prestashop?.[endpoint.slice(1)]
     if (!container || typeof container !== 'object') return []
     const childKey = Object.keys(container).find(k => !k.startsWith('@_'))
     const list = childKey ? container[childKey] : []
-    return Array.isArray(list) ? list : (list ? [list] : [])
+    return ensureArray(list);
 }
 
 const specialHandlingEndpoints: Record<string, {
@@ -49,7 +47,7 @@ async function deleteAll(endpoint: string): Promise<string[]> {
             console.log(`[resetService] ${items.length} mouvements de stock à supprimer via module API`);
             
             for (const item of items) {
-                const id = extractId(item?.id)
+                const id = extractIdValue(item?.id)
                 if (id) {
                     try {
                         await apiService.delete(`/stock_movements/${id}`)
@@ -73,10 +71,10 @@ async function deleteAll(endpoint: string): Promise<string[]> {
         console.warn(`GET ${endpoint} échoué — endpoint ignoré`, error)
         return []
     }
-    items.sort((a: any, b: any) => Number(extractId(a?.id)) - Number(extractId(b?.id)))
+    items.sort((a: any, b: any) => Number(extractIdValue(a?.id)) - Number(extractIdValue(b?.id)))
     const failedIds: string[] = []
     for (const item of items) {
-        const id = extractId(item?.id)
+        const id = extractIdValue(item?.id)
         if (!id) continue
 
         try {
@@ -107,13 +105,13 @@ async function deleteFiltered(endpoint: string, filterStr: string): Promise<stri
         console.warn(`GET ${endpoint} échoué — endpoint ignoré`, error)
         return []
     }
-    items.sort((a: any, b: any) => Number(extractId(a?.id)) - Number(extractId(b?.id)))
+    items.sort((a: any, b: any) => Number(extractIdValue(a?.id)) - Number(extractIdValue(b?.id)))
     const failedIds: string[] = []
     for (const item of items) {
-        const id = extractId(item?.id)
+        const id = extractIdValue(item?.id)
         if (!id) continue
 
-        const fieldValue = extractId(item?.[field])
+        const fieldValue = extractIdValue(item?.[field])
 
         if (excludedIds.has(fieldValue)) {
             console.log(`Gardé (exclu) : ${endpoint}/${id} (car ${field}=${fieldValue})`)

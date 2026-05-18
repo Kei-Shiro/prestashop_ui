@@ -1,6 +1,7 @@
 import apiService from '@shared/api/api-service';
 import { AddressData, Address } from '@shared/types/customer';
 import { extractIdValue } from '@shared/utils/extractIdValue';
+import { ensureArray } from '@shared/utils/arrayUtils';
 
 export const customerService = {
 
@@ -8,7 +9,7 @@ export const customerService = {
         const response: any = await apiService.get('/customers?display=full');
         const customers = response.prestashop?.customers?.customer;
         if (!customers) return [];
-        return Array.isArray(customers) ? customers : [customers];
+        return ensureArray(customers);
     },
 
     async getCustomerByEmail(email: string): Promise<any | null> {
@@ -16,7 +17,7 @@ export const customerService = {
             const response: any = await apiService.get(`/customers?filter[email]=${encodeURIComponent(email)}&display=full`);
             const customers = response.prestashop?.customers?.customer;
             if (!customers) return null;
-            const customerArray = Array.isArray(customers) ? customers : [customers];
+            const customerArray = ensureArray(customers);
             if (customerArray.length === 0) return null;
             return customerArray[0];
         } catch (e) {
@@ -30,7 +31,7 @@ export const customerService = {
             const res: any = await apiService.get(`/addresses?filter[id_customer]=${id_customer}&display=full`);
             const addresses = res.prestashop?.addresses?.address;
             if (!addresses) return null;
-            const addressArray = Array.isArray(addresses) ? addresses : [addresses];
+            const addressArray = ensureArray(addresses);
             return addressArray[0] || null;
         } catch (e) {
             return null;
@@ -43,7 +44,7 @@ export const customerService = {
             const res: any = await apiService.get(`/addresses?filter[id_customer]=${id_customer}&display=full`);
             const addresses = res.prestashop?.addresses?.address;
             if (!addresses) return [];
-            const array = Array.isArray(addresses) ? addresses : [addresses];
+            const array = ensureArray(addresses);
             // On s'assure que chaque adresse a un id
             return array.map(addr => addr as Address);
         } catch (e) {

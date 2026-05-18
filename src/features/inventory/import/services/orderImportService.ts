@@ -4,7 +4,8 @@ import { productMap } from "./productImportService";
 import { combinationMap } from "./combinationImportService";
 import type { OrderCSVRow, AchatTuple, ResolvedTuple, Customer, Address, Cart, CartRow, Order, CarrierPost, LValue, StockMovement } from "@shared/types/import";
 import { ImportValidator } from "@shared/utils/import-validator";
-import {extractIdValue} from "@shared/utils/extractIdValue";
+import { extractIdValue } from "@shared/utils/extractIdValue";
+import { ensureArray } from '@shared/utils/arrayUtils';
 
 export const customerMap = new Map<string, number>();
 export const addressMap = new Map<string, number>();
@@ -60,7 +61,7 @@ async function getDefaultCarrierId(): Promise<number> {
     try {
         const res = await apiService.get<any>("/carriers?display=full&filter[active]=1&filter[deleted]=0");
         const carrier = res?.prestashop?.carriers?.carrier;
-        const first = Array.isArray(carrier) ? carrier[0] : carrier;
+        const first = ensureArray(carrier)[0];
         const id = parseInt(first?.id, 10);
         if (!isNaN(id) && id > 0) {
             console.log(`Default carrier id: ${id}`);
@@ -404,7 +405,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
                 try {
                     const stockGetRes: any = await apiService.get(`/stock_availables?filter[id_product]=${t.id_product}&filter[id_product_attribute]=${t.id_product_attribute}&display=[id]`);
                     const stockAvailable = stockGetRes?.prestashop?.stock_availables?.stock_available;
-                    const idStockAvailable = Array.isArray(stockAvailable) ? stockAvailable[0]?.id : stockAvailable?.id;
+                    const idStockAvailable = ensureArray(stockAvailable)[0]?.id;
 
                     if (idStockAvailable) {
                         const stockMovementPayload: StockMovement = {

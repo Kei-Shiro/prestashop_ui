@@ -1,12 +1,12 @@
 import apiService from '@shared/api/api-service';
 import { extractIdValue } from '@shared/utils/extractIdValue';
+import { ensureArray } from '@shared/utils/arrayUtils';
 import { StockMovement } from "@shared/types/import";
 
 async function getUsedCartIds(customerId: number): Promise<Set<string>> {
     const res: any = await apiService.get(`/orders?filter[id_customer]=${customerId}&display=[id,id_cart]`);
-    const orders = res?.prestashop?.orders?.order || [];
-    const arr = Array.isArray(orders) ? orders : [orders];
-    return new Set(arr.map((o: any) => extractIdValue(o.id_cart)).filter(Boolean));
+    const orders = ensureArray(res?.prestashop?.orders?.order);
+    return new Set(orders.map((o: any) => extractIdValue(o.id_cart)).filter(Boolean));
 }
 
 export const orderService = {
@@ -43,23 +43,19 @@ export const orderService = {
             const usedCartIds = await getUsedCartIds(customerId);
 
             const cartsRes: any = await apiService.get(`/carts?filter[id_customer]=${customerId}&display=full`);
-            const cartsRaw = cartsRes?.prestashop?.carts?.cart;
-            if (!cartsRaw) return [];
-            const cartsArr = Array.isArray(cartsRaw) ? cartsRaw : [cartsRaw];
+            const cartsArr = ensureArray(cartsRes?.prestashop?.carts?.cart);
 
             const aggregatedItems = new Map<string, number>();
 
             for (const cart of cartsArr) {
                 if (usedCartIds.has(extractIdValue(cart.id))) continue;
 
-                const rowsRaw = cart.associations?.cart_rows?.cart_row;
-                if (!rowsRaw) continue;
-                const rowsArr = Array.isArray(rowsRaw) ? rowsRaw : [rowsRaw];
+                const rowsArr = ensureArray(cart.associations?.cart_rows?.cart_row);
 
                 rowsArr.forEach((r: any) => {
                     const id = extractIdValue(r.id_product);
                     const id_attr = extractIdValue(r.id_product_attribute) || '0';
-                    const qty = Number(typeof r.quantity === 'object' ? r.quantity['#text'] : r.quantity);
+                    const qty = Number(extractIdValue(r.quantity));
                     if (id && id !== '0' && qty > 0) {
                         const key = `${id}_${id_attr}`;
                         aggregatedItems.set(key, (aggregatedItems.get(key) || 0) + qty);
@@ -84,9 +80,7 @@ export const orderService = {
             const usedCartIds = await getUsedCartIds(customerId);
 
             const cartsRes: any = await apiService.get(`/carts?filter[id_customer]=${customerId}&sort=[id_DESC]&display=[id]`);
-            const cartsRaw = cartsRes?.prestashop?.carts?.cart;
-            if (!cartsRaw) return null;
-            const cartsArr = Array.isArray(cartsRaw) ? cartsRaw : [cartsRaw];
+            const cartsArr = ensureArray(cartsRes?.prestashop?.carts?.cart);
 
             for (const cart of cartsArr) {
                 const id = extractIdValue(cart.id);
@@ -101,9 +95,7 @@ export const orderService = {
     async detectCarrierId(): Promise<number> {
         try {
             const response: any = await apiService.get('/carriers?display=full&filter[active]=1&filter[deleted]=0');
-            const carriers = response?.prestashop?.carriers?.carrier;
-            if (!carriers) return 1;
-            const arr = Array.isArray(carriers) ? carriers : [carriers];
+            const arr = ensureArray(response?.prestashop?.carriers?.carrier);
             const active = arr.find((c: any) => String(c.active) === '1' && String(c.deleted) !== '1');
             if (active) return Number(active.id);
         } catch (e) {
@@ -259,7 +251,7 @@ export const orderService = {
             try {
                 const stockGetRes: any = await apiService.get(`/stock_availables?filter[id_product]=${item.id_product}&filter[id_product_attribute]=${item.id_product_attribute || 0}&display=[id]`);
                 const stockAvailable = stockGetRes?.prestashop?.stock_availables?.stock_available;
-                const idStockAvailable = Array.isArray(stockAvailable) ? stockAvailable[0]?.id : stockAvailable?.id;
+                const idStockAvailable = ensureArray(stockAvailable)[0]?.id;
 
                 if (idStockAvailable) {
                     const stockMvt: StockMovement = {

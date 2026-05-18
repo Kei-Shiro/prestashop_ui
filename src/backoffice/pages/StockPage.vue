@@ -105,8 +105,10 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useProductStore } from '@features/catalog/stores/adminProductStore';
-import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
+import { ensureArray } from '@shared/utils/arrayUtils';
+import { formatForDisplay } from '@shared/utils/dateUtils';
 import { extractIdValue } from '@shared/utils/extractIdValue';
+import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
 import { useStockStore } from '@features/inventory/stores/stockStore';
 import productService from '@features/catalog/services/product-service';
 import BasePagination from '@shared/ui/components/BasePagination.vue';
@@ -213,7 +215,7 @@ const loadCombinations = async (productId: string, targetRef: any) => {
             const cId = extractIdValue(c.id);
             const ovAssoc = c.associations?.product_option_values?.product_option_value;
             const ovIds = ovAssoc
-                ? (Array.isArray(ovAssoc) ? ovAssoc : [ovAssoc]).map((o: any) => extractIdValue(o))
+                ? ensureArray(ovAssoc).map((o: any) => extractIdValue(o))
                 : [];
             const names = ovIds.map((id: string) => ovNames[id]).filter(Boolean);
             return { id: cId, name: names.length > 0 ? names.join(', ') : extractIdValue(c.reference) || `#${cId}` };
@@ -252,8 +254,7 @@ const getProductName = (id: string) => {
 };
 
 const formatDate = (dateStr: string) => {
-    if (!dateStr) return '';
-    return dateStr.split('T')[0];
+    return formatForDisplay(dateStr);
 };
 
 const handleAddStock = async () => {

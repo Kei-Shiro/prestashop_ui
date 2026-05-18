@@ -2,6 +2,7 @@ import apiService from '@shared/api/api-service';
 import type { Product } from '@shared/types/product';
 import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
 import { extractIdValue } from '@shared/utils/extractIdValue';
+import { ensureArray } from '@shared/utils/arrayUtils';
 import taxService from './tax-service';
 
 const productService = {
@@ -12,11 +13,8 @@ const productService = {
             taxService.getTaxRates()
         ]);
 
-        let list = res?.prestashop?.products?.product ?? [];
-        if (!Array.isArray(list)) list = [list];
-
-        let stockList = stockRes?.prestashop?.stock_availables?.stock_available ?? [];
-        if (!Array.isArray(stockList)) stockList = [stockList];
+        let list = ensureArray(res?.prestashop?.products?.product);
+        let stockList = ensureArray(stockRes?.prestashop?.stock_availables?.stock_available);
 
         const stockMap = new Map<string, string>();
         stockList.forEach((s: any) => {
@@ -31,7 +29,7 @@ const productService = {
                 let images: string[] = [];
                 if (p.associations?.images?.image) {
                     const imgAssoc = p.associations.images.image;
-                    images = Array.isArray(imgAssoc) ? imgAssoc.map((i: any) => extractIdValue(i)) : [extractIdValue(imgAssoc)];
+                    images = ensureArray(imgAssoc).map((i: any) => extractIdValue(i));
                     images = images.filter((i: string) => i && i !== 'undefined' && i !== '0');
                 }
                 const defaultImage = extractIdValue(p.id_default_image) || (images.length > 0 ? images[0] : undefined);
@@ -39,9 +37,7 @@ const productService = {
                 let productCategories: string[] = [];
                 if (p.associations?.categories?.category) {
                     const catAssoc = p.associations.categories.category;
-                    productCategories = Array.isArray(catAssoc) 
-                        ? catAssoc.map((c: any) => extractIdValue(c)) 
-                        : [extractIdValue(catAssoc)];
+                    productCategories = ensureArray(catAssoc).map((c: any) => extractIdValue(c));
                 }
 
                 const pid = extractIdValue(p.id);
@@ -83,12 +79,12 @@ const productService = {
         if (!p) throw new Error("Product not found");
 
         const stock = stockRes?.prestashop?.stock_availables?.stock_available;
-        const quantity = Array.isArray(stock) ? stock[0]?.quantity : (stock?.quantity || '0');
+        const quantity = ensureArray(stock)[0]?.quantity || '0';
 
         let images: string[] = [];
         if (p.associations?.images?.image) {
             const imgAssoc = p.associations.images.image;
-            images = Array.isArray(imgAssoc) ? imgAssoc.map((i: any) => extractIdValue(i)) : [extractIdValue(imgAssoc)];
+            images = ensureArray(imgAssoc).map((i: any) => extractIdValue(i));
             images = images.filter((i: string) => i && i !== 'undefined' && i !== '0');
         }
         const defaultImage = extractIdValue(p.id_default_image) || (images.length > 0 ? images[0] : undefined);
@@ -96,15 +92,13 @@ const productService = {
         let productCategories: string[] = [];
         if (p.associations?.categories?.category) {
             const catAssoc = p.associations.categories.category;
-            productCategories = Array.isArray(catAssoc) 
-                ? catAssoc.map((c: any) => extractIdValue(c)) 
-                : [extractIdValue(catAssoc)];
+            productCategories = ensureArray(catAssoc).map((c: any) => extractIdValue(c));
         }
 
         let options: { id: string }[] = [];
         if (p.associations?.product_option_values?.product_option_value) {
             const optAssoc = p.associations.product_option_values.product_option_value;
-            options = Array.isArray(optAssoc) ? optAssoc.map((o: any) => ({ id: extractIdValue(o) })) : [{ id: extractIdValue(optAssoc) }];
+            options = ensureArray(optAssoc).map((o: any) => ({ id: extractIdValue(o) }));
         }
 
         const pid = extractIdValue(p.id);
@@ -133,9 +127,7 @@ const productService = {
 
 
     async getCategories(): Promise<{ id: string, name: string }[]> {
-        const res = await apiService.get<any>('/categories?display=full');
-        let list = res?.prestashop?.categories?.category ?? [];
-        if (!Array.isArray(list)) list = [list];
+        const list = await apiService.fetchList<any>('/categories?display=full', 'categories', 'category');
         return list.map((c: any) => ({
             id: String(c.id),
             name: extractLanguageValue(c.name)
@@ -144,10 +136,7 @@ const productService = {
 
     async getCombinations(productId: number): Promise<any[]> {
         try {
-            const res = await apiService.get<any>(`/combinations?filter[id_product]=${productId}&display=full`);
-            let list = res?.prestashop?.combinations?.combination ?? [];
-            if (!Array.isArray(list)) list = [list];
-            return list;
+            return await apiService.fetchList<any>(`/combinations?filter[id_product]=${productId}&display=full`, 'combinations', 'combination');
         } catch (error) {
             console.error(`Error fetching combinations for product ${productId}:`, error);
             return [];
@@ -158,7 +147,7 @@ const productService = {
         try {
             const res = await apiService.get<any>(`/stock_availables?filter[id_product_attribute]=${combinationId}&display=[quantity]`);
             const stock = res?.prestashop?.stock_availables?.stock_available;
-            return String(Array.isArray(stock) ? stock[0]?.quantity : (stock?.quantity || '0'));
+            return String(ensureArray(stock)[0]?.quantity || '0');
         } catch (error) {
             console.error(`Error fetching stock for combination ${combinationId}:`, error);
             return '0';
@@ -166,17 +155,11 @@ const productService = {
     },
 
     async getProductOptionValues(): Promise<any[]> {
-        const res = await apiService.get<any>('/product_option_values?display=full');
-        let list = res?.prestashop?.product_option_values?.product_option_value ?? [];
-        if (!Array.isArray(list)) list = [list];
-        return list;
+        return await apiService.fetchList<any>('/product_option_values?display=full', 'product_option_values', 'product_option_value');
     },
 
     async getProductOptions(): Promise<any[]> {
-        const res = await apiService.get<any>('/product_options?display=full');
-        let list = res?.prestashop?.product_options?.product_option ?? [];
-        if (!Array.isArray(list)) list = [list];
-        return list;
+        return await apiService.fetchList<any>('/product_options?display=full', 'product_options', 'product_option');
     },
 
     extractLanguageValue(field: any): string {
@@ -190,8 +173,8 @@ const productService = {
     async getImageIds(id: number): Promise<string[]> {
         try {
             const res = await apiService.get<any>(`/images/products/${id}`);
-            const images = res?.prestashop?.images?.image ?? [];
-            return Array.isArray(images) ? images.map((img: any) => String(img.id)) : [String(images.id)];
+            const images = ensureArray(res?.prestashop?.images?.image);
+            return images.map((img: any) => String(img.id));
         } catch (error) {
             console.error(`Erreur lors de la rǸcupǸration des images pour le produit ${id}:`, error);
             return [];

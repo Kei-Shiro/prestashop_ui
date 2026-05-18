@@ -1,0 +1,28 @@
+Voici une sélection de petites fonctionnalités logiques (estimées entre 1 et 2 heures de développement chacune), qui s'intègrent parfaitement dans ce que nous avons déjà construit :
+
+📊 Back-Office (Administration)
+Filtres de date dynamiques sur le Dashboard
+Existant : Le Dashboard calcule les revenus et les ventes globaux.
+Idée : Ajouter un sélecteur de dates ("Ce mois", "Cette semaine", "Aujourd'hui") pour filtrer dynamiquement les appels de l'API (via les filtres date_add de PrestaShop).
+Alertes de rupture de stock (Dashboard)
+Existant : Vous avez déjà toutes les données de stock et les mouvements.
+Idée : Créer un petit composant "Produits critiques" affichant les produits dont la quantité physique est inférieure à 5, avec un bouton "Réapprovisionner" qui redirige vers la page de gestion des stocks pré-remplie.
+Export CSV des données (Stocks & Commandes)
+Existant : Vous avez un excellent système d'Import CSV.
+Idée : Ajouter un bouton "Exporter en CSV" sur le tableau de l'évolution journalière des stocks ou la liste des commandes. C'est très rapide à implémenter côté Vue.js (conversion de vos tableaux locaux en fichier téléchargeable).
+Changement de statut de commande "en masse"
+Existant : On peut changer le statut d'une commande via useOrders.
+Idée : Ajouter des cases à cocher devant chaque commande dans la liste. Permettre de sélectionner 10 commandes et de toutes les passer en "Expédié" ou "Livré" d'un seul clic.
+🛒 Front-Office (Expérience Client)
+Recherche textuelle et Filtrage par catégorie
+Existant : La page catalogue affiche tous les produits (via useProductStore).
+Idée : Ajouter une barre de recherche rapide (qui filtre le tableau localement par nom ou référence) et un menu déroulant pour afficher uniquement une catégorie spécifique.
+Bouton "Acheter à nouveau" (Historique)
+Existant : Le client peut voir ses anciennes commandes via customerOrderStore.
+Idée : Ajouter un bouton "Re-commander" sur l'historique : au clic, cela prend les produits de l'ancienne commande et fait un appel multiple à la fonction addProduct de votre cartStore.
+Indicateur de rareté "FOMO" (Fear Of Missing Out)
+Existant : Vous récupérez déjà dynamiquement le stock des déclinaisons sur ProductDetailPage.vue.
+Idée : Si la quantité restante est entre 1 et 5, afficher un texte rouge dynamique avec une petite animation : "🔥 Attention, plus que X en stock !".
+Notifications "Toast" à l'ajout au panier
+Existant : Le clic sur "Ajouter au panier" ouvre le tiroir.
+Idée : Créer un système de notification (Toast) non intrusif en bas de l'écran (ex: "✅ T-shirt (Rouge, XL) a été ajouté à votre panier"). Cela améliore grandement le ressenti "Premium" de la boutique.

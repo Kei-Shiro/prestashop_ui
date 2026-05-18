@@ -3,6 +3,7 @@ import apiService from '@shared/api/api-service';
 import type { ProductCSVRow, ProductMapEntry, Category, Tax, TaxRuleGroup, TaxRulePost, ProductPost, LValue } from '@shared/types/import';
 import { ImportValidator } from '@shared/utils/import-validator';
 import { extractIdValue } from '@shared/utils/extractIdValue';
+import { ensureArray } from '@shared/utils/arrayUtils';
 
 export const taxRateMap = new Map<string, { id_tax_rules_group: number; rate_numeric: number }>();
 export const categoryMap = new Map<string, number>();
@@ -90,7 +91,7 @@ async function processTaxes(uniqueTaxes: string[]) {
             `/tax_rule_groups?filter[name]=Group ${rateNum}%&display=full`
         );
         const found = existingGroup?.prestashop?.tax_rule_groups?.tax_rule_group;
-        const first = Array.isArray(found) ? found[0] : found;
+        const first = ensureArray(found)[0];
         if (first?.id) {
           id_tax_rules_group = first.id;
           console.log(`Tax group already exists: Group ${rateNum}% → ${id_tax_rules_group}`);
@@ -104,7 +105,7 @@ async function processTaxes(uniqueTaxes: string[]) {
             `/taxes?filter[name]=Taxe ${rateNum}%&display=full`
         );
         const found = existingTax?.prestashop?.taxes?.tax;
-        const first = Array.isArray(found) ? found[0] : found;
+        const first = ensureArray(found)[0];
         if (first?.id) {
           id_tax = first.id;
           console.log(`Tax already exists: Taxe ${rateNum}% → ${id_tax}`);
@@ -159,7 +160,7 @@ async function processCategories(uniqueCategories: string[]) {
           `/categories?filter[name]=${encodeURIComponent(catName)}&display=full`
       );
       const found = existing?.prestashop?.categories?.category;
-      const first = Array.isArray(found) ? found[0] : found;
+      const first = ensureArray(found)[0];
       if (first?.id) {
         categoryMap.set(catName, parseInt(first.id, 10));
         console.log(`Category already exists: ${catName} → ${first.id}`);
@@ -207,7 +208,7 @@ async function processProducts(rows: ProductCSVRow[]) {
             `/products?filter[reference]=${encodeURIComponent(row.reference)}&display=full`
         );
         const existingProduct = existing?.prestashop?.products?.product;
-        const found = Array.isArray(existingProduct) ? existingProduct[0] : existingProduct;
+        const found = ensureArray(existingProduct)[0];
         if (found?.id) {
           const taxData = taxRateMap.get(row.Taxe);
           const cleanPrixTtc = ImportValidator.validatePositiveAmount(row.prix_ttc, 'prix_ttc');

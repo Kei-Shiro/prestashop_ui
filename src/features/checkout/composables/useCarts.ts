@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { orderService } from "../services/order-service";
 import productService from "@features/catalog/services/product-service";
+import { ensureArray } from '@shared/utils/arrayUtils';
 
 export interface MappedCart {
     id: number;
@@ -12,10 +13,9 @@ export interface MappedCart {
     rawCart: any;
 }
 
-const psNum = (v: any): number => {
-    if (v && typeof v === 'object') v = v['#text'] ?? v['value'] ?? v['@_id'];
-    return Number(v);
-};
+import { extractIdValue } from '@shared/utils/extractIdValue';
+
+const psNum = (v: any): number => Number(extractIdValue(v));
 
 export function useCarts() {
     const carts = ref<MappedCart[]>([]);
@@ -34,9 +34,9 @@ export function useCarts() {
                 orderService.getCarts()
             ]);
 
-            const ordersArray = Array.isArray(rawOrders) ? rawOrders : (rawOrders ? [rawOrders] : []);
-            const customersArray = Array.isArray(rawCustomers) ? rawCustomers : (rawCustomers ? [rawCustomers] : []);
-            const cartsArray = Array.isArray(rawCarts) ? rawCarts : (rawCarts ? [rawCarts] : []);
+            const ordersArray = ensureArray(rawOrders);
+            const customersArray = ensureArray(rawCustomers);
+            const cartsArray = ensureArray(rawCarts);
 
             const usedCartIds = new Set(ordersArray.map(o => psNum(o.id_cart)).filter(id => id > 0));
 
@@ -51,7 +51,7 @@ export function useCarts() {
                     const customerId = psNum(cart.id_customer);
                     
                     const rowsRaw = cart.associations?.cart_rows?.cart_row;
-                    const rowsArr = Array.isArray(rowsRaw) ? rowsRaw : (rowsRaw ? [rowsRaw] : []);
+                    const rowsArr = ensureArray(rowsRaw);
                     const itemsCount = rowsArr.length;
 
                     return {
@@ -83,7 +83,7 @@ export function useCarts() {
             const rowsRaw = cart.rawCart.associations?.cart_rows?.cart_row;
             if (!rowsRaw) throw new Error("Le panier est vide");
             
-            const rowsArr = Array.isArray(rowsRaw) ? rowsRaw : [rowsRaw];
+            const rowsArr = ensureArray(rowsRaw);
             
             // Fetch all products to get correct prices
             const allProducts = await productService.getAll();

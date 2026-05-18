@@ -1,6 +1,7 @@
 import apiService from '@shared/api/api-service';
 import { extractIdValue } from '@shared/utils/extractIdValue';
 import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
+import { ensureArray } from '@shared/utils/arrayUtils';
 
 export const statsService = {
     /**
@@ -21,37 +22,26 @@ export const statsService = {
             apiService.get<any>('/categories?filter[id]=![1|2]&display=[id,name]')
         ]);
 
-        const ordersRaw = ordersRes?.prestashop?.orders?.order;
-        const productsRaw = productsRes?.prestashop?.products?.product;
-        const combinationsRaw = combinationsRes?.prestashop?.combinations?.combination;
-        const categoriesRaw = categoriesRes?.prestashop?.categories?.category;
+        // Les données XML brutes sont converties en tableaux sûrs pour l'itération
+        const orders = ensureArray(ordersRes?.prestashop?.orders?.order);
+        const products = ensureArray(productsRes?.prestashop?.products?.product);
+        const combinations = ensureArray(combinationsRes?.prestashop?.combinations?.combination);
+        const categories = ensureArray(categoriesRes?.prestashop?.categories?.category);
 
-        const orders = Array.isArray(ordersRaw) ? ordersRaw : (ordersRaw ? [ordersRaw] : []);
-        const products = Array.isArray(productsRaw) ? productsRaw : (productsRaw ? [productsRaw] : []);
-        const combinations = Array.isArray(combinationsRaw) ? combinationsRaw : (combinationsRaw ? [combinationsRaw] : []);
-        const categories = Array.isArray(categoriesRaw) ? categoriesRaw : (categoriesRaw ? [categoriesRaw] : []);
-
-        // 2. Création d'un dictionnaire ID Catégorie -> Nom Catégorie
+        // Map des catégories pour associer rapidement un ID à son nom lisible
         const categoryMap = new Map<string, string>();
-        categories.forEach((c: any) => {
-            categoryMap.set(extractIdValue(c.id), extractLanguageValue(c.name) || 'Inconnue');
-        });
+        categories.forEach((c: any) => categoryMap.set(extractIdValue(c.id), extractLanguageValue(c.name) || 'Inconnue'));
 
-        // 3. Création d'un dictionnaire ID Déclinaison -> Prix d'achat spécifique
+        // Map des déclinaisons pour retrouver le coût d'achat spécifique si différent du produit parent
         const combinationMap = new Map<string, number>();
-        combinations.forEach((c: any) => {
-            const price = parseFloat(c.wholesale_price || '0');
-            combinationMap.set(extractIdValue(c.id), price);
-        });
+        combinations.forEach((c: any) => combinationMap.set(extractIdValue(c.id), parseFloat(c.wholesale_price || '0')));
 
-        // 4. Création d'un dictionnaire Produit -> { Prix d'achat par défaut, ID Catégorie }
+        // Map du catalogue pour lier chaque produit à sa catégorie et son coût par défaut
         const productCatalog = new Map<string, { purchasePrice: number, categoryId: string }>();
-        products.forEach((p: any) => {
-            productCatalog.set(extractIdValue(p.id), {
-                purchasePrice: parseFloat(p.wholesale_price || '0'),
-                categoryId: extractIdValue(p.id_category_default) || '0'
-            });
-        });
+        products.forEach((p: any) => productCatalog.set(extractIdValue(p.id), {
+            purchasePrice: parseFloat(p.wholesale_price || '0'),
+            categoryId: extractIdValue(p.id_category_default) || '0'
+        }));
 
         // 5. Initialisation et Agrégation des ventes et coûts
         const categoryStats = new Map<string, { name: string, sales: number, purchases: number, profit: number }>();
@@ -68,7 +58,7 @@ export const statsService = {
             const rowsRaw = order.associations?.order_rows?.order_row;
             if (!rowsRaw) return;
 
-            const rows = Array.isArray(rowsRaw) ? rowsRaw : [rowsRaw];
+            const rows = ensureArray(rowsRaw);
 
             rows.forEach((row: any) => {
                 const productId = extractIdValue(row.product_id);
@@ -131,25 +121,16 @@ export const statsService = {
             apiService.get<any>('/orders?display=full&filter[valid]=1')
         ]);
 
-        const productsRaw = productsRes?.prestashop?.products?.product;
-        const stockRaw = stockRes?.prestashop?.stock_availables?.stock_available;
-        const categoriesRaw = categoriesRes?.prestashop?.categories?.category;
-        const ordersRaw = ordersRes?.prestashop?.orders?.order;
+        const products = ensureArray(productsRes?.prestashop?.products?.product);
+        const stocks = ensureArray(stockRes?.prestashop?.stock_availables?.stock_available);
+        const categories = ensureArray(categoriesRes?.prestashop?.categories?.category);
+        const orders = ensureArray(ordersRes?.prestashop?.orders?.order);
 
-        const products = Array.isArray(productsRaw) ? productsRaw : (productsRaw ? [productsRaw] : []);
-        const stocks = Array.isArray(stockRaw) ? stockRaw : (stockRaw ? [stockRaw] : []);
-        const categories = Array.isArray(categoriesRaw) ? categoriesRaw : (categoriesRaw ? [categoriesRaw] : []);
-        const orders = Array.isArray(ordersRaw) ? ordersRaw : (ordersRaw ? [ordersRaw] : []);
-
+        // Pré-calcul des associations pour éviter les requêtes imbriquées (Performance)
         const categoryMap = new Map<string, string>();
-        categories.forEach((c: any) => {
-            categoryMap.set(extractIdValue(c.id), extractLanguageValue(c.name) || 'Inconnue');
-        });
-
         const productToCategory = new Map<string, string>();
-        products.forEach((p: any) => {
-            productToCategory.set(extractIdValue(p.id), extractIdValue(p.id_category_default) || '0');
-        });
+        categories.forEach((c: any) => categoryMap.set(extractIdValue(c.id), extractLanguageValue(c.name) || 'Inconnue'));
+        products.forEach((p: any) => productToCategory.set(extractIdValue(p.id), extractIdValue(p.id_category_default) || '0'));
 
         const categoryStocks = new Map<string, { name: string, physical: number, reserved: number, available: number }>();
         
@@ -178,7 +159,7 @@ export const statsService = {
             // Si la commande est validée mais pas encore expédiée (statuts 4, 5 sont expédié/livré)
             if (stateId === '2' || stateId === '3') {
                 const rowsRaw = order.associations?.order_rows?.order_row;
-                const rows = Array.isArray(rowsRaw) ? rowsRaw : (rowsRaw ? [rowsRaw] : []);
+                const rows = ensureArray(rowsRaw);
                 
                 rows.forEach((row: any) => {
                     const productId = extractIdValue(row.product_id);
