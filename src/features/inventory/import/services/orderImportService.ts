@@ -431,11 +431,11 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
                             stock_mvt: stockMovementPayload
                         });
 
-                        // PrestaShop écrase date_add en "now" au POST, on fait un PUT direct pour forcer la date
+                        // PrestaShop écrase date_add en "now" au POST, on fait un PATCH direct pour forcer la date
                         if (mvtRes?.prestashop?.stock_mvt?.id) {
                             const mvtId = Number(extractIdValue(mvtRes.prestashop.stock_mvt.id));
-                            await apiService.put(`/stock_movements/${mvtId}`, {
-                                stock_mvt: { ...stockMovementPayload, id: mvtId }
+                            await apiService.patch(`/stock_movements/${mvtId}`, {
+                                stock_mvt: { id: mvtId, date_add: dateFormatted }
                             });
                         }
                         console.log(`Created and forced date for stock movement for order ${id_order}, product ${t.id_product}`);

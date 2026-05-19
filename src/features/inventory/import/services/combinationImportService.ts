@@ -142,11 +142,11 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
               stock_mvt: stockMovementPayload
             });
 
-            // PrestaShop écrase date_add en "now" au POST, on fait un PUT direct pour forcer la date
+            // PrestaShop écrase date_add en "now" au POST, on fait un PATCH direct pour forcer la date
             if (mvtRes?.prestashop?.stock_mvt?.id) {
               const mvtId = Number(extractIdValue(mvtRes.prestashop.stock_mvt.id));
-              await apiService.put(`/stock_movements/${mvtId}`, {
-                stock_mvt: { ...stockMovementPayload, id: mvtId }
+              await apiService.patch(`/stock_movements/${mvtId}`, {
+                stock_mvt: { id: mvtId, date_add: movementDate }
               });
             }
             console.log(`Created and updated stock movement date for simple product ${productId}`);
@@ -359,11 +359,11 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
             stock_mvt: stockMovementPayload
           });
           
-          // PrestaShop écrase date_add en "now" au POST, on fait un PUT direct pour forcer la date
+          // PrestaShop écrase date_add en "now" au POST, on fait un PATCH direct pour forcer la date
           if (mvtRes?.prestashop?.stock_mvt?.id) {
             const mvtId = Number(extractIdValue(mvtRes.prestashop.stock_mvt.id));
-            await apiService.put(`/stock_movements/${mvtId}`, {
-              stock_mvt: { ...stockMovementPayload, id: mvtId }
+            await apiService.patch(`/stock_movements/${mvtId}`, {
+              stock_mvt: { id: mvtId, date_add: movementDate }
             });
           }
           
