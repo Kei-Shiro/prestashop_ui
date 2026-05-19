@@ -16,6 +16,28 @@ export const useOrderStore = defineStore('order', () => {
   const orders = ref<Order[]>([]);
   const activeCartsCount = ref(0);
   const loading = ref(false);
+  const periodFilter = ref<'all' | 'month' | 'week' | 'today'>('all');
+
+  const filteredOrders = computed(() => {
+    if (periodFilter.value === 'all') return orders.value;
+    
+    const now = new Date();
+    const threshold = new Date();
+    
+    if (periodFilter.value === 'today') {
+      threshold.setHours(0, 0, 0, 0);
+    } else if (periodFilter.value === 'week') {
+      threshold.setDate(now.getDate() - 7);
+    } else if (periodFilter.value === 'month') {
+      threshold.setMonth(now.getMonth() - 1);
+    }
+
+    return orders.value.filter(order => {
+      const dateRaw = (order as any).date_add || order.date;
+      if (!dateRaw) return false;
+      return new Date(dateRaw) >= threshold;
+    });
+  });
 
   const fetchOrders = async () => {
     await withLoading(loading, async () => {
@@ -40,15 +62,15 @@ export const useOrderStore = defineStore('order', () => {
     });
   };
 
-  const totalOrders = computed(() => orders.value.length);
+  const totalOrders = computed(() => filteredOrders.value.length);
   const totalAmount = computed(() => {
-    return orders.value.reduce((sum, order) => sum + (Number((order as any).total_paid || order.total_price) || 0), 0);
+    return filteredOrders.value.reduce((sum, order) => sum + (Number((order as any).total_paid || order.total_price) || 0), 0);
   });
 
   const dailyStats = computed<DailyStat[]>(() => {
     const statsMap = new Map<string, DailyStat>();
 
-    orders.value.forEach(order => {
+    filteredOrders.value.forEach(order => {
       // Depending on the order date format (e.g. YYYY-MM-DD)
       const rawDate = (order as any).date_add || order.date;
       const dateKey = rawDate ? String(rawDate).split(' ')[0] : 'Inconnu';
@@ -69,6 +91,8 @@ export const useOrderStore = defineStore('order', () => {
     orders,
     activeCartsCount,
     loading,
+    periodFilter,
+    filteredOrders,
     fetchOrders,
     totalOrders,
     totalAmount,

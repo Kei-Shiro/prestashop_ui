@@ -189,7 +189,7 @@ export const orderService = {
         items: any[],
         totalAmount: number,
         addressId: number = 1,
-        initialStateId: number = 2,
+        initialStateId: number = 11,
         carrierId: number = 1,
         moduleName: string = 'ps_cashondelivery',
         paymentLabel: string = 'Paiement à la livraison'
@@ -277,7 +277,7 @@ export const orderService = {
 
     async updateOrderStatus(orderId: number, newStateId: number): Promise<void> {
 
-        if(newStateId === 5 || newStateId === 6) {
+        if (newStateId === 5 || newStateId === 6) {
             await apiService.putstate('/stockmvtapi/orderstate', {
                 order_states: {
                     order_state: {

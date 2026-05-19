@@ -142,18 +142,8 @@ async function putQuantityZero(endpoint: string): Promise<string[]> {
     for (const item of items) {
         if (!item.id) continue
         try {
-            const stockData: StockAvailablePut = {
-                id: toNum(item.id),
-                id_product: toNum(item.id_product),
-                id_product_attribute: toNum(item.id_product_attribute),
-                id_shop: toNum(item.id_shop) || 1,
-                id_shop_group: toNum(item.id_shop_group),
-                quantity: 0,
-                depends_on_stock: toNum(item.depends_on_stock),
-                out_of_stock: toNum(item.out_of_stock),
-                location: item.location || '',
-            }
-            await apiService.put(`${endpoint}/${stockData.id}`, { stock_available: stockData })
+            const patchData = { id: toNum(item.id), quantity: 0 };
+            await apiService.patch(`${endpoint}/${patchData.id}`, { stock_available: patchData });
             console.log(`Stock ${item.id} mis à 0`)
         } catch (error) {
             console.warn(`Failed to set quantity=0 for ${endpoint}/${item.id}`, error)

@@ -72,7 +72,7 @@ export const ImportValidator = {
      * @param val Valeur brute
      * @param fieldName Nom du champ
      */
-    validatePositiveAmount(val: string | number, fieldName: string, allowZero = false): number {
+    validatePositiveAmount(val: string | number, fieldName: string, allowZero = true): number {
         if (val === undefined || val === null || val === '') {
             throw new ImportValidationError(`Le champ ${fieldName} ne peut pas être vide.`);
         }
@@ -93,7 +93,7 @@ export const ImportValidator = {
                 throw new ImportValidationError(`Le montant ${fieldName} doit être positif ou nul.`);
             }
         } else {
-            if (num <= 0) {
+            if (num < 0) {
                 throw new ImportValidationError(`Le montant ${fieldName} doit être strictement positif.`);
             }
         }

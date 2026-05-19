@@ -19,7 +19,7 @@ const toLValue = (text: string): LValue => ({
 });
 
 const STATUS_MAP: Record<string, number> = {
-    "paiement accepté": 2,
+    "paiement accepté": 11,
     "livré": 5,
     "annulé": 6,
 };
@@ -116,7 +116,7 @@ export async function importOrders(csvFile: File): Promise<void> {
 
                     const rows: OrderCSVRow[] = results.data.map((row: any) => {
                         const dateVal = row[colMap['date']];
-                        
+
                         // 2. Validation format date
                         ImportValidator.validateDateFormat(dateVal, 'date');
 
@@ -265,7 +265,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         if (tuple.valeur) {
             const prefix = `${tuple.ref}_`;
             const suffix = `_${tuple.valeur}`;
-            
+
             let foundEntry = null;
             for (const [key, value] of combinationMap.entries()) {
                 if (key.startsWith(prefix) && key.endsWith(suffix)) {
@@ -350,7 +350,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     }
     const total_shipping = 0;
     const total_paid = total_products_wt + total_shipping;
-    
+
     const dateFormatted = formatDate(date);
 
     // Résolution de l'état
@@ -398,7 +398,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         orderCountMap.set(id_order, true);
         console.log(`Order created: ${id_order}`);
 
-        if(initialStateId === 5) {
+        if (initialStateId === 5) {
 
             // ========== STOCK MOVEMENT ==========
             for (const t of resolvedTuples) {
@@ -430,9 +430,8 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         }
 
         try {
-            const orderPut: any = { ...orderData, id: id_order };
-            delete orderPut.associations;
-            await apiService.put(`/orders/${id_order}`, { order: orderPut });
+            const patchData = { id: id_order, date_add: dateFormatted };
+            await apiService.patch(`/orders/${id_order}`, { order: patchData });
             console.log(`Order date set to ${dateFormatted} for ${id_order}`);
         } catch (e) {
             console.warn(`Could not set order date for ${id_order}`, e);
@@ -448,7 +447,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         };
         await apiService.post("/order_histories", historyData);
         console.log(`Order history added for ${id_order}`);
-        
+
     } catch (err: any) {
         console.error("ORDER ERROR:", err);
     }

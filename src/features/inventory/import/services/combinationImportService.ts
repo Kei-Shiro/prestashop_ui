@@ -106,18 +106,8 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
 
         if (stockId) {
           const quantity = ImportValidator.validatePositiveAmount(stock_initial, 'stock_initial', true);
-          const stockData: StockAvailablePut = {
-            id: Number(extractIdValue(stockId)),
-            id_product: productId,
-            id_product_attribute: 0,
-            id_shop: Number(extractIdValue(simpleStock.id_shop) || 1),
-            id_shop_group: Number(extractIdValue(simpleStock.id_shop_group) || 0),
-            quantity: quantity,
-            depends_on_stock: 0,
-            out_of_stock: 2,
-            location: simpleStock.location || ''
-          };
-          await apiService.put(`/stock_availables/${extractIdValue(stockId)}`, { stock_available: stockData });
+          const patchData = { id: Number(extractIdValue(stockId)), quantity: quantity };
+          await apiService.patch(`/stock_availables/${extractIdValue(stockId)}`, { stock_available: patchData });
           console.log(`Stock updated for simple product ${productId}: qty=${quantity}`);
 
           try {
@@ -325,18 +315,8 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
       if (allComboStocks.length > 0) {
         for (const stockRecord of allComboStocks) {
           const stockId = extractIdValue(stockRecord.id);
-          const stockData: StockAvailablePut = {
-            id: Number(stockId),
-            id_product: productId,
-            id_product_attribute: combinationId,
-            id_shop: Number(extractIdValue(stockRecord.id_shop) || 1),
-            id_shop_group: Number(extractIdValue(stockRecord.id_shop_group) || 0),
-            quantity: quantity,
-            depends_on_stock: 0,
-            out_of_stock: 2,
-            location: stockRecord.location || ''
-          };
-          await apiService.put(`/stock_availables/${stockId}`, { stock_available: stockData });
+          const patchData = { id: Number(stockId), quantity: quantity };
+          await apiService.patch(`/stock_availables/${stockId}`, { stock_available: patchData });
           console.log(`[combinationImport] Stock updated for combo ${combinationId} (ID Stock: ${stockId}) : qty=${quantity}`);
         }
 

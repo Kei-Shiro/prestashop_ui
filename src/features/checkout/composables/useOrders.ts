@@ -4,7 +4,7 @@ import { orderService } from "../services/order-service";
 import { ensureArray } from '@shared/utils/arrayUtils';
 
 /*const ALLOWED_STATE_IDS = [2, 6, 13];*/ // Paiement accepté, Annulé, En attente de paiement à la livraison
-const ALLOWED_STATE_IDS = [2, 5, 6];
+const ALLOWED_STATE_IDS = [5, 6];
 
 /**
  * Avec display=full, PrestaShop renvoie les champs FK (current_state, id_customer…)

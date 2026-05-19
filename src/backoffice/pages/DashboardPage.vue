@@ -1,6 +1,17 @@
 <template>
   <div class="dashboard-page">
-    <h1 class="page-title">Tableau de bord</h1>
+    <div class="dashboard-header">
+      <h1 class="page-title">Tableau de bord</h1>
+      <div class="period-filter">
+        <label for="period">Période : </label>
+        <select id="period" v-model="orderStore.periodFilter" class="filter-select">
+          <option value="all">Tout le temps</option>
+          <option value="today">Aujourd'hui</option>
+          <option value="week">7 derniers jours</option>
+          <option value="month">30 derniers jours</option>
+        </select>
+      </div>
+    </div>
 
     <div v-if="orderStore.loading" class="loading">Chargement des données...</div>
     <div v-else>
@@ -75,8 +86,30 @@ onMounted(async () => {
 .page-title {
   font-size: 1.5rem;
   font-weight: 700;
-  margin-bottom: 1.5rem;
   color: var(--text-main, #1e293b);
+  margin: 0;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.filter-select {
+  padding: 0.5rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  background-color: #ffffff;
+  color: #334155;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+}
+.filter-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .section-title {
