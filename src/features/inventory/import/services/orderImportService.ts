@@ -394,7 +394,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         const res = await apiService.post<any>("/orders", { order: orderData });
 
         const id = res?.prestashop?.order?.id;
-        /*await apiService.patch('/orders', )*/
+
         if (!id) throw new Error("No order id returned");
         const id_order = parseInt(id, 10);
         orderCountMap.set(id_order, true);

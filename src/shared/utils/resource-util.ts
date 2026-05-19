@@ -10,4 +10,6 @@ export const arrayExceptions = [
   { parent: 'cart_rows', tag: 'cart_row' },
   { parent: 'order_rows', tag: 'order_row' },
   { parent: 'product_option_values', tag: 'product_option_value' },
+  { parent: 'stock_mvts', tag: 'stock_mvt' },
+  { parent: 'stocks', tag: 'stock' },
 ];

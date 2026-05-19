@@ -11,7 +11,7 @@ export const statsService = {
      */
     async getProfitByCategoryReport() {
         // 1. Récupération de toutes les données nécessaires en parallèle pour la performance
-        const [ordersRes, productsRes, combinationsRes, categoriesRes, stockRes] = await Promise.all([
+        const [ordersRes, productsRes, combinationsRes, categoriesRes, movementsRes, stockAvailablesRes] = await Promise.all([
             // Commandes valides pour le prix de vente final (unit_price_tax_excl)
             apiService.get<any>('/orders?display=full&filter[valid]=1'),
             // Produits pour le prix d'achat par défaut (wholesale_price) et la catégorie
@@ -20,8 +20,10 @@ export const statsService = {
             apiService.get<any>('/combinations?display=[id,id_product,wholesale_price]'),
             // Catégories pour récupérer le nom au lieu d'afficher juste un ID
             apiService.get<any>('/categories?filter[id]=![1|2]&display=[id,name]'),
-            // Stocks pour calculer l'achat global (pas seulement les ventes)
-            apiService.get<any>('/stock_availables?display=full')
+            // Mouvements de stock pour calculer l'achat global (entrées uniquement)
+            apiService.get<any>('/stock_movements?display=full'),
+            // Stock availables pour faire le lien entre id_stock et id_product (car le mvt pointe vers stock_available)
+            apiService.get<any>('/stock_availables?display=[id,id_product,id_product_attribute]')
         ]);
 
         // Les données XML brutes sont converties en tableaux sûrs pour l'itération
@@ -29,20 +31,27 @@ export const statsService = {
         const products = ensureArray(productsRes?.prestashop?.products?.product);
         const combinations = ensureArray(combinationsRes?.prestashop?.combinations?.combination);
         const categories = ensureArray(categoriesRes?.prestashop?.categories?.category);
-        const stocks = ensureArray(stockRes?.prestashop?.stock_availables?.stock_available);
+        const movements = ensureArray(movementsRes?.prestashop?.stock_mvts?.stock_mvt);
+        const stockAvailables = ensureArray(stockAvailablesRes?.prestashop?.stock_availables?.stock_available);
 
         // Map des catégories pour associer rapidement un ID à son nom lisible
         const categoryMap = new Map<string, string>();
         categories.forEach((c: any) => categoryMap.set(extractIdValue(c.id), extractLanguageValue(c.name) || 'Inconnue'));
 
+        // Map des stocks pour lier id_stock -> {productId, attributeId}
+        const stockMapping = new Map<string, { productId: string, attributeId: string }>();
+        stockAvailables.forEach((s: any) => {
+            stockMapping.set(extractIdValue(s.id), {
+                productId: extractIdValue(s.id_product),
+                attributeId: extractIdValue(s.id_product_attribute)
+            });
+        });
+
         // Map des déclinaisons pour retrouver le coût d'achat spécifique si différent du produit parent
         const combinationMap = new Map<string, number>();
-        const productsWithCombinations = new Set<string>();
         combinations.forEach((c: any) => {
             const comboId = extractIdValue(c.id);
-            const productId = extractIdValue(c.id_product);
             combinationMap.set(comboId, parseFloat(c.wholesale_price || '0'));
-            productsWithCombinations.add(productId);
         });
 
         // Map du catalogue pour lier chaque produit à sa catégorie et son coût par défaut
@@ -57,97 +66,101 @@ export const statsService = {
 
         // On initialise d'abord TOUTES les catégories à 0 pour qu'elles apparaissent même sans vente
         categoryMap.forEach((name, categoryId) => {
-            // On peut exclure la catégorie racine "Root" (ID 1) si elle parasite le tableau
             if (categoryId !== '1') {
                 categoryStats.set(categoryId, { name, sales: 0, purchases: 0, profit: 0, globalPurchases: 0, globalProfit: 0 });
             }
         });
 
+        // VENTES ET COUTS DES VENTES
         orders.forEach((order: any) => {
+            const stateId = extractIdValue(order.current_state);
+            // On exclut les commandes annulées, remboursées ou en erreur
+            if (stateId === '6' || stateId === '7' || stateId === '8') return;
+
             const rowsRaw = order.associations?.order_rows?.order_row;
             if (!rowsRaw) return;
 
             const rows = ensureArray(rowsRaw);
-
             rows.forEach((row: any) => {
                 const productId = extractIdValue(row.product_id);
                 const attributeId = extractIdValue(row.product_attribute_id);
                 const quantity = parseInt(row.product_quantity || '1', 10);
-
-                // VENTE : On prend le prix de vente (HT) exactement tel qu'il a été facturé dans la commande
                 const unitPrice = parseFloat(row.unit_price_tax_excl || '0');
 
                 const pInfo = productCatalog.get(productId);
-                if (!pInfo) return; // Produit n'existe plus dans le catalogue
+                if (!pInfo) return;
 
                 const categoryId = pInfo.categoryId;
 
-                // ACHAT : Détermination du coût
-                // Si l'attribut (déclinaison) a un coût d'achat défini, il remplace le coût par défaut du produit
                 let costPrice = pInfo.purchasePrice;
                 if (attributeId && attributeId !== '0') {
                     const comboCost = combinationMap.get(attributeId);
-                    if (comboCost && comboCost > 0) {
-                        costPrice = comboCost;
-                    }
+                    if (comboCost && comboCost > 0) costPrice = comboCost;
                 }
 
-                // Calculs finaux pour la ligne
                 const revenue = unitPrice * quantity;
                 const cost = costPrice * quantity;
                 const profit = revenue - cost;
 
-                // Ajout dans notre structure
-                if (!categoryStats.has(categoryId)) {
-                    categoryStats.set(categoryId, {
-                        name: categoryMap.get(categoryId) || `Catégorie ${categoryId}`,
-                        sales: 0,
-                        purchases: 0,
-                        profit: 0,
-                        globalPurchases: 0,
-                        globalProfit: 0
-                    });
+                const stats = categoryStats.get(categoryId);
+                if (stats) {
+                    stats.sales += revenue;
+                    stats.purchases += cost;
+                    stats.profit += profit;
                 }
-
-                const stats = categoryStats.get(categoryId)!;
-                stats.sales += revenue;
-                stats.purchases += cost;
-                stats.profit += profit;
-                stats.globalPurchases += cost; // Les ventes font partie de l'achat global
             });
         });
 
-        // Calcul de l'achat global avec les stocks restants
-        stocks.forEach((s: any) => {
-            const productId = extractIdValue(s.id_product);
-            const attributeId = extractIdValue(s.id_product_attribute);
-            const quantity = parseInt(s.quantity || '0', 10);
+        // ACHAT GLOBAL : Basé sur les mouvements d'entrée (sign = 1)
+        movements.forEach((m: any) => {
+            const rawSign = extractIdValue(m.sign);
+            const sign = parseInt(rawSign, 10);
+            
+            if (sign !== 1) return; // On ne prend que les entrées (achat/réappro)
 
-            if (quantity <= 0) return; // Ignore les stocks négatifs ou nuls
+            const stockId = extractIdValue(m.id_stock);
+            
+            // Résolution des IDs (PrestaShop laisse parfois id_product vide dans le mouvement)
+            let productId = extractIdValue(m.id_product);
+            let attributeId = extractIdValue(m.id_product_attribute);
 
-            const hasCombinations = productsWithCombinations.has(productId);
-
-            // Si le produit a des déclinaisons, on ignore la ligne globale du produit (attributeId = '0')
-            // S'il n'a pas de déclinaison, on ne prend que la ligne globale
-            if (hasCombinations && (attributeId === '0' || !attributeId)) return;
-            if (!hasCombinations && attributeId !== '0' && attributeId !== undefined) return;
-
-            const pInfo = productCatalog.get(productId);
-            if (!pInfo) return;
-
-            const categoryId = pInfo.categoryId;
-            if (!categoryStats.has(categoryId)) return;
-
-            let costPrice = pInfo.purchasePrice;
-            if (attributeId && attributeId !== '0') {
-                const comboCost = combinationMap.get(attributeId);
-                if (comboCost && comboCost > 0) {
-                    costPrice = comboCost;
+            if (!productId || productId === '') {
+                const mapping = stockMapping.get(stockId);
+                if (mapping) {
+                    productId = mapping.productId;
+                    attributeId = mapping.attributeId;
                 }
             }
 
+            if (!productId) {
+                console.warn(`[Stats] Movement skipped: No productId resolved for stockId ${stockId}`);
+                return;
+            }
+
+            const quantity = Math.abs(parseInt(extractIdValue(m.physical_quantity) || '0', 10));
+
+            // On essaie de récupérer le prix d'achat directement du mouvement (price_te)
+            // Sinon on se rabat sur le catalogue
+            let costPrice = parseFloat(extractIdValue(m.price_te) || '0');
+
+            const pInfo = productCatalog.get(productId);
+            if (costPrice <= 0) {
+                if (pInfo) {
+                    costPrice = pInfo.purchasePrice;
+                    if (attributeId && attributeId !== '0') {
+                        const comboCost = combinationMap.get(attributeId);
+                        if (comboCost && comboCost > 0) costPrice = comboCost;
+                    }
+                }
+            }
+
+            const categoryId = pInfo?.categoryId || '0';
+
             const cost = costPrice * quantity;
-            categoryStats.get(categoryId)!.globalPurchases += cost;
+            const stats = categoryStats.get(categoryId);
+            if (stats) {
+                stats.globalPurchases += cost;
+            }
         });
 
         // Calcul du bénéfice global
@@ -207,7 +220,7 @@ export const statsService = {
         orders.forEach((order: any) => {
             const stateId = extractIdValue(order.current_state);
             // Si la commande est validée mais pas encore expédiée (statuts 4, 5 sont expédié/livré)
-            if (stateId === '2' || stateId === '3') {
+            if (stateId === '2' || stateId === '3' || stateId === '11') {
                 const rowsRaw = order.associations?.order_rows?.order_row;
                 const rows = ensureArray(rowsRaw);
                 
