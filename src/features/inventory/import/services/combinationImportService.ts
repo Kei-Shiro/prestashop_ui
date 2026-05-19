@@ -31,9 +31,13 @@ export const importCombinationsAndStocks = async (csvFile: File): Promise<void> 
         try {
           const metaFields = (results.meta.fields || []).map(f => f.trim().replace(/^\uFEFF/, ''));
           const requiredCols = ['reference', 'specificité', 'karazany', 'stock_initial', 'prix_vente_ttc'];
+          const optionalCols = ['date_add'];
 
           // 1. Validation des colonnes (insensible à la casse)
           const colMap = ImportValidator.validateColumns(metaFields, requiredCols);
+          
+          // Chercher les colonnes optionnelles
+          const dateAddCol = metaFields.find(f => f.toLowerCase() === 'date_add');
 
           const cleanRows = results.data.map((row: any) => {
             const refVal = (row[colMap['reference']] || "").trim();
@@ -41,6 +45,7 @@ export const importCombinationsAndStocks = async (csvFile: File): Promise<void> 
             const valVal = (row[colMap['karazany']] || "").trim();
             const stockVal = (row[colMap['stock_initial']] || "").trim();
             const prixVal = (row[colMap['prix_vente_ttc']] || "").trim();
+            const dateAddVal = dateAddCol ? (row[dateAddCol] || "").trim() : "";
 
             // 2. Validation : le stock_initial est obligatoire (mais peut être 0)
             ImportValidator.validatePositiveAmount(stockVal, 'stock_initial', true);
@@ -49,6 +54,11 @@ export const importCombinationsAndStocks = async (csvFile: File): Promise<void> 
             if (prixVal !== "") {
               ImportValidator.validatePositiveAmount(prixVal, 'prix_vente_ttc');
             }
+            
+            // 4. Validation date si présente
+            if (dateAddVal) {
+              ImportValidator.validateDateFormat(dateAddVal, 'date_add');
+            }
 
             return {
               reference: refVal,
@@ -56,6 +66,7 @@ export const importCombinationsAndStocks = async (csvFile: File): Promise<void> 
               valeur: valVal,
               stock_initial: stockVal,
               prix_vente_ttc: prixVal,
+              date_add: dateAddVal
             } as StockCSVRow;
           });
 
@@ -111,10 +122,12 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
           console.log(`Stock updated for simple product ${productId}: qty=${quantity}`);
 
           try {
-            const movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
+            let movementDate = row.date_add ? (row.date_add + ' 00:00:00') : "";
+            if (!movementDate) {
+              movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
                 ? productData.available_date + ' 00:00:00'
                 : new Date().toISOString().slice(0, 19).replace('T', ' ');
-
+            }
             const stockMovementPayload: StockMovement = {
               id_employee: 1,
               id_stock: Number(extractIdValue(stockId)),
@@ -322,9 +335,12 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
 
 
         try {
-          const movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
-              ? productData.available_date + ' 00:00:00'
-              : new Date().toISOString().slice(0, 19).replace('T', ' ');
+          let movementDate = row.date_add ? (row.date_add + ' 00:00:00') : "";
+          if (!movementDate) {
+            movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
+                ? productData.available_date + ' 00:00:00'
+                : new Date().toISOString().slice(0, 19).replace('T', ' ');
+          }
 
           // Use the stockId from the current stockRecord in the loop
           const currentStockId = Number(extractIdValue(allComboStocks[0].id));

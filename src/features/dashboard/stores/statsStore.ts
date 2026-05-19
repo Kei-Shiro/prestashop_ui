@@ -4,7 +4,7 @@ import { statsService } from '../services/stats-service';
 import { withLoading } from '@shared/utils/asyncUtils';
 
 export const useStatsStore = defineStore('stats', () => {
-    const categoryStats = ref<Array<{name: string, sales: number, purchases: number, profit: number}>>([]);
+    const categoryStats = ref<Array<{name: string, sales: number, purchases: number, profit: number, globalPurchases: number, globalProfit: number}>>([]);
     const isLoading = ref(false);
 
     /**

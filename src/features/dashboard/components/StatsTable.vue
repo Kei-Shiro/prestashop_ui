@@ -5,9 +5,12 @@
         <tr>
           <th>Catégorie</th>
           <th class="text-right">Total Ventes (HT)</th>
-          <th class="text-right">Coût Achat (HT)</th>
-          <th class="text-right">Bénéfice Net (HT)</th>
+<!--          <th class="text-right">Coût Ventes (HT)</th>-->
+          <th class="text-right">Total Achat (Commandes) (HT)</th>
+          <th class="text-right">Bénéfice Ventes (HT)</th>
           <th class="text-right">Marge (%)</th>
+          <th class="text-right">Achat Global (HT)</th>
+          <th class="text-right">Bénéfice Global (HT)</th>
         </tr>
       </thead>
       <tbody>
@@ -15,9 +18,11 @@
           <td>{{ stat.name }}</td>
           <!-- Chiffre d'affaires -->
           <td class="text-right">{{ stat.sales.toFixed(2) }} €</td>
-          <!-- Coût de revient -->
+<!--          &lt;!&ndash; Coût de revient (Ventes) &ndash;&gt;
+          <td class="text-right">{{ stat.purchases.toFixed(2) }} €</td>-->
+          <!-- Total Achat (Commandes) = Coût de revient -->
           <td class="text-right">{{ stat.purchases.toFixed(2) }} €</td>
-          <!-- Bénéfice net (vert si positif, rouge si négatif) -->
+          <!-- Bénéfice net des ventes -->
           <td class="text-right" :class="stat.profit >= 0 ? 'text-success' : 'text-danger'">
             {{ stat.profit > 0 ? '+' : '' }}{{ stat.profit.toFixed(2) }} €
           </td>
@@ -27,15 +32,22 @@
               {{ stat.sales > 0 ? ((stat.profit / stat.sales) * 100).toFixed(1) : 0 }} %
             </span>
           </td>
+          <!-- Achat global -->
+          <td class="text-right">{{ stat.globalPurchases.toFixed(2) }} €</td>
+          <!-- Bénéfice global -->
+          <td class="text-right" :class="stat.globalProfit >= 0 ? 'text-success' : 'text-danger'">
+            {{ stat.globalProfit > 0 ? '+' : '' }}{{ stat.globalProfit.toFixed(2) }} €
+          </td>
         </tr>
         <tr v-if="stats.length === 0">
-          <td colspan="5" class="empty-state">Aucune donnée trouvée ou aucune vente valide.</td>
+          <td colspan="8" class="empty-state">Aucune donnée trouvée ou aucune vente valide.</td>
         </tr>
       </tbody>
       <tfoot v-if="stats.length > 0" class="table-footer">
         <tr>
           <th>Total Général</th>
           <th class="text-right">{{ totalSales.toFixed(2) }} €</th>
+<!--          <th class="text-right">{{ totalPurchases.toFixed(2) }} €</th>-->
           <th class="text-right">{{ totalPurchases.toFixed(2) }} €</th>
           <th class="text-right" :class="totalProfit >= 0 ? 'text-success' : 'text-danger'">
             {{ totalProfit > 0 ? '+' : '' }}{{ totalProfit.toFixed(2) }} €
@@ -44,6 +56,10 @@
             <span class="badge" :class="totalProfit >= 0 ? 'badge-success' : 'badge-danger'">
               {{ totalMargin.toFixed(1) }} %
             </span>
+          </th>
+          <th class="text-right">{{ totalGlobalPurchases.toFixed(2) }} €</th>
+          <th class="text-right" :class="totalGlobalProfit >= 0 ? 'text-success' : 'text-danger'">
+            {{ totalGlobalProfit > 0 ? '+' : '' }}{{ totalGlobalProfit.toFixed(2) }} €
           </th>
         </tr>
       </tfoot>
@@ -56,7 +72,7 @@ import { PropType, computed } from 'vue';
 
 const props = defineProps({
   stats: {
-    type: Array as PropType<Array<{name: string, sales: number, purchases: number, profit: number}>>,
+    type: Array as PropType<Array<{name: string, sales: number, purchases: number, profit: number, globalPurchases: number, globalProfit: number}>>,
     required: true
   }
 });
@@ -64,6 +80,8 @@ const props = defineProps({
 const totalSales = computed(() => props.stats.reduce((sum, stat) => sum + stat.sales, 0));
 const totalPurchases = computed(() => props.stats.reduce((sum, stat) => sum + stat.purchases, 0));
 const totalProfit = computed(() => props.stats.reduce((sum, stat) => sum + stat.profit, 0));
+const totalGlobalPurchases = computed(() => props.stats.reduce((sum, stat) => sum + stat.globalPurchases, 0));
+const totalGlobalProfit = computed(() => props.stats.reduce((sum, stat) => sum + stat.globalProfit, 0));
 const totalMargin = computed(() => {
   if (totalSales.value > 0) {
     return (totalProfit.value / totalSales.value) * 100;

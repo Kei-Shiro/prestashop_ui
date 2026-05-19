@@ -11,7 +11,7 @@ export const statsService = {
      */
     async getProfitByCategoryReport() {
         // 1. Récupération de toutes les données nécessaires en parallèle pour la performance
-        const [ordersRes, productsRes, combinationsRes, categoriesRes] = await Promise.all([
+        const [ordersRes, productsRes, combinationsRes, categoriesRes, stockRes] = await Promise.all([
             // Commandes valides pour le prix de vente final (unit_price_tax_excl)
             apiService.get<any>('/orders?display=full&filter[valid]=1'),
             // Produits pour le prix d'achat par défaut (wholesale_price) et la catégorie
@@ -19,7 +19,9 @@ export const statsService = {
             // Déclinaisons pour le prix d'achat spécifique à une taille/couleur
             apiService.get<any>('/combinations?display=[id,id_product,wholesale_price]'),
             // Catégories pour récupérer le nom au lieu d'afficher juste un ID
-            apiService.get<any>('/categories?filter[id]=![1|2]&display=[id,name]')
+            apiService.get<any>('/categories?filter[id]=![1|2]&display=[id,name]'),
+            // Stocks pour calculer l'achat global (pas seulement les ventes)
+            apiService.get<any>('/stock_availables?display=full')
         ]);
 
         // Les données XML brutes sont converties en tableaux sûrs pour l'itération
@@ -27,6 +29,7 @@ export const statsService = {
         const products = ensureArray(productsRes?.prestashop?.products?.product);
         const combinations = ensureArray(combinationsRes?.prestashop?.combinations?.combination);
         const categories = ensureArray(categoriesRes?.prestashop?.categories?.category);
+        const stocks = ensureArray(stockRes?.prestashop?.stock_availables?.stock_available);
 
         // Map des catégories pour associer rapidement un ID à son nom lisible
         const categoryMap = new Map<string, string>();
@@ -34,7 +37,13 @@ export const statsService = {
 
         // Map des déclinaisons pour retrouver le coût d'achat spécifique si différent du produit parent
         const combinationMap = new Map<string, number>();
-        combinations.forEach((c: any) => combinationMap.set(extractIdValue(c.id), parseFloat(c.wholesale_price || '0')));
+        const productsWithCombinations = new Set<string>();
+        combinations.forEach((c: any) => {
+            const comboId = extractIdValue(c.id);
+            const productId = extractIdValue(c.id_product);
+            combinationMap.set(comboId, parseFloat(c.wholesale_price || '0'));
+            productsWithCombinations.add(productId);
+        });
 
         // Map du catalogue pour lier chaque produit à sa catégorie et son coût par défaut
         const productCatalog = new Map<string, { purchasePrice: number, categoryId: string }>();
@@ -44,13 +53,13 @@ export const statsService = {
         }));
 
         // 5. Initialisation et Agrégation des ventes et coûts
-        const categoryStats = new Map<string, { name: string, sales: number, purchases: number, profit: number }>();
+        const categoryStats = new Map<string, { name: string, sales: number, purchases: number, profit: number, globalPurchases: number, globalProfit: number }>();
 
         // On initialise d'abord TOUTES les catégories à 0 pour qu'elles apparaissent même sans vente
         categoryMap.forEach((name, categoryId) => {
             // On peut exclure la catégorie racine "Root" (ID 1) si elle parasite le tableau
             if (categoryId !== '1') {
-                categoryStats.set(categoryId, { name, sales: 0, purchases: 0, profit: 0 });
+                categoryStats.set(categoryId, { name, sales: 0, purchases: 0, profit: 0, globalPurchases: 0, globalProfit: 0 });
             }
         });
 
@@ -94,7 +103,9 @@ export const statsService = {
                         name: categoryMap.get(categoryId) || `Catégorie ${categoryId}`,
                         sales: 0,
                         purchases: 0,
-                        profit: 0
+                        profit: 0,
+                        globalPurchases: 0,
+                        globalProfit: 0
                     });
                 }
 
@@ -102,10 +113,49 @@ export const statsService = {
                 stats.sales += revenue;
                 stats.purchases += cost;
                 stats.profit += profit;
+                stats.globalPurchases += cost; // Les ventes font partie de l'achat global
             });
         });
 
-        // 6. On retourne un tableau simple trié par le plus gros bénéfice
+        // Calcul de l'achat global avec les stocks restants
+        stocks.forEach((s: any) => {
+            const productId = extractIdValue(s.id_product);
+            const attributeId = extractIdValue(s.id_product_attribute);
+            const quantity = parseInt(s.quantity || '0', 10);
+
+            if (quantity <= 0) return; // Ignore les stocks négatifs ou nuls
+
+            const hasCombinations = productsWithCombinations.has(productId);
+
+            // Si le produit a des déclinaisons, on ignore la ligne globale du produit (attributeId = '0')
+            // S'il n'a pas de déclinaison, on ne prend que la ligne globale
+            if (hasCombinations && (attributeId === '0' || !attributeId)) return;
+            if (!hasCombinations && attributeId !== '0' && attributeId !== undefined) return;
+
+            const pInfo = productCatalog.get(productId);
+            if (!pInfo) return;
+
+            const categoryId = pInfo.categoryId;
+            if (!categoryStats.has(categoryId)) return;
+
+            let costPrice = pInfo.purchasePrice;
+            if (attributeId && attributeId !== '0') {
+                const comboCost = combinationMap.get(attributeId);
+                if (comboCost && comboCost > 0) {
+                    costPrice = comboCost;
+                }
+            }
+
+            const cost = costPrice * quantity;
+            categoryStats.get(categoryId)!.globalPurchases += cost;
+        });
+
+        // Calcul du bénéfice global
+        categoryStats.forEach(stat => {
+            stat.globalProfit = stat.sales - stat.globalPurchases;
+        });
+
+        // 6. On retourne un tableau simple trié par le plus gros bénéfice (ventes)
         return Array.from(categoryStats.values()).sort((a, b) => b.profit - a.profit);
     },
 

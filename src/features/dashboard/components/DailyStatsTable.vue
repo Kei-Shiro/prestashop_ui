@@ -5,7 +5,8 @@
         <tr>
           <th>Date</th>
           <th>Nombre de commandes</th>
-          <th>Montant total</th>
+          <th>Montant total (HT)</th>
+          <th>Montant total (TTC)</th>
         </tr>
       </thead>
       <tbody>
@@ -13,9 +14,10 @@
           <td>{{ stat.date }}</td>
           <td>{{ stat.count }}</td>
           <td>{{ stat.amount.toFixed(2) }} €</td>
+          <td>{{ stat.amountTTC.toFixed(2) }} €</td>
         </tr>
         <tr v-if="paginatedStats.length === 0">
-          <td colspan="3" class="empty-state">Aucune donnée disponible</td>
+          <td colspan="4" class="empty-state">Aucune donnée disponible</td>
         </tr>
       </tbody>
     </table>
@@ -27,7 +29,7 @@ import { PropType } from 'vue';
 
 defineProps({
   paginatedStats: {
-    type: Array as PropType<Array<{ date: string, count: number, amount: number }>>,
+    type: Array as PropType<Array<{ date: string, count: number, amount: number, amountTTC: number }>>,
     required: true
   }
 });

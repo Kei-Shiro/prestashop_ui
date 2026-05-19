@@ -351,7 +351,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     const total_shipping = 0;
     const total_paid = total_products_wt + total_shipping;
 
-    const dateFormatted = formatDate(date);
+    const dateFormatted = formatDate(date) + ' 00:00:00';
 
     // Résolution de l'état
     const initialStateId = STATUS_MAP[etat] || 11;
@@ -392,12 +392,21 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         };
 
         const res = await apiService.post<any>("/orders", { order: orderData });
+
         const id = res?.prestashop?.order?.id;
+        /*await apiService.patch('/orders', )*/
         if (!id) throw new Error("No order id returned");
         const id_order = parseInt(id, 10);
         orderCountMap.set(id_order, true);
         console.log(`Order created: ${id_order}`);
 
+        try {
+            const patchData = { id: id_order, date_add: dateFormatted };
+            await apiService.patch(`/orders/${id_order}`, { order: patchData });
+            console.log(`Order date set to ${dateFormatted} for ${id_order}`);
+        } catch (e) {
+            console.warn(`Could not set order date for ${id_order}`, e);
+        }
         if (initialStateId === 5) {
 
             // ========== STOCK MOVEMENT ==========
@@ -418,10 +427,18 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
                             date_add: dateFormatted,
                         };
 
-                        await apiService.post('/stock_movements', {
+                        const mvtRes = await apiService.post<any>('/stock_movements', {
                             stock_mvt: stockMovementPayload
                         });
-                        console.log(`Created stock movement for order ${id_order}, product ${t.id_product}`);
+
+                        // PrestaShop écrase date_add en "now" au POST, on fait un PUT direct pour forcer la date
+                        if (mvtRes?.prestashop?.stock_mvt?.id) {
+                            const mvtId = Number(extractIdValue(mvtRes.prestashop.stock_mvt.id));
+                            await apiService.put(`/stock_movements/${mvtId}`, {
+                                stock_mvt: { ...stockMovementPayload, id: mvtId }
+                            });
+                        }
+                        console.log(`Created and forced date for stock movement for order ${id_order}, product ${t.id_product}`);
                     }
                 } catch (mvtError) {
                     console.error(`Failed to create stock movement for order ${id_order}, product ${t.id_product}`, mvtError);
@@ -429,13 +446,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             }
         }
 
-        try {
-            const patchData = { id: id_order, date_add: dateFormatted };
-            await apiService.patch(`/orders/${id_order}`, { order: patchData });
-            console.log(`Order date set to ${dateFormatted} for ${id_order}`);
-        } catch (e) {
-            console.warn(`Could not set order date for ${id_order}`, e);
-        }
+
 
         // ========== ORDER STATE UPDATE ==========
         const historyData = {

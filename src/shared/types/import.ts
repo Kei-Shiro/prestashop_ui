@@ -283,6 +283,7 @@ export interface StockCSVRow {
   valeur: string;
   stock_initial: string;
   prix_vente_ttc: string;
+  date_add?: string;
 }
 
 export interface OrderCSVRow {

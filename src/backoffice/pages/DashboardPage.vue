@@ -21,8 +21,12 @@
           <p class="card-value">{{ orderStore.totalOrders }}</p>
         </div>
         <div class="card">
-          <h3 class="card-title">Total Général Montant</h3>
+          <h3 class="card-title">Total Général Montant (HT)</h3>
           <p class="card-value">{{ orderStore.totalAmount.toFixed(2) }} €</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Total Général Montant (TTC)</h3>
+          <p class="card-value">{{ orderStore.totalAmountTTC.toFixed(2) }} €</p>
         </div>
         <div class="card card--accent">
           <h3 class="card-title">Paniers actifs (En cours)</h3>

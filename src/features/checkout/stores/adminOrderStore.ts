@@ -10,6 +10,7 @@ interface DailyStat {
   date: string;
   count: number;
   amount: number;
+  amountTTC: number;
 }
 
 export const useOrderStore = defineStore('order', () => {
@@ -64,6 +65,9 @@ export const useOrderStore = defineStore('order', () => {
 
   const totalOrders = computed(() => filteredOrders.value.length);
   const totalAmount = computed(() => {
+    return filteredOrders.value.reduce((sum, order) => sum + (Number((order as any).total_paid_tax_excl || (order as any).total_paid || order.total_price) || 0), 0);
+  });
+  const totalAmountTTC = computed(() => {
     return filteredOrders.value.reduce((sum, order) => sum + (Number((order as any).total_paid || order.total_price) || 0), 0);
   });
 
@@ -76,12 +80,13 @@ export const useOrderStore = defineStore('order', () => {
       const dateKey = rawDate ? String(rawDate).split(' ')[0] : 'Inconnu';
 
       if (!statsMap.has(dateKey)) {
-        statsMap.set(dateKey, { date: dateKey, count: 0, amount: 0 });
+        statsMap.set(dateKey, { date: dateKey, count: 0, amount: 0, amountTTC: 0 });
       }
 
       const stat = statsMap.get(dateKey)!;
       stat.count += 1;
-      stat.amount += Number((order as any).total_paid || order.total_price) || 0;
+      stat.amount += Number((order as any).total_paid_tax_excl || (order as any).total_paid || order.total_price) || 0;
+      stat.amountTTC += Number((order as any).total_paid || order.total_price) || 0;
     });
 
     return Array.from(statsMap.values()).sort((a, b) => b.date.localeCompare(a.date));
@@ -96,6 +101,7 @@ export const useOrderStore = defineStore('order', () => {
     fetchOrders,
     totalOrders,
     totalAmount,
+    totalAmountTTC,
     dailyStats
   };
 });
