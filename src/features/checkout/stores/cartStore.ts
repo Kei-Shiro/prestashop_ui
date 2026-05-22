@@ -1,8 +1,11 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import {ref, computed, PropType} from 'vue';
 import type { Product } from '@shared/types/product';
 import type { CartItem } from '@shared/types/cart';
 import { extractIdValue } from '@shared/utils/extractIdValue';
+import {orderService} from "@features/checkout/services/order-service";
+import apiService from "@shared/api/api-service";
+import {ensureArray} from "@shared/utils/arrayUtils";
 
 const STORAGE_PREFIX = 'front_cart_';
 
@@ -231,6 +234,37 @@ export const useCartStore = defineStore('cart', () => {
         _saveToStorage();
         await syncToServer();
     }
+
+    async function reorder (orderId: number, multpli: number){
+
+        const orderDetails: any = await apiService.get(`/orders/${orderId}`)
+        const rows = orderDetails.associations?.order_rows?.order_row;
+
+        // Parcourir les lignes et ajouter au panier
+        for (const row of rows) {
+
+                 const productmodel: any  =  await apiService.get(`/stock_availables?filter[id_product]=${row.product_id}&display=full`);
+                 const products = ensureArray(productmodel.prestashop.stock_availables.stock_available)
+
+           if(products) {
+               for(const product of products) {
+
+               }
+           }
+
+
+
+
+
+
+            await orderService.createCart(
+                row.product_id,
+                row.product_quantity,
+                row.product_attribute_id
+            );
+        }
+        console.log("Produits ajoutés au panier !");
+    };
 
     /**
      * Remplace les articles du panier par ceux chargés depuis le serveur PS.

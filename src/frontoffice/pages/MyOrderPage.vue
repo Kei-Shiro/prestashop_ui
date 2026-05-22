@@ -15,6 +15,12 @@
         <div class="order-status" :style="{ color: order.currentState.color }">
           {{ order.currentState.label }}
         </div>
+        <div>
+          <input v-model="multipi.nombre" type="number"/>
+        </div>
+        <div>
+          <button @click="reorder(order.id)" class="btn-reorder">Acheter à nouveau</button>
+        </div>
       </div>
 
       <BasePagination
@@ -28,10 +34,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import {ref, onMounted, computed, reactive} from 'vue';
 import { useOrders } from '@features/checkout/composables/useOrders';
 import { useAuthStore } from '@features/auth/stores/customerAuthStore';
 import BasePagination from '@shared/ui/components/BasePagination.vue';
+import {useCartStore} from "@features/checkout/stores/cartStore";
+
+
+const multipli = reactive({
+  nombre: 1
+})
 
 const { orders, isLoading, error, loadOrdersAndMetadata } = useOrders();
 const authStore = useAuthStore();
@@ -43,6 +55,13 @@ const paginatedOrders = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
   return orders.value.slice(start, start + itemsPerPage);
 });
+
+const commander = {
+
+}
+
+
+
 
 onMounted(async () => {
   if (!authStore.isAnonymous && authStore.user) {

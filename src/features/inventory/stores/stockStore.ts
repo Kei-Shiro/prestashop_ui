@@ -151,7 +151,7 @@ export const useStockStore = defineStore('stock', () => {
         physical_quantity: Math.abs(delta),
         sign: delta > 0 ? 1 : -1,
         id_stock_mvt_reason: 1,
-        price_te: 0,
+        price_te: 0, //jgdhgjhdsjhb
         date_add: toPrestashopDate(new Date()),
       };
 
@@ -167,4 +167,6 @@ export const useStockStore = defineStore('stock', () => {
     fetchStockMovements,
     addStock
   };
+
+
 });

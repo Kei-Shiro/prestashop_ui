@@ -145,6 +145,11 @@
             {{ errorMessageImages }}
           </div>
         </div>
+
+        <div class="check-box">
+          <input v-model="checkbox.condition" type="checkbox" />
+          <label>Importer</label>
+        </div>
       </div>
     </div>
 
@@ -172,6 +177,7 @@ import { importProducts, taxRateMap, categoryMap, productMap } from '@features/i
 import { importCombinationsAndStocks, attributeMap, attributeValueMap, combinationMap } from '@features/inventory/import/services/combinationImportService';
 import { importOrders, customerMap, addressMap, orderCountMap } from '@features/inventory/import/services/orderImportService';
 import { importImages } from '@features/inventory/import/services/imageImportService';
+import { reactive } from 'vue'
 
 // --- State Global ---
 const isImporting = ref(false);
@@ -251,6 +257,16 @@ const handleFileImagesChange = (event: Event) => {
   }
 };
 
+const checkbox = reactive({
+  condition: false
+})
+
+const handleCheckbox = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  checkbox.condition = target.checked;
+}
+
+
 // --- Actions import globales ---
 const startGlobalImport = async () => {
   if (!canImport.value) return;
@@ -317,7 +333,7 @@ const startGlobalImport = async () => {
   }
 
   // 4. Images
-  if (selectedFileImages.value) {
+  if (selectedFileImages.value && checkbox.condition === true) {
     if (selectedFileProducts.value && statusProducts.value !== 'success') {
       isImporting.value = false;
       return;
