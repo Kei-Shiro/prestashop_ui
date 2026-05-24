@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { useStatsStore } from '@features/dashboard/stores/statsStore';
+import { useStatsStore } from '@shared/models/stats';
 import StatsTable from '@features/dashboard/components/StatsTable.vue';
 
 const statsStore = useStatsStore();

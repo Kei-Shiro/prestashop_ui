@@ -50,7 +50,7 @@
 
 <script setup lang="ts">
 import { reactive, onMounted, ref } from 'vue';
-import productService from '@features/catalog/services/product-service';
+import { productService } from '@shared/models/product';
 
 const categories = ref<{id: string, name: string}[]>([]);
 

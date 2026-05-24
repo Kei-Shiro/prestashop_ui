@@ -2,21 +2,26 @@ import Papa from "papaparse";
 import apiService from "@shared/api/api-service";
 import { productMap } from "./productImportService";
 import { combinationMap } from "./combinationImportService";
-import type { OrderCSVRow, AchatTuple, ResolvedTuple, Customer, Address, Cart, CartRow, Order, CarrierPost, LValue, StockMovement } from "@shared/types/import";
+import type { OrderCSVRow, AchatTuple, ResolvedTuple } from "@shared/types/import";
+import type { LangField } from "@shared/types/common";
+import type { CustomerCreatePayload } from "@shared/types/customer";
+import type { AddressCreatePayload } from "@shared/types/address";
+import type { CartCreatePayload, CartRow } from "@shared/types/cart";
+import type { OrderCreatePayload } from "@shared/types/order";
+import type { CarrierCreatePayload } from "@shared/types/carrier";
+import type { StockMovement } from "@shared/types/stock-movement";
 import { ImportValidator } from "@shared/utils/import-validator";
 import { extractIdValue } from "@shared/utils/extractIdValue";
 import { ensureArray } from '@shared/utils/arrayUtils';
+
+const toLValue = (text: string): LangField => ({
+    language: { '@_id': 1, '#text': text }
+});
 
 export const customerMap = new Map<string, number>();
 export const addressMap = new Map<string, number>();
 export const orderCountMap = new Map<number, true>();
 
-const toLValue = (text: string): LValue => ({
-    language: {
-        '@_id': 1,
-        '#text': text
-    }
-});
 
 const STATUS_MAP: Record<string, number> = {
     "paiement accepté": 11,
@@ -72,7 +77,7 @@ async function getDefaultCarrierId(): Promise<number> {
     }
     // Fallback
     try {
-        const carrierData: CarrierPost = {
+        const carrierData: CarrierCreatePayload = {
             name: 'Default carrier',
             active: 1,
             deleted: 0,
@@ -165,7 +170,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     let id_customer = customerMap.get(email);
     if (!id_customer) {
         try {
-            const customerData: Customer = {
+            const customerData: CustomerCreatePayload = {
                 firstname: 'Client',
                 lastname: nom,
                 email: email,
@@ -190,7 +195,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     let id_address = addressMap.get(addressKey);
     if (!id_address) {
         try {
-            const addressData: Address = {
+            const addressData: AddressCreatePayload = {
                 id_customer: id_customer,
                 id_country: 8,
                 firstname: 'Client',
@@ -215,7 +220,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     let id_cart: number;
     let secureKey = "";
     try {
-        const cartData: Cart = {
+        const cartData: CartCreatePayload = {
             id_customer: id_customer,
             id_address_delivery: id_address,
             id_address_invoice: id_address,
@@ -282,13 +287,22 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             }
         }
 
-        resolvedTuples.push({
-            id_product: productData.id_product,
-            id_product_attribute,
-            qty: tuple.qty,
-            unit_price_ttc,
-            rate,
-        });
+        const existing = resolvedTuples.find(t =>
+            t.id_product === productData.id_product &&
+            t.id_product_attribute === id_product_attribute
+        );
+        if (existing) {
+            existing.qty += tuple.qty;
+            console.log(`[orderImport] Consolidated duplicate product/combination ref: ${tuple.ref}, new qty: ${existing.qty}`);
+        } else {
+            resolvedTuples.push({
+                id_product: productData.id_product,
+                id_product_attribute,
+                qty: tuple.qty,
+                unit_price_ttc,
+                rate,
+            });
+        }
     }
     if (resolvedTuples.length === 0) {
         console.warn(`No valid products for ${email}`);
@@ -358,7 +372,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
 
     // ========== ORDER CREATE ==========
     try {
-        const orderData: Order = {
+        const orderData: OrderCreatePayload = {
             id_shop: 1,
             id_shop_group: 1,
             id_cart: id_cart,
@@ -372,13 +386,23 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             payment: 'Check payment',
             secure_key: secureKey,
             conversion_rate: 1,
+            total_discounts: 0,
+            total_discounts_tax_incl: 0,
+            total_discounts_tax_excl: 0,
             total_products: parseFloat(total_products.toFixed(6)),
             total_products_wt: parseFloat(total_products_wt.toFixed(6)),
+            total_shipping: total_shipping,
+            total_shipping_tax_incl: total_shipping,
+            total_shipping_tax_excl: total_shipping,
+            total_wrapping: 0,
+            total_wrapping_tax_incl: 0,
+            total_wrapping_tax_excl: 0,
             total_paid: parseFloat(total_paid.toFixed(6)),
             total_paid_real: parseFloat(total_paid.toFixed(6)),
             total_paid_tax_incl: parseFloat(total_paid.toFixed(6)),
             total_paid_tax_excl: parseFloat(total_products.toFixed(6)),
             current_state: initialStateId,
+            valid: 1,
             date_add: dateFormatted,
             associations: {
                 order_rows: {
@@ -391,11 +415,21 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             }
         };
 
+
+        console.log(`Sending order payload for customer ${email}:`, JSON.stringify(orderData, null, 2));
         const res = await apiService.post<any>("/orders", { order: orderData });
+
+        if (res?.prestashop?.errors) {
+            console.error("PrestaShop order creation error response:", JSON.stringify(res, null, 2));
+            throw new Error(`PrestaShop order creation errors: ${JSON.stringify(res.prestashop.errors)}`);
+        }
 
         const id = res?.prestashop?.order?.id;
 
-        if (!id) throw new Error("No order id returned");
+        if (!id) {
+            console.error("PrestaShop order creation response without order id:", JSON.stringify(res, null, 2));
+            throw new Error(`No order id returned. Full response: ${JSON.stringify(res)}`);
+        }
         const id_order = parseInt(id, 10);
         orderCountMap.set(id_order, true);
         console.log(`Order created: ${id_order}`);
@@ -460,6 +494,6 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         console.log(`Order history added for ${id_order}`);
 
     } catch (err: any) {
-        console.error("ORDER ERROR:", err);
+        console.error(`ORDER ERROR for row [${email} / date ${date}]:`, err);
     }
 }

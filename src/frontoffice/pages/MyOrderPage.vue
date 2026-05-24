@@ -16,10 +16,16 @@
           {{ order.currentState.label }}
         </div>
         <div>
-          <input v-model="multipi.nombre" type="number"/>
-        </div>
-        <div>
-          <button @click="reorder(order.id)" class="btn-reorder">Acheter à nouveau</button>
+          <input
+              type="number"
+              v-model.number="(order as any).multipli"
+              @vue:mounted="(order as any).multipli = 1"
+              min="1"
+              class="input-quantity"
+          />
+          <button @click="reorder(order.id, (order as any).multipli)" class="btn-reorder">
+            Acheter à nouveau
+          </button>
         </div>
       </div>
 
@@ -36,17 +42,24 @@
 <script setup lang="ts">
 import {ref, onMounted, computed, reactive} from 'vue';
 import { useOrders } from '@features/checkout/composables/useOrders';
-import { useAuthStore } from '@features/auth/stores/customerAuthStore';
+import { useCustomerAuthStore as useAuthStore } from '@shared/models/auth';
 import BasePagination from '@shared/ui/components/BasePagination.vue';
-import {useCartStore} from "@features/checkout/stores/cartStore";
-
-
-const multipli = reactive({
-  nombre: 1
-})
+import { useRouter } from 'vue-router';
 
 const { orders, isLoading, error, loadOrdersAndMetadata } = useOrders();
 const authStore = useAuthStore();
+const router = useRouter();
+
+const reorder = (orderId: number, multipli: number) => {
+  const finalMultiplier = multipli || 1;
+  router.push({
+    path: '/reorder',
+    query: {
+      orderId: orderId.toString(),
+      multiplier: finalMultiplier.toString()
+    }
+  });
+};
 
 const currentPage = ref(1);
 const itemsPerPage = 10;

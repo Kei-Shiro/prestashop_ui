@@ -41,8 +41,8 @@
 
 <script setup lang="ts">
 
-import productService from '@features/catalog/services/product-service';
-import {useCartStore} from "@features/checkout/stores/cartStore";
+import { productService } from '@shared/models/product';
+import { useCartStore } from '@shared/models/cart';
 
 const cartStore = useCartStore();
 const getImageUrl = (product: any) =>

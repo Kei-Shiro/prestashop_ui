@@ -1,7 +1,13 @@
 import Papa from "papaparse";
 import apiService from "@shared/api/api-service";
 import { productMap } from "./productImportService";
-import type { StockCSVRow, CombinationMapEntry, ProductOption, ProductOptionValue, CombinationPost, StockAvailablePut, StockAvailableGet, LValue, StockMovement } from "@shared/types/import";
+import type { StockCSVRow, CombinationMapEntry } from "@shared/types/import";
+import type { LangField } from "@shared/types/common";
+import type { ProductOptionCreatePayload } from "@shared/types/product-option";
+import type { ProductOptionValueCreatePayload } from "@shared/types/product-option-value";
+import type { CombinationCreatePayload } from "@shared/types/combination";
+import type { StockAvailableUpdatePayload, StockAvailable } from "@shared/types/stock-available";
+import type { StockMovement } from "@shared/types/stock-movement";
 import { extractIdValue } from "@shared/utils/extractIdValue";
 import { ImportValidator } from "@shared/utils/import-validator";
 import { ensureArray } from '@shared/utils/arrayUtils';
@@ -10,12 +16,10 @@ export const attributeMap = new Map<string, number>();
 export const attributeValueMap = new Map<string, Map<string, number>>();
 export const combinationMap = new Map<string, CombinationMapEntry>();
 
-const toLValue = (text: string): LValue => ({
-  language: {
-    '@_id': 1,
-    '#text': text
-  }
+const toLValue = (text: string): LangField => ({
+    language: { '@_id': 1, '#text': text }
 });
+
 
 export const importCombinationsAndStocks = async (csvFile: File): Promise<void> => {
   attributeMap.clear();
@@ -107,7 +111,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         );
 
         const rawSimple = stockGetRes?.prestashop?.stock_availables?.stock_available;
-        const allSimpleStocks: StockAvailableGet[] = ensureArray(rawSimple);
+        const allSimpleStocks: StockAvailable[] = ensureArray(rawSimple);
         const simpleStock = allSimpleStocks.find(
             (s: any) => !s.id_product_attribute || extractIdValue(s.id_product_attribute) === '0'
         ) ?? allSimpleStocks[0];
@@ -184,7 +188,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
       } catch (_) { /* pas trouvé */ }
 
       if (!attributeMap.has(specificite)) {
-        const optionData: ProductOption = {
+        const optionData: ProductOptionCreatePayload = {
           group_type: 'select',
           name: toLValue(specificite),
           public_name: toLValue(specificite)
@@ -230,7 +234,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
       } catch (_) { /* pas trouvée */ }
 
       if (!valMap.has(valeur)) {
-        const optionValueData: ProductOptionValue = {
+        const optionValueData: ProductOptionValueCreatePayload = {
           id_attribute_group: attributeId,
           name: toLValue(valeur)
         };
@@ -286,7 +290,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
           impactHt = (prixVenteTtc - productData.prix_ttc) / (1 + productData.rate / 100);
         }
 
-        const combinationData: CombinationPost = {
+        const combinationData: CombinationCreatePayload = {
           id_product: productId,
           reference: reference,
           price: parseFloat(impactHt.toFixed(6)),
@@ -322,7 +326,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
       );
 
       const rawCombo = stockGetRes?.prestashop?.stock_availables?.stock_available;
-      const allComboStocks: StockAvailableGet[] = ensureArray(rawCombo);
+      const allComboStocks: StockAvailable[] = ensureArray(rawCombo);
       const quantity = ImportValidator.validatePositiveAmount(stock_initial, 'stock_initial', true);
 
       if (allComboStocks.length > 0) {

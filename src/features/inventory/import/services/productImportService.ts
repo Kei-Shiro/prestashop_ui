@@ -1,20 +1,25 @@
 import Papa from 'papaparse';
 import apiService from '@shared/api/api-service';
-import type { ProductCSVRow, ProductMapEntry, Category, Tax, TaxRuleGroup, TaxRulePost, ProductPost, LValue } from '@shared/types/import';
+import type { ProductCSVRow, ProductMapEntry } from '@shared/types/import';
+import type { LangField } from '@shared/types/common';
+import type { TaxCreatePayload } from '@shared/types/tax';
+import type { TaxRuleGroupCreatePayload } from '@shared/types/tax-rule-group';
+import type { TaxRuleCreatePayload } from '@shared/types/tax-rule';
+import type { CategoryCreatePayload } from '@shared/types/category';
+import type { ProductCreatePayload } from '@shared/types/product';
 import { ImportValidator } from '@shared/utils/import-validator';
 import { extractIdValue } from '@shared/utils/extractIdValue';
 import { ensureArray } from '@shared/utils/arrayUtils';
+
+/** Helper to build a single-language LangField for API payloads. */
+const toLValue = (text: string): LangField => ({
+    language: { '@_id': 1, '#text': text }
+});
 
 export const taxRateMap = new Map<string, { id_tax_rules_group: number; rate_numeric: number }>();
 export const categoryMap = new Map<string, number>();
 export const productMap = new Map<string, ProductMapEntry>();
 
-const toLValue = (text: string): LValue => ({
-  language: {
-    '@_id': 1,
-    '#text': text
-  }
-});
 
 export async function importProducts(csvFile: File): Promise<void> {
   taxRateMap.clear();
@@ -113,7 +118,7 @@ async function processTaxes(uniqueTaxes: string[]) {
       } catch (_) { /* pas trouvée, on crée */ }
 
       if (!id_tax) {
-        const taxData: Tax = {
+        const taxData: TaxCreatePayload = {
           rate: rateNum,
           active: 1,
           name: toLValue(`Taxe ${rateNum}%`)
@@ -123,7 +128,7 @@ async function processTaxes(uniqueTaxes: string[]) {
       }
 
       if (!id_tax_rules_group) {
-        const groupData: TaxRuleGroup = {
+        const groupData: TaxRuleGroupCreatePayload = {
           name: `Group ${rateNum}%`,
           active: 1
         };
@@ -133,7 +138,7 @@ async function processTaxes(uniqueTaxes: string[]) {
 
       if (id_tax && id_tax_rules_group) {
         // id_country=8 (France, seul pays actif)
-        const ruleData: TaxRulePost = {
+        const ruleData: TaxRuleCreatePayload = {
           id_tax_rules_group: parseInt(id_tax_rules_group, 10),
           id_tax: parseInt(id_tax, 10),
           id_country: 8
@@ -167,7 +172,7 @@ async function processCategories(uniqueCategories: string[]) {
         continue;
       }
 
-      const catData: Category = {
+      const catData: CategoryCreatePayload = {
         active: 1,
         id_parent: 2, // Home
         name: toLValue(catName),
@@ -231,7 +236,7 @@ async function processProducts(rows: ProductCSVRow[]) {
       const rate = taxData?.rate_numeric || 20;
       const priceHt = cleanPrixTtc / (1 + rate / 100);
 
-      const productData: ProductPost = {
+      const productData: ProductCreatePayload = {
         name: toLValue(row.produit),
         reference: row.reference,
         price: parseFloat(priceHt.toFixed(6)),

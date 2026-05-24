@@ -50,8 +50,8 @@
 </template>
 
 <script setup lang="ts">
-import { useCartStore } from '@features/checkout/stores/cartStore';
-import { useAuthStore } from '@features/auth/stores/customerAuthStore';
+import { useCartStore } from '@shared/models/cart';
+import { useCustomerAuthStore as useAuthStore } from '@shared/models/auth';
 import { useRouter } from 'vue-router';
 
 const cartStore = useCartStore();

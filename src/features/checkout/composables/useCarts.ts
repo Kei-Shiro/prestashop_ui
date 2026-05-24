@@ -1,6 +1,8 @@
 import { ref } from "vue";
-import { orderService } from "../services/order-service";
-import productService from "@features/catalog/services/product-service";
+import { orderService } from '@shared/models/order';
+import { productService } from '@shared/models/product';
+import { customerService } from '@shared/models/customer';
+import { cartService } from '@shared/models/cart';
 import { ensureArray } from '@shared/utils/arrayUtils';
 
 export interface MappedCart {
@@ -30,8 +32,8 @@ export function useCarts() {
         try {
             const [rawOrders, rawCustomers, rawCarts] = await Promise.all([
                 orderService.getOrders(),
-                orderService.getCustomers(),
-                orderService.getCarts()
+                customerService.getAllCustomers(),
+                cartService.getCarts()
             ]);
 
             const ordersArray = ensureArray(rawOrders);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import resetService from '@features/auth/services/reset-service';
+import { resetService } from '@shared/models/auth';
 import PageHeader from '@features/dashboard/components/PageHeader.vue';
 
 const isConfirming = ref(false);

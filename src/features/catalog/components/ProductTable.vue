@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Product } from '@shared/types/product';
+import type { Product } from '@shared/models/product';
 
 defineProps<{
   products: Product[];

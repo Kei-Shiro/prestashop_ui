@@ -104,13 +104,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
-import { useProductStore } from '@features/catalog/stores/adminProductStore';
+import { useProductStore, productService } from '@shared/models/product';
 import { ensureArray } from '@shared/utils/arrayUtils';
 import { formatForDisplay } from '@shared/utils/dateUtils';
 import { extractIdValue } from '@shared/utils/extractIdValue';
 import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
-import { useStockStore } from '@features/inventory/stores/stockStore';
-import productService from '@features/catalog/services/product-service';
+import { useStockStore } from '@shared/models/stock';
 import BasePagination from '@shared/ui/components/BasePagination.vue';
 
 const productStore = useProductStore();

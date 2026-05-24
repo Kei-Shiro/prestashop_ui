@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { useCartStore } from '@features/checkout/stores/cartStore';
+import { useCartStore } from '@shared/models/cart';
 import CartItemRow from './CartItemRow.vue';
 import BaseButton from '@shared/ui/components/BaseButton.vue';
 

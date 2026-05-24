@@ -47,9 +47,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '@features/auth/stores/customerAuthStore';
-import { useCartStore } from '@features/checkout/stores/cartStore';
-import { customerService } from '@features/auth/services/customer-service';
+import { useCustomerAuthStore as useAuthStore } from '@shared/models/auth';
+import { useCartStore } from '@shared/models/cart';
+import { customerService } from '@shared/models/customer';
 import BasePagination from '@shared/ui/components/BasePagination.vue';
 
 const router = useRouter();

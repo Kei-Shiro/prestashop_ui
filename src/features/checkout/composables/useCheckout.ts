@@ -1,9 +1,8 @@
 import { ref } from 'vue';
-import { orderService } from '../services/order-service';
-import { customerService } from '@features/auth/services/customer-service';
-import { useCartStore } from '@features/checkout/stores/cartStore';
-import { useAuthStore } from '@features/auth/stores/customerAuthStore';
-import { CheckoutForm } from "@shared/types/checkout";
+import { orderService, CheckoutForm } from '@shared/models/order';
+import { customerService } from '@shared/models/customer';
+import { useCartStore, cartService } from '@shared/models/cart';
+import { useCustomerAuthStore as useAuthStore } from '@shared/models/auth';
 import { extractIdValue } from '@shared/utils/extractIdValue';
 
 export function useCheckout() {
@@ -72,7 +71,7 @@ export function useCheckout() {
 
             const [initialStateId, carrierId, moduleName] = await Promise.all([
                 resolveInitialStateId(),
-                orderService.detectCarrierId(),
+                cartService.detectCarrierId(),
                 orderService.detectCodModuleName()
             ]);
 
@@ -81,13 +80,13 @@ export function useCheckout() {
                 totalToUse = cartStore.items.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
             }
 
-            const existingCartId = await orderService.getLatestOpenCartId(customerId);
+            const existingCartId = await cartService.getLatestOpenCartId(customerId);
             let cartId: number;
 
             if (existingCartId) {
-                cartId = await orderService.updateCart(existingCartId, customerId, items, addressId);
+                cartId = await cartService.updateCart(existingCartId, customerId, items, addressId);
             } else {
-                cartId = await orderService.createCart(customerId, items, addressId);
+                cartId = await cartService.createCart(customerId, items, addressId);
             }
 
             const orderId = await orderService.createOrder(

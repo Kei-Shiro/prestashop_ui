@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Product } from '@shared/types/product';
+import type { Product } from '@shared/models/product';
 import ProductCard from '@features/catalog/components/ProductCard.vue';
 
 interface Props {

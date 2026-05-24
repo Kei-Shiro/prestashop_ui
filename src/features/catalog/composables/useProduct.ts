@@ -1,7 +1,6 @@
 // shared/composables/useProduct.ts
 import { ref } from 'vue';
-import productService from '../services/product-service';
-import type { Product } from '@shared/types/product';
+import productService, { Product } from '@shared/models/product';
 
 export function useProduct() {
     const products = ref<Product[]>([]);

@@ -25,9 +25,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Product } from '@shared/types/product';
-import { useCartStore } from '@features/checkout/stores/cartStore';
-import productService from '@features/catalog/services/product-service';
+import { Product, productService } from '@shared/models/product';
+import { useCartStore } from '@shared/models/cart';
 
 const props = defineProps<{ product: Product }>();
 const cartStore = useCartStore();

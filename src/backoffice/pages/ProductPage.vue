@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import productService from '@features/catalog/services/product-service'
+import productService, { Product } from '@shared/models/product'
 import ProductTable from '@features/catalog/components/ProductTable.vue'
 import BasePagination from '@shared/ui/components/BasePagination.vue'
-import type { Product } from '@shared/types/product'
 
 const products = ref<Product[]>([])
 const loading = ref(false)

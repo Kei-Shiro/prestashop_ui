@@ -70,8 +70,8 @@
 import { reactive, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCheckout } from '@features/checkout/composables/useCheckout';
-import { useAuthStore } from '@features/auth/stores/customerAuthStore';
-import {useCartStore} from "@features/checkout/stores/cartStore";
+import { useCustomerAuthStore as useAuthStore } from '@shared/models/auth';
+import { useCartStore } from '@shared/models/cart';
 
 const router = useRouter();
 const authStore = useAuthStore();

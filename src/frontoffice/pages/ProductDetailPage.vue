@@ -50,8 +50,8 @@
 import { ref, onMounted, computed, watch, reactive } from 'vue';
 import { useRoute } from 'vue-router';
 import { useProduct } from '@features/catalog/composables/useProduct';
-import productService from '@features/catalog/services/product-service';
-import { useCartStore } from "@features/checkout/stores/cartStore";
+import { productService } from '@shared/models/product';
+import { useCartStore } from '@shared/models/cart';
 import { ensureArray } from '@shared/utils/arrayUtils';
 
 const route = useRoute();

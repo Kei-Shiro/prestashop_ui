@@ -54,8 +54,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { useOrderStore } from '@features/checkout/stores/adminOrderStore';
-import { useStatsStore } from '@features/dashboard/stores/statsStore';
+import { useOrderStore } from '@shared/models/order';
+import { useStatsStore } from '@shared/models/stats';
 import BasePagination from '@shared/ui/components/BasePagination.vue';
 import StockStatsTable from '@features/dashboard/components/StockStatsTable.vue';
 import DailyStatsTable from '@features/dashboard/components/DailyStatsTable.vue';

@@ -1,5 +1,5 @@
 import { ref, computed, type Ref } from 'vue';
-import type { Product } from '@shared/types/product';
+import type { Product } from '@shared/models/product';
 
 export function useProductFilters(products: Ref<Product[]>) {
     const filters = ref({

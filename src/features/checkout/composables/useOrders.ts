@@ -1,6 +1,6 @@
 import { ref } from "vue";
-import { MappedOrder } from "@shared/types/order";
-import { orderService } from "../services/order-service";
+import { MappedOrder, orderService } from '@shared/models/order';
+import { customerService } from '@shared/models/customer';
 import { ensureArray } from '@shared/utils/arrayUtils';
 
 /*const ALLOWED_STATE_IDS = [2, 6, 13];*/ // Paiement accepté, Annulé, En attente de paiement à la livraison
@@ -33,7 +33,7 @@ export function useOrders() {
             const [rawOrders, rawStates, rawCustomers] = await Promise.all([
                 orderService.getOrders(),
                 orderService.getOrderStates(),
-                orderService.getCustomers()
+                customerService.getAllCustomers()
             ]);
 
             const ordersArray = ensureArray(rawOrders);

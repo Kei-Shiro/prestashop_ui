@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { CartItem } from '@shared/types/cart';
+import type { CartItem } from '@shared/models/cart';
 
 interface Props {
   item: CartItem;
