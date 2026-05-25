@@ -9,7 +9,6 @@ import MyOrdersPage from '../pages/MyOrderPage.vue';
 import ReorderPage from '../pages/ReorderPage.vue';
 import DefaultLayout from '../layouts/DefaultLayout.vue';
 import { useCustomerAuthStore as useAuthStore } from '@shared/models/auth';
-import component from "*.vue";
 
 
 const routes = [

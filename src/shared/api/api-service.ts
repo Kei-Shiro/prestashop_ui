@@ -1,7 +1,6 @@
 import {defaultClient as api, defaultState} from '../api/client'
 import { Serializer } from '../utils/serializer'
 import type { AxiosRequestConfig } from 'axios'
-import {defaultClient} from "../api/client";
 
 const apiService = {
     async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {

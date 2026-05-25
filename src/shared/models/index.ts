@@ -1,5 +1,6 @@
 // Unified Domain entry point
-export { useCustomerAuthStore, useAdminAuthStore, authFrontService, resetService } from './auth';
+export { useCustomerAuthStore, useAdminAuthStore, authFrontService } from './auth';
+export { resetService } from '../services/reset-service';
 export { useCartStore, cartService } from './cart';
 export { useProductStore, productService } from './product';
 export { orderService } from './order';

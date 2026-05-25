@@ -7,6 +7,7 @@ import CartsPage from '@back/pages/CartsPage.vue'
 import DashboardPage from '@back/pages/DashboardPage.vue'
 import StockPage from '@back/pages/StockPage.vue'
 import StatsPage from '@back/pages/StatsPage.vue'
+import { useAdminAuthStore } from '@shared/models/auth'
 
 const router = createRouter({
     history: createWebHashHistory(),
@@ -25,8 +26,8 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-    const token = localStorage.getItem('admin_token')
-    if (to.meta.requiresAuth && !token) return { path: '/login' }
+    const adminAuthStore = useAdminAuthStore();
+    if (to.meta.requiresAuth && !adminAuthStore.isAuthenticated) return { path: '/login' }
 })
 
 export default router

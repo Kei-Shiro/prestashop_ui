@@ -4,6 +4,8 @@ import { productService } from '@shared/models/product';
 import { customerService } from '@shared/models/customer';
 import { cartService } from '@shared/models/cart';
 import { ensureArray } from '@shared/utils/arrayUtils';
+import { extractIdNumber } from '@shared/utils/extractIdValue';
+import { formatDateTimeForDisplay } from '@shared/utils/dateUtils';
 
 export interface MappedCart {
     id: number;
@@ -14,10 +16,6 @@ export interface MappedCart {
     itemsCount: number;
     rawCart: any;
 }
-
-import { extractIdValue } from '@shared/utils/extractIdValue';
-
-const psNum = (v: any): number => Number(extractIdValue(v));
 
 export function useCarts() {
     const carts = ref<MappedCart[]>([]);
@@ -30,27 +28,29 @@ export function useCarts() {
         error.value = null;
 
         try {
-            const [rawOrders, rawCustomers, rawCarts] = await Promise.all([
+            const [rawOrders, rawCarts] = await Promise.all([
                 orderService.getOrders(),
-                customerService.getAllCustomers(),
                 cartService.getCarts()
             ]);
 
             const ordersArray = ensureArray(rawOrders);
-            const customersArray = ensureArray(rawCustomers);
             const cartsArray = ensureArray(rawCarts);
 
-            const usedCartIds = new Set(ordersArray.map(o => psNum(o.id_cart)).filter(id => id > 0));
+            const usedCartIds = new Set(ordersArray.map(o => extractIdNumber(o.id_cart)).filter(id => id > 0));
+            const activeCarts = cartsArray.filter(cart => !usedCartIds.has(Number(cart.id)));
+
+            const customerIds = [...new Set(activeCarts.map(cart => extractIdNumber(cart.id_customer)).filter(id => id > 0))];
+            const rawCustomers = await customerService.getCustomersByIds(customerIds);
+            const customersArray = ensureArray(rawCustomers);
 
             const customersMap = new Map();
             customersArray.forEach(customer => {
                 customersMap.set(Number(customer.id), `${customer.firstname} ${customer.lastname}`);
             });
 
-            carts.value = cartsArray
-                .filter(cart => !usedCartIds.has(Number(cart.id)))
+            carts.value = activeCarts
                 .map(cart => {
-                    const customerId = psNum(cart.id_customer);
+                    const customerId = extractIdNumber(cart.id_customer);
                     
                     const rowsRaw = cart.associations?.cart_rows?.cart_row;
                     const rowsArr = ensureArray(rowsRaw);
@@ -60,8 +60,8 @@ export function useCarts() {
                         id: Number(cart.id),
                         customerId: customerId,
                         customerName: customersMap.get(customerId) || "Invité",
-                        dateAdd: cart.date_add ? new Date(cart.date_add).toLocaleString('fr-FR') : "",
-                        dateUpd: cart.date_upd ? new Date(cart.date_upd).toLocaleString('fr-FR') : "",
+                        dateAdd: formatDateTimeForDisplay(cart.date_add),
+                        dateUpd: formatDateTimeForDisplay(cart.date_upd),
                         itemsCount: itemsCount,
                         rawCart: cart
                     };
@@ -87,15 +87,16 @@ export function useCarts() {
             
             const rowsArr = ensureArray(rowsRaw);
             
-            // Fetch all products to get correct prices
-            const allProducts = await productService.getAll();
-            const productMap = new Map(allProducts.map(p => [p.id_product, p]));
+            // Fetch only specific products present in this cart to get correct prices
+            const productIds = [...new Set(rowsArr.map((row: any) => extractIdNumber(row.id_product)).filter(id => id > 0))];
+            const productsList = await Promise.all(productIds.map(id => productService.getProduct(id)));
+            const productMap = new Map(productsList.map(p => [p.id_product, p]));
 
             let totalAmount = 0;
             const items = rowsArr.map((row: any) => {
-                const idProd = String(psNum(row.id_product));
-                const idAttr = String(psNum(row.id_product_attribute) || 0);
-                const qty = psNum(row.quantity);
+                const idProd = String(extractIdNumber(row.id_product));
+                const idAttr = String(extractIdNumber(row.id_product_attribute) || 0);
+                const qty = extractIdNumber(row.quantity);
                 const product = productMap.get(idProd);
                 
                 if (product) {
@@ -109,9 +110,9 @@ export function useCarts() {
                 };
             });
 
-            const customerId = psNum(cart.rawCart.id_customer);
-            const addressId = psNum(cart.rawCart.id_address_delivery) || 1;
-            const carrierId = psNum(cart.rawCart.id_carrier) || 1;
+            const customerId = extractIdNumber(cart.rawCart.id_customer);
+            const addressId = extractIdNumber(cart.rawCart.id_address_delivery) || 1;
+            const carrierId = extractIdNumber(cart.rawCart.id_carrier) || 1;
 
             const orderId = await orderService.createOrder(
                 customerId,
@@ -119,9 +120,9 @@ export function useCarts() {
                 items,
                 totalAmount,
                 addressId,
-                11, // Paiement à distance accepté (corrigé selon utilisateur)
+                11, // Paiement à distance accepté
                 carrierId,
-                'ps_cashondelivery', // Safer module
+                'ps_cashondelivery',
                 'Paiement à distance'
             );
 

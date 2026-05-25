@@ -11,14 +11,13 @@ import type { StockMovement } from "@shared/types/stock-movement";
 import { extractIdValue } from "@shared/utils/extractIdValue";
 import { ImportValidator } from "@shared/utils/import-validator";
 import { ensureArray } from '@shared/utils/arrayUtils';
+import { toLValue } from '@shared/utils/extractLanguageValue';
+import { DomainPriceService } from '@shared/utils/priceUtils';
+import { toPrestashopDate } from '@shared/utils/dateUtils';
 
 export const attributeMap = new Map<string, number>();
 export const attributeValueMap = new Map<string, Map<string, number>>();
 export const combinationMap = new Map<string, CombinationMapEntry>();
-
-const toLValue = (text: string): LangField => ({
-    language: { '@_id': 1, '#text': text }
-});
 
 
 export const importCombinationsAndStocks = async (csvFile: File): Promise<void> => {
@@ -130,7 +129,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
             if (!movementDate) {
               movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
                 ? productData.available_date + ' 00:00:00'
-                : new Date().toISOString().slice(0, 19).replace('T', ' ');
+                : toPrestashopDate(new Date());
             }
             const stockMovementPayload: StockMovement = {
               id_employee: 1,
@@ -287,7 +286,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         if (row.prix_vente_ttc) {
           const parsed = ImportValidator.validatePositiveAmount(row.prix_vente_ttc, 'prix_vente_ttc');
           prixVenteTtc = parsed;
-          impactHt = (prixVenteTtc - productData.prix_ttc) / (1 + productData.rate / 100);
+          impactHt = DomainPriceService.calculateCombinationImpactHT(prixVenteTtc, productData.prix_ttc, productData.rate);
         }
 
         const combinationData: CombinationCreatePayload = {
@@ -343,7 +342,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
           if (!movementDate) {
             movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
                 ? productData.available_date + ' 00:00:00'
-                : new Date().toISOString().slice(0, 19).replace('T', ' ');
+                : toPrestashopDate(new Date());
           }
 
           // Use the stockId from the current stockRecord in the loop

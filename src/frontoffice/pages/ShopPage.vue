@@ -7,7 +7,7 @@
       </header>
       
       <section class="shop-filters-section">
-        <ProductFilters @filter="applyFilters" />
+        <ProductFilters :key="filtersKey" @filter="applyFilters" />
       </section>
       
       <main class="shop-main">
@@ -34,7 +34,7 @@
               :product="product"
           />
         </div>
-
+ 
         <BasePagination
           v-if="!loading && !error && filteredProducts.length > 0"
           v-model:current-page="currentPage"
@@ -45,7 +45,7 @@
     </div>
   </div>
 </template>
-
+ 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { useProduct } from '@features/catalog/composables/useProduct';
@@ -53,30 +53,36 @@ import { useProductFilters } from '@features/catalog/composables/useProductFilte
 import ProductCard from '@features/catalog/components/ProductCard.vue';
 import ProductFilters from '@features/catalog/components/ProductFilters.vue';
 import BasePagination from '@shared/ui/components/BasePagination.vue';
-
+ 
 const { products, loading, error, fetchProducts } = useProduct();
 const { filters, filteredProducts, applyFilters } = useProductFilters(products);
-
+ 
 const currentPage = ref(1);
 const itemsPerPage = 12;
-
+const filtersKey = ref(0);
+ 
 const paginatedProducts = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
   return filteredProducts.value.slice(start, start + itemsPerPage);
 });
-
+ 
 // Reset to page 1 when filters change
 watch(filteredProducts, () => {
   currentPage.value = 1;
 });
-
+ 
 onMounted(async () => {
   await fetchProducts();
 });
-
+ 
 const resetAll = () => {
-  // Logic to reset filters (can be handled via emit if needed)
-  window.location.reload(); 
+  filtersKey.value++;
+  applyFilters({
+    name: '',
+    category: '',
+    priceMin: null,
+    priceMax: null
+  });
 };
 </script>
 

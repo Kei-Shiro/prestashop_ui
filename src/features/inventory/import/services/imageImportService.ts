@@ -14,16 +14,19 @@ export const importImages = async (zipFile: File): Promise<void> => {
   const imageEntries = Object.values(zip.files).filter(entry => {
     if (entry.dir) return false;
     const lowerName = entry.name.toLowerCase();
-    // Ne garder que les fichiers à la racine (pas de /) et les extensions valides
-    return !entry.name.includes('/') && 
-           (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png'));
+    const isImage = lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png');
+    if (!isImage) return false;
+
+    // Get the base filename (excluding directory path)
+    const fileName = entry.name.split('/').pop();
+    return !!fileName && fileName.length > 0;
   });
 
   let successCount = 0;
   let skippedCount = 0;
 
   for (const entry of imageEntries) {
-    const fileName = entry.name;
+    const fileName = entry.name.split('/').pop() || entry.name;
     // Extraire la référence: ex: "T_01.png" -> "T_01"
     const lastDotIndex = fileName.lastIndexOf('.');
     const reference = lastDotIndex !== -1 ? fileName.substring(0, lastDotIndex) : fileName;

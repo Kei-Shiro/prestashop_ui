@@ -6,6 +6,7 @@ import { extractIdValue } from '@shared/utils/extractIdValue';
 import { ensureArray } from '@shared/utils/arrayUtils';
 import { withLoading } from '@shared/utils/asyncUtils';
 import taxService from './tax';
+import { DomainPriceService } from '@shared/utils/priceUtils';
 import type { Product, ProductCreatePayload } from '@shared/types/product';
 import type { Combination } from '@shared/types/combination';
 
@@ -31,71 +32,68 @@ export const productService = {
             }
         });
 
-        const productsWithImages = await Promise.all(
-            list.map(async (p: any): Promise<Product> => {
-                let images: string[] = [];
-                if (p.associations?.images?.image) {
-                    const imgAssoc = p.associations.images.image;
-                    images = ensureArray(imgAssoc).map((i: any) => extractIdValue(i));
-                    images = images.filter((i: string) => i && i !== 'undefined' && i !== '0');
-                }
-                const defaultImage = extractIdValue(p.id_default_image) || (images.length > 0 ? images[0] : undefined);
+        const productsWithImages = list.map((p: any): Product => {
+            let images: string[] = [];
+            if (p.associations?.images?.image) {
+                const imgAssoc = p.associations.images.image;
+                images = ensureArray(imgAssoc).map((i: any) => extractIdValue(i));
+                images = images.filter((i: string) => i && i !== 'undefined' && i !== '0');
+            }
+            const defaultImage = extractIdValue(p.id_default_image) || (images.length > 0 ? images[0] : undefined);
 
-                let productCategories: string[] = [];
-                if (p.associations?.categories?.category) {
-                    const catAssoc = p.associations.categories.category;
-                    productCategories = ensureArray(catAssoc).map((c: any) => extractIdValue(c));
-                }
+            let productCategories: string[] = [];
+            if (p.associations?.categories?.category) {
+                const catAssoc = p.associations.categories.category;
+                productCategories = ensureArray(catAssoc).map((c: any) => extractIdValue(c));
+            }
 
-                let productOptionValues: { id: string }[] = [];
-                if (p.associations?.product_option_values?.product_option_value) {
-                    const optAssoc = p.associations.product_option_values.product_option_value;
-                    productOptionValues = ensureArray(optAssoc).map((o: any) => ({ id: extractIdValue(o) }));
-                }
+            let productOptionValues: { id: string }[] = [];
+            if (p.associations?.product_option_values?.product_option_value) {
+                const optAssoc = p.associations.product_option_values.product_option_value;
+                productOptionValues = ensureArray(optAssoc).map((o: any) => ({ id: extractIdValue(o) }));
+            }
 
-                const pid = extractIdValue(p.id);
-                const taxRuleGroupId = extractIdValue(p.id_tax_rules_group);
-                const taxRate = taxRates.get(taxRuleGroupId) || 0;
-                const priceHT = parseFloat(p.price || '0');
-                const priceTTC = priceHT * (1 + taxRate / 100);
+            const pid = extractIdValue(p.id);
+            const taxRuleGroupId = extractIdValue(p.id_tax_rules_group);
+            const taxRate = taxRates.get(taxRuleGroupId) || 0;
+            const priceTTC = DomainPriceService.calculateTTC(p.price || '0', taxRate);
 
-                return {
-                    id_product: pid,
-                    id_manufacturer: extractIdValue(p.id_manufacturer) || undefined,
-                    id_supplier: extractIdValue(p.id_supplier) || undefined,
-                    id_category_default: extractIdValue(p.id_category_default) || undefined,
-                    id_tax_rules_group: taxRuleGroupId || undefined,
-                    id_default_image: defaultImage,
-                    id_default_combination: extractIdValue(p.id_default_combination) || undefined,
-                    reference: p.reference || undefined,
-                    ean13: p.ean13 || undefined,
-                    isbn: p.isbn || undefined,
-                    upc: p.upc || undefined,
-                    price: priceTTC.toFixed(2),
-                    wholesale_price: p.wholesale_price || undefined,
-                    tax_rate: taxRate,
-                    active: p.active === '1',
-                    name: extractLanguageValue(p.name),
-                    description: extractLanguageValue(p.description),
-                    description_short: extractLanguageValue(p.description_short),
-                    link_rewrite: extractLanguageValue(p.link_rewrite) || undefined,
-                    quantity: stockMap.get(pid) || '0',
-                    images,
-                    category: extractIdValue(p.id_category_default) || '2',
-                    categories: productCategories,
-                    date_availability: p.available_date || '',
-                    date_add: p.date_add || '',
-                    date_upd: p.date_upd || '',
-                    product_option_values: productOptionValues,
-                    weight: p.weight || undefined,
-                    condition: p.condition || undefined,
-                    visibility: p.visibility || undefined,
-                    minimal_quantity: p.minimal_quantity || undefined,
-                    state: p.state || undefined,
-                    product_type: p.product_type || undefined,
-                };
-            })
-        );
+            return {
+                id_product: pid,
+                id_manufacturer: extractIdValue(p.id_manufacturer) || undefined,
+                id_supplier: extractIdValue(p.id_supplier) || undefined,
+                id_category_default: extractIdValue(p.id_category_default) || undefined,
+                id_tax_rules_group: taxRuleGroupId || undefined,
+                id_default_image: defaultImage,
+                id_default_combination: extractIdValue(p.id_default_combination) || undefined,
+                reference: p.reference || undefined,
+                ean13: p.ean13 || undefined,
+                isbn: p.isbn || undefined,
+                upc: p.upc || undefined,
+                price: priceTTC.toFixed(2),
+                wholesale_price: p.wholesale_price || undefined,
+                tax_rate: taxRate,
+                active: p.active === '1',
+                name: extractLanguageValue(p.name),
+                description: extractLanguageValue(p.description),
+                description_short: extractLanguageValue(p.description_short),
+                link_rewrite: extractLanguageValue(p.link_rewrite) || undefined,
+                quantity: stockMap.get(pid) || '0',
+                images,
+                category: extractIdValue(p.id_category_default) || '2',
+                categories: productCategories,
+                date_availability: p.available_date || '',
+                date_add: p.date_add || '',
+                date_upd: p.date_upd || '',
+                product_option_values: productOptionValues,
+                weight: p.weight || undefined,
+                condition: p.condition || undefined,
+                visibility: p.visibility || undefined,
+                minimal_quantity: p.minimal_quantity || undefined,
+                state: p.state || undefined,
+                product_type: p.product_type || undefined,
+            };
+        });
 
         return productsWithImages;
     },
@@ -136,8 +134,7 @@ export const productService = {
         const pid = extractIdValue(p.id);
         const taxRuleGroupId = extractIdValue(p.id_tax_rules_group);
         const taxRate = taxRates.get(taxRuleGroupId) || 0;
-        const priceHT = parseFloat(p.price || '0');
-        const priceTTC = priceHT * (1 + taxRate / 100);
+        const priceTTC = DomainPriceService.calculateTTC(p.price || '0', taxRate);
 
         return {
             id_product: pid,
@@ -219,13 +216,7 @@ export const productService = {
         return await apiService.fetchList<any>('/product_options?display=full', 'product_options', 'product_option');
     },
 
-    extractLanguageValue(field: any): string {
-        return extractLanguageValue(field);
-    },
 
-    extractIdValue(val: any): string {
-        return extractIdValue(val);
-    },
 
     async getImageIds(id: number): Promise<string[]> {
         try {

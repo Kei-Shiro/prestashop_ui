@@ -53,6 +53,10 @@ import { useProduct } from '@features/catalog/composables/useProduct';
 import { productService } from '@shared/models/product';
 import { useCartStore } from '@shared/models/cart';
 import { ensureArray } from '@shared/utils/arrayUtils';
+import { extractIdValue } from '@shared/utils/extractIdValue';
+import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
+import { DomainPriceService } from '@shared/utils/priceUtils';
+import { DomainCatalogHelper } from '@shared/utils/catalogUtils';
 
 const route = useRoute();
 const { currentProduct, loading, error, fetchProduct } = useProduct();
@@ -77,7 +81,7 @@ const selectedCombination = computed(() => {
         
         // Check if every selected option matches this combination
         return Object.entries(selectedOptions).every(([groupId, valId]) => {
-            return vals.some((v: any) => productService.extractIdValue(v.id || v) === String(valId));
+            return vals.some((v: any) => extractIdValue(v.id || v) === String(valId));
         });
     });
 });
@@ -88,8 +92,7 @@ const displayPrice = computed(() => {
     const taxRate = product.value.tax_rate || 0;
     
     if (selectedCombination.value) {
-        const impactHT = parseFloat(selectedCombination.value.price || '0');
-        const impactTTC = impactHT * (1 + taxRate / 100);
+        const impactTTC = DomainPriceService.calculateTTC(selectedCombination.value.price || '0', taxRate);
         return (basePriceTTC + impactTTC).toFixed(2);
     }
     return basePriceTTC.toFixed(2);
@@ -115,32 +118,7 @@ onMounted(async () => {
             productService.getProductOptions()
         ]);
 
-        // Map combinations to identify unique attributes
-        const usedValIds = new Set<string>();
-        combinations.value.forEach(c => {
-            const comboVals = c.associations?.product_option_values?.product_option_value;
-            const vals = ensureArray(comboVals);
-            vals.forEach((v: any) => {
-                const vid = productService.extractIdValue(v.id || v);
-                if (vid) usedValIds.add(vid);
-            });
-        });
-
-        const prodVals = allVals.filter(v => usedValIds.has(productService.extractIdValue(v.id)));
-        const usedGroupIds = new Set(prodVals.map(v => productService.extractIdValue(v.id_attribute_group)));
-        
-        attributeGroups.value = allOpts
-            .filter(o => usedGroupIds.has(productService.extractIdValue(o.id)))
-            .map(o => ({
-                id: productService.extractIdValue(o.id),
-                name: productService.extractLanguageValue(o.name || o.public_name),
-                values: prodVals
-                    .filter(v => productService.extractIdValue(v.id_attribute_group) === productService.extractIdValue(o.id))
-                    .map(v => ({
-                        id: productService.extractIdValue(v.id),
-                        name: productService.extractLanguageValue(v.name)
-                    }))
-            }));
+        attributeGroups.value = DomainCatalogHelper.extractAttributeGroups(combinations.value, allVals, allOpts);
 
         // Initialize selection
         attributeGroups.value.forEach(g => {
@@ -152,7 +130,7 @@ onMounted(async () => {
 // Watch for selection changes to update stock
 watch(selectedCombination, async (newCombo) => {
     if (newCombo) {
-        const comboId = productService.extractIdValue(newCombo.id);
+        const comboId = extractIdValue(newCombo.id);
         combinationStock.value = await productService.getCombinationStock(parseInt(comboId));
     } else {
         combinationStock.value = null;
@@ -161,7 +139,7 @@ watch(selectedCombination, async (newCombo) => {
 
 const addToCart = () => {
     if (!product.value) return;
-    const comboId = selectedCombination.value ? productService.extractIdValue(selectedCombination.value.id) : '0';
+    const comboId = selectedCombination.value ? extractIdValue(selectedCombination.value.id) : '0';
     cartStore.addProduct(product.value, quantity.value, comboId, parseFloat(displayPrice.value));
 };
 </script>

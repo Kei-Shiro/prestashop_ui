@@ -10,8 +10,8 @@
           <label class="form-label">Produit</label>
           <select v-model="selectedProduct" required class="form-input">
             <option value="" disabled>Sélectionner un produit</option>
-            <option v-for="product in productStore.products" :key="product.id_product || (product as any).id" :value="product.id_product || (product as any).id">
-              {{ extractLanguageValue(product.name) || `Produit #${product.id_product || (product as any).id}` }}
+            <option v-for="product in productStore.products" :key="product.id_product" :value="product.id_product">
+              {{ extractLanguageValue(product.name) || `Produit #${product.id_product}` }}
             </option>
           </select>
         </div>
@@ -42,8 +42,8 @@
           <label class="filter-label">Filtrer par produit</label>
           <select v-model="filterProduct" class="filter-input">
             <option value="all">Tous les produits</option>
-            <option v-for="product in productStore.products" :key="product.id_product || (product as any).id" :value="String(product.id_product || (product as any).id)">
-              {{ extractLanguageValue(product.name) || `Produit #${product.id_product || (product as any).id}` }}
+            <option v-for="product in productStore.products" :key="product.id_product" :value="String(product.id_product)">
+              {{ extractLanguageValue(product.name) || `Produit #${product.id_product}` }}
             </option>
           </select>
         </div>
@@ -110,6 +110,7 @@ import { formatForDisplay } from '@shared/utils/dateUtils';
 import { extractIdValue } from '@shared/utils/extractIdValue';
 import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
 import { useStockStore } from '@shared/models/stock';
+import { DomainCatalogHelper } from '@shared/utils/catalogUtils';
 import BasePagination from '@shared/ui/components/BasePagination.vue';
 
 const productStore = useProductStore();
@@ -204,20 +205,12 @@ const loadCombinations = async (productId: string, targetRef: any) => {
             productService.getProductOptionValues(),
         ]);
 
-        const ovNames: Record<string, string> = {};
-        for (const ov of optionValues) {
-            const id = extractIdValue(ov.id);
-            if (id) ovNames[id] = extractLanguageValue(ov.name);
-        }
+        const ovNames = DomainCatalogHelper.buildOptionValueNamesMap(optionValues);
 
         targetRef.value = combinations.map((c: any) => {
             const cId = extractIdValue(c.id);
-            const ovAssoc = c.associations?.product_option_values?.product_option_value;
-            const ovIds = ovAssoc
-                ? ensureArray(ovAssoc).map((o: any) => extractIdValue(o))
-                : [];
-            const names = ovIds.map((id: string) => ovNames[id]).filter(Boolean);
-            return { id: cId, name: names.length > 0 ? names.join(', ') : extractIdValue(c.reference) || `#${cId}` };
+            const label = DomainCatalogHelper.buildCombinationLabel(c, ovNames);
+            return { id: cId, name: label };
         });
     } finally {
         loadingCombinations.value = false;
@@ -247,7 +240,7 @@ onMounted(async () => {
 });
 
 const getProductName = (id: string) => {
-    const product = productStore.products.find((p: any) => String(p.id_product || p.id) === String(id));
+    const product = productStore.products.find((p: any) => String(p.id_product) === String(id));
     if (!product) return `Produit #${id}`;
     return extractLanguageValue(product.name) || `Produit #${id}`;
 };

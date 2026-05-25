@@ -10,11 +10,8 @@ import type { ProductCreatePayload } from '@shared/types/product';
 import { ImportValidator } from '@shared/utils/import-validator';
 import { extractIdValue } from '@shared/utils/extractIdValue';
 import { ensureArray } from '@shared/utils/arrayUtils';
-
-/** Helper to build a single-language LangField for API payloads. */
-const toLValue = (text: string): LangField => ({
-    language: { '@_id': 1, '#text': text }
-});
+import { toLValue } from '@shared/utils/extractLanguageValue';
+import { DomainPriceService } from '@shared/utils/priceUtils';
 
 export const taxRateMap = new Map<string, { id_tax_rules_group: number; rate_numeric: number }>();
 export const categoryMap = new Map<string, number>();
@@ -234,7 +231,7 @@ async function processProducts(rows: ProductCSVRow[]) {
       const cleanPrixTtc = ImportValidator.validatePositiveAmount(row.prix_ttc, 'prix_ttc');
       const cleanPrixAchat = ImportValidator.validatePositiveAmount(row.prix_achat, 'prix_achat');
       const rate = taxData?.rate_numeric || 20;
-      const priceHt = cleanPrixTtc / (1 + rate / 100);
+      const priceHt = DomainPriceService.calculateHT(cleanPrixTtc, rate);
 
       const productData: ProductCreatePayload = {
         name: toLValue(row.produit),

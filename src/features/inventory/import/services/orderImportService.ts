@@ -13,10 +13,9 @@ import type { StockMovement } from "@shared/types/stock-movement";
 import { ImportValidator } from "@shared/utils/import-validator";
 import { extractIdValue } from "@shared/utils/extractIdValue";
 import { ensureArray } from '@shared/utils/arrayUtils';
-
-const toLValue = (text: string): LangField => ({
-    language: { '@_id': 1, '#text': text }
-});
+import { toLValue } from '@shared/utils/extractLanguageValue';
+import { DomainPriceService } from '@shared/utils/priceUtils';
+import { DomainCartHelper } from '@shared/utils/cartUtils';
 
 export const customerMap = new Map<string, number>();
 export const addressMap = new Map<string, number>();
@@ -255,7 +254,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     }
 
     // ========== RESOLVE PRODUCTS ==========
-    const resolvedTuples: ResolvedTuple[] = [];
+    const rawResolved: Array<{ id_product: number; id_product_attribute: number; quantity: number; unit_price_ttc: number; rate: number }> = [];
     for (const tuple of tuples) {
         const productData = productMap.get(tuple.ref);
         if (!productData) {
@@ -287,23 +286,17 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             }
         }
 
-        const existing = resolvedTuples.find(t =>
-            t.id_product === productData.id_product &&
-            t.id_product_attribute === id_product_attribute
-        );
-        if (existing) {
-            existing.qty += tuple.qty;
-            console.log(`[orderImport] Consolidated duplicate product/combination ref: ${tuple.ref}, new qty: ${existing.qty}`);
-        } else {
-            resolvedTuples.push({
-                id_product: productData.id_product,
-                id_product_attribute,
-                qty: tuple.qty,
-                unit_price_ttc,
-                rate,
-            });
-        }
+        rawResolved.push({
+            id_product: productData.id_product,
+            id_product_attribute,
+            quantity: tuple.qty,
+            unit_price_ttc,
+            rate
+        });
     }
+
+    const resolvedTuples = DomainCartHelper.consolidateItems(rawResolved) as unknown as ResolvedTuple[];
+
     if (resolvedTuples.length === 0) {
         console.warn(`No valid products for ${email}`);
         return;
@@ -319,7 +312,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             id_product: t.id_product,
             id_product_attribute: t.id_product_attribute,
             id_address_delivery: id_address,
-            quantity: t.qty
+            quantity: t.quantity
         }));
 
         const cartUpdate: any = {
@@ -358,9 +351,9 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     let total_products_wt = 0; // TTC
     let total_products = 0;    // HT
     for (const t of resolvedTuples) {
-        const unit_ht = t.unit_price_ttc / (1 + t.rate / 100);
-        total_products_wt += t.unit_price_ttc * t.qty;
-        total_products += unit_ht * t.qty;
+        const unit_ht = DomainPriceService.calculateHT(t.unit_price_ttc, t.rate);
+        total_products_wt += t.unit_price_ttc * t.quantity;
+        total_products += unit_ht * t.quantity;
     }
     const total_shipping = 0;
     const total_paid = total_products_wt + total_shipping;
@@ -409,7 +402,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
                     order_row: resolvedTuples.map(t => ({
                         product_id: t.id_product,
                         product_attribute_id: t.id_product_attribute,
-                        product_quantity: t.qty
+                        product_quantity: t.quantity
                     }))
                 }
             }
@@ -454,7 +447,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
                         const stockMovementPayload: StockMovement = {
                             id_employee: 1,
                             id_stock: Number(extractIdValue(idStockAvailable)),
-                            physical_quantity: t.qty,
+                            physical_quantity: t.quantity,
                             sign: -1,
                             id_stock_mvt_reason: 3,
                             price_te: 0,

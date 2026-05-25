@@ -12,6 +12,7 @@ export interface CategoryProfitStat {
     purchases: number;
     profit: number;
     globalPurchases: number;
+
     globalProfit: number;
 }
 
@@ -39,8 +40,8 @@ export const statsService = {
             apiService.get<any>('/combinations?display=[id,id_product,wholesale_price]'),
             // Catégories pour récupérer le nom au lieu d'afficher juste un ID
             apiService.get<any>('/categories?filter[id]=![1|2]&display=[id,name]'),
-            // Mouvements de stock pour calculer l'achat global (entrées uniquement)
-            apiService.get<any>('/stock_movements?display=full'),
+            // Mouvements de stock pour calculer l'achat global (entrées uniquement, limitant le payload)
+            apiService.get<any>('/stock_movements?display=[id,id_stock,id_product,id_product_attribute,sign,physical_quantity,price_te]'),
             // Stock availables pour faire le lien entre id_stock et id_product (car le mvt pointe vers stock_available)
             apiService.get<any>('/stock_availables?display=[id,id_product,id_product_attribute]')
         ]);
@@ -197,10 +198,10 @@ export const statsService = {
     async getStockByCategoryReport(): Promise<CategoryStockStat[]> {
         const [productsRes, stockRes, categoriesRes, ordersRes] = await Promise.all([
             apiService.get<any>('/products?display=[id,id_category_default]'),
-            apiService.get<any>('/stock_availables?display=full'),
+            apiService.get<any>('/stock_availables?display=[id,id_product,id_product_attribute,quantity]'),
             apiService.get<any>('/categories?filter[id]=![1|2]&display=[id,name]'),
-            // On récupère les commandes valides pour calculer nous-mêmes le stock réservé
-            apiService.get<any>('/orders?display=full&filter[valid]=1')
+            // Récupère uniquement les commandes en cours de traitement sur le serveur (2=payé, 3=préparation, 11=attente)
+            apiService.get<any>('/orders?filter[current_state]=[2|3|11]&display=full')
         ]);
 
         const products = ensureArray(productsRes?.prestashop?.products?.product);

@@ -6,3 +6,8 @@ export function extractIdValue(val: any): string {
     }
     return String(val);
 }
+
+export function extractIdNumber(val: any): number {
+    return Number(extractIdValue(val)) || 0;
+}
+

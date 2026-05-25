@@ -2,11 +2,13 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import Sidebar from '@features/dashboard/components/Sidebar.vue';
+import { useAdminAuthStore } from '@shared/models/auth';
 
 const route = useRoute();
+const adminAuthStore = useAdminAuthStore();
 
 const isAuthenticated = computed(() => {
-  return route.path !== '/login' && localStorage.getItem('admin_token') !== null;
+  return route.path !== '/login' && adminAuthStore.isAuthenticated;
 });
 </script>
 

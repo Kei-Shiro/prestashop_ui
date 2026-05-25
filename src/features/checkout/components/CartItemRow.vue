@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { CartItem } from '@shared/models/cart';
+import productService from '@shared/models/product';
 
 interface Props {
   item: CartItem;
@@ -34,11 +35,10 @@ const formatPrice = (price: number): string => {
 const productImage = computed(() => {
   const images = props.item.product.images;
   if (images && images.length > 0) {
-    return images[0];
+    return productService.getImageUrl(productId.value, images[0]);
   }
   if (props.item.product.id_default_image) {
-    // Note: This might need adjustment if using the proxy URL from productService
-    return `/prestashop/api/images/products/${productId.value}/${props.item.product.id_default_image}`;
+    return productService.getImageUrl(productId.value, props.item.product.id_default_image);
   }
   return '/img/no-image.jpg';
 });

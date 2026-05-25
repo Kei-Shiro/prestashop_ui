@@ -56,7 +56,7 @@ export interface AchatTuple {
 export interface ResolvedTuple {
     id_product: number;
     id_product_attribute: number;
-    qty: number;
+    quantity: number;
     unit_price_ttc: number;
     rate: number;
 }

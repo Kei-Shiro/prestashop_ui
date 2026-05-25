@@ -37,8 +37,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAdminAuthStore } from '@shared/models/auth';
 
 const router = useRouter();
+const adminAuthStore = useAdminAuthStore();
 
 const email = ref('admin@test.com');
 const password = ref('password');
@@ -47,7 +49,7 @@ const errorMessage = ref('');
 const handleLogin = () => {
     // Hardcoded credentials for mock
     if (email.value === 'admin@test.com' && password.value === 'password') {
-        localStorage.setItem('admin_token', 'mock-jwt-token-12345');
+        adminAuthStore.login('mock-jwt-token-12345');
         router.push('/');
     } else {
         errorMessage.value = 'Email ou mot de passe incorrect.';

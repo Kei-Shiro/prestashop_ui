@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useAdminAuthStore } from '@shared/models/auth';
 
 const router = useRouter();
 const route = useRoute();
+const adminAuthStore = useAdminAuthStore();
 
 const isAuthenticated = computed(() => {
-  return route.path !== '/login' && localStorage.getItem('admin_token') !== null;
+  return route.path !== '/login' && adminAuthStore.isAuthenticated;
 });
 
 const logout = () => {
-  localStorage.removeItem('admin_token');
+  adminAuthStore.logout();
   router.push('/login');
 };
 </script>

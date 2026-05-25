@@ -1,36 +1,31 @@
 // shared/composables/useProduct.ts
 import { ref } from 'vue';
-import productService, { Product } from '@shared/models/product';
+import { storeToRefs } from 'pinia';
+import productService, { Product, useProductStore } from '@shared/models/product';
 
 export function useProduct() {
-    const products = ref<Product[]>([]);
-    const loading = ref(false);
+    const productStore = useProductStore();
+    const { products, loading } = storeToRefs(productStore);
     const error = ref<string | null>(null);
     const currentProduct = ref<Product | null>(null);
 
     const fetchProducts = async () => {
-        loading.value = true;
         error.value = null;
         try {
-            products.value = await productService.getAll();
+            await productStore.fetchProducts();
         } catch (err) {
             error.value = 'Erreur lors du chargement des produits';
             console.error(err);
-        } finally {
-            loading.value = false;
         }
     };
 
     const fetchProduct = async (id: number) => {
-        loading.value = true;
         error.value = null;
         try {
             currentProduct.value = await productService.getProduct(id);
         } catch (err) {
             error.value = 'Erreur lors du chargement du produit';
             console.error(err);
-        } finally {
-            loading.value = false;
         }
     };
 

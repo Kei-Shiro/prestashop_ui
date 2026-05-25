@@ -1,83 +1,62 @@
-import { ref } from "vue";
-import { MappedOrder, orderService } from '@shared/models/order';
+import { ref, computed } from "vue";
+import { MappedOrder, orderService, useOrderStore } from '@shared/models/order';
 import { customerService } from '@shared/models/customer';
 import { ensureArray } from '@shared/utils/arrayUtils';
+import { extractIdNumber } from '@shared/utils/extractIdValue';
+import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
+import { formatForDisplay } from '@shared/utils/dateUtils';
 
-/*const ALLOWED_STATE_IDS = [2, 6, 13];*/ // Paiement accepté, Annulé, En attente de paiement à la livraison
 const ALLOWED_STATE_IDS = [5, 6];
 
-/**
- * Avec display=full, PrestaShop renvoie les champs FK (current_state, id_customer…)
- * sous forme <current_state xlink:href="...">2</current_state>. fast-xml-parser
- * les parse en objet { '@_xlink:href': '...', '#text': 2 }. On extrait la valeur.
- */
-import { extractIdValue } from '@shared/utils/extractIdValue';
-import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
-
-const psNum = (v: any): number => Number(extractIdValue(v));
-
 export function useOrders() {
-    const orders = ref<MappedOrder[]>([]);
+    const orderStore = useOrderStore();
     const orderStates = ref<any[]>([]);
     const allowedStateIds = ref<number[]>(ALLOWED_STATE_IDS);
     const isLoading = ref<boolean>(false);
     const error = ref<string | null>(null);
     const updatingOrderId = ref<number | null>(null);
 
-    const loadOrdersAndMetadata = async () => {
+    const customersMap = ref<Map<number, string>>(new Map());
+    const statesMap = ref<Map<number, any>>(new Map());
 
+    const loadOrdersAndMetadata = async () => {
         isLoading.value = true;
         error.value = null;
 
         try {
-            const [rawOrders, rawStates, rawCustomers] = await Promise.all([
-                orderService.getOrders(),
-                orderService.getOrderStates(),
-                customerService.getAllCustomers()
+            const [, rawStates] = await Promise.all([
+                orderStore.fetchOrders(),
+                orderService.getOrderStates()
             ]);
 
-            const ordersArray = ensureArray(rawOrders);
-            const statesArray = ensureArray(rawStates);
-            const customersArray = ensureArray(rawCustomers);
-
-            const statesMap = new Map();
-            statesArray.forEach(state => {
-                let label = "Unknown";
-                if (typeof state.name === 'string') {
-                    label = state.name;
-                } else if (state.name) {
-                    label = extractLanguageValue(state.name) || label;
-                }
-                statesMap.set(Number(state.id), {
+            const statesArr = ensureArray(rawStates);
+            const newStatesMap = new Map();
+            statesArr.forEach(state => {
+                const label = extractLanguageValue(state.name) || "Unknown";
+                newStatesMap.set(Number(state.id), {
                     id: Number(state.id),
                     label: label,
                     color: state.color || "#000000"
                 });
             });
+            statesMap.value = newStatesMap;
+            orderStates.value = Array.from(newStatesMap.values());
 
-            orderStates.value = Array.from(statesMap.values());
+            // Get unique customer IDs from fetched orders
+            const customerIds = [
+                ...new Set(orderStore.orders.map(o => extractIdNumber(o.id_customer)).filter(id => id > 0))
+            ];
 
-            const customersMap = new Map();
+            // Fetch only specific customers
+            const rawCustomers = await customerService.getCustomersByIds(customerIds);
+            const customersArray = ensureArray(rawCustomers);
+
+            const newCustomersMap = new Map();
             customersArray.forEach(customer => {
-                customersMap.set(Number(customer.id), `${customer.firstname} ${customer.lastname}`);
+                newCustomersMap.set(Number(customer.id), `${customer.firstname} ${customer.lastname}`);
             });
+            customersMap.value = newCustomersMap;
 
-            orders.value = ordersArray.map(order => {
-                const customerId = psNum(order.id_customer);
-                const currentStateId = psNum(order.current_state);
-                const state = statesMap.get(currentStateId) || { id: currentStateId, label: "Unknown", color: "#000000" };
-
-                return {
-                    id: Number(order.id),
-                    reference: order.reference || "",
-                    customerId: customerId,
-                    customerName: customersMap.get(customerId) || "Unknown",
-                    totalPaid: parseFloat(order.total_paid_tax_incl || order.total_paid || "0").toFixed(2),
-                    payment: order.payment || "Bank wire",
-                    dateAdd: order.date_add ? new Date(order.date_add).toLocaleDateString('fr-FR') : "",
-                    currentState: state
-                };
-            });
         } catch (err) {
             console.error(err);
             error.value = "Erreur lors du chargement des commandes.";
@@ -91,13 +70,10 @@ export function useOrders() {
         try {
             await orderService.updateOrderStatus(orderId, newStateId);
 
-            // Mise à jour optimiste
-            const orderIndex = orders.value.findIndex(o => o.id === orderId);
+            // Update state in orderStore reactively
+            const orderIndex = orderStore.orders.findIndex(o => Number(o.id) === orderId);
             if (orderIndex !== -1) {
-                const newState = orderStates.value.find(s => s.id === newStateId);
-                if (newState) {
-                    orders.value[orderIndex].currentState = { ...newState };
-                }
+                orderStore.orders[orderIndex].current_state = String(newStateId);
             }
         } catch (err) {
             console.error("Échec de la mise à jour :", err);
@@ -106,6 +82,25 @@ export function useOrders() {
             updatingOrderId.value = null;
         }
     };
+
+    const orders = computed<MappedOrder[]>(() => {
+        return orderStore.orders.map(order => {
+            const customerId = extractIdNumber(order.id_customer);
+            const currentStateId = extractIdNumber(order.current_state);
+            const state = statesMap.value.get(currentStateId) || { id: currentStateId, label: "Unknown", color: "#000000" };
+
+            return {
+                id: Number(order.id),
+                reference: order.reference || "",
+                customerId: customerId,
+                customerName: customersMap.value.get(customerId) || "Unknown",
+                totalPaid: parseFloat(order.total_paid_tax_incl || order.total_paid || "0").toFixed(2),
+                payment: order.payment || "Bank wire",
+                dateAdd: formatForDisplay(order.date_add),
+                currentState: state
+            };
+        });
+    });
 
     return {
         orders,

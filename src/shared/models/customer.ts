@@ -14,6 +14,17 @@ export const customerService = {
         return ensureArray(response.prestashop?.customers?.customer);
     },
 
+    async getCustomersByIds(ids: number[]): Promise<Customer[]> {
+        if (ids.length === 0) return [];
+        try {
+            const filterIds = ids.join('|');
+            const response = await apiService.get<any>(`/customers?filter[id]=[${filterIds}]&display=full`);
+            return ensureArray(response.prestashop?.customers?.customer);
+        } catch {
+            return [];
+        }
+    },
+
     async getCustomerByEmail(email: string): Promise<Customer | null> {
         try {
             const response = await apiService.get<any>(`/customers?filter[email]=${encodeURIComponent(email)}&display=full`);

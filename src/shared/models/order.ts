@@ -5,6 +5,9 @@ import { extractIdValue } from '@shared/utils/extractIdValue';
 import { ensureArray } from '@shared/utils/arrayUtils';
 import { withLoading } from '@shared/utils/asyncUtils';
 import { formatForDisplay } from '@shared/utils/dateUtils';
+import { DomainPriceService } from '@shared/utils/priceUtils';
+import { DomainCartHelper } from '@shared/utils/cartUtils';
+import { DomainOrderHelper } from '@shared/utils/orderUtils';
 import { cartService, useCartStore } from './cart';
 import { productService } from './product';
 import type { Order, OrderRow, OrderCreatePayload } from '@shared/types/order';
@@ -133,7 +136,7 @@ export const orderService = {
     },
 
     async updateOrderStatus(orderId: number, newStateId: number): Promise<void> {
-        if (newStateId === 5 || newStateId === 6) {
+        if (DomainOrderHelper.triggersStockMovement(newStateId)) {
             await apiService.putstate('/stockmvtapi/orderstate', {
                 order_states: {
                     order_state: { id_order: orderId, id_order_state: newStateId }
@@ -175,26 +178,14 @@ export const orderService = {
             const rows = ensureArray(order.associations?.order_rows?.order_row) as OrderRow[];
             if (rows.length === 0) return { success: false, available: false, error: "La commande d'origine ne contient aucun article." };
 
-            // Group duplicates in-memory (no async calls)
-            const groupedRows: Array<{ id_product: string; id_product_attribute: string; quantity: number; originalName?: string }> = [];
-            for (const r of rows) {
-                const pid = extractIdValue(r.product_id);
-                const attrId = extractIdValue(r.product_attribute_id) || '0';
-                const qtyOrig = Number(extractIdValue(r.product_quantity));
-                const requiredQty = qtyOrig * multiplier;
-
-                const existing = groupedRows.find(g => g.id_product === pid && g.id_product_attribute === attrId);
-                if (existing) {
-                    existing.quantity += requiredQty;
-                } else {
-                    groupedRows.push({
-                        id_product: pid,
-                        id_product_attribute: attrId,
-                        quantity: requiredQty,
-                        originalName: r.product_name
-                    });
-                }
-            }
+            // Group duplicates in-memory using DomainCartHelper
+            const rawItems = rows.map(r => ({
+                id_product: extractIdValue(r.product_id),
+                id_product_attribute: extractIdValue(r.product_attribute_id) || '0',
+                quantity: Number(extractIdValue(r.product_quantity)) * multiplier,
+                originalName: r.product_name
+            }));
+            const groupedRows = DomainCartHelper.consolidateItems(rawItems);
 
             let overallAvailable = true;
             const enrichedItems: Array<{
@@ -223,9 +214,8 @@ export const orderService = {
                     const combinations = await productService.getCombinations(Number(item.id_product));
                     const combo = combinations.find(c => String(c.id) === item.id_product_attribute);
                     if (combo && combo.price) {
-                        const impactHT = parseFloat(combo.price);
                         const taxRate = p.tax_rate || 0;
-                        const impactTTC = impactHT * (1 + taxRate / 100);
+                        const impactTTC = DomainPriceService.calculateTTC(combo.price, taxRate);
                         unitPriceTTC += impactTTC;
                     }
                 }
@@ -298,13 +288,14 @@ export const useOrderStore = defineStore('order', () => {
     const periodFilter = ref<'all' | 'month' | 'week' | 'today'>('all');
 
     const filteredOrders = computed(() => {
-        if (periodFilter.value === 'all') return orders.value;
+        const activeOrders = orders.value.filter(order => extractIdValue(order.current_state) !== '6');
+        if (periodFilter.value === 'all') return activeOrders;
         const now = new Date();
         const threshold = new Date();
         if (periodFilter.value === 'today') threshold.setHours(0, 0, 0, 0);
         else if (periodFilter.value === 'week') threshold.setDate(now.getDate() - 7);
         else if (periodFilter.value === 'month') threshold.setMonth(now.getMonth() - 1);
-        return orders.value.filter(order => {
+        return activeOrders.filter(order => {
             const dateRaw = order.date_add;
             if (!dateRaw) return false;
             return new Date(dateRaw) >= threshold;
@@ -314,7 +305,7 @@ export const useOrderStore = defineStore('order', () => {
     const fetchOrders = async () => {
         await withLoading(loading, async () => {
             const [orderRes, cartRes, allOrderCartsRes] = await Promise.all([
-                apiService.get<any>('/orders?filter[current_state]=![6]&display=full'),
+                apiService.get<any>('/orders?display=full'),
                 apiService.get<any>('/carts?display=[id]&filter[id_customer]=![0]'),
                 apiService.get<any>('/orders?display=[id_cart]')
             ]);
@@ -355,93 +346,6 @@ export const useOrderStore = defineStore('order', () => {
     });
 
     return { orders, activeCartsCount, loading, periodFilter, filteredOrders, fetchOrders, totalOrders, totalAmount, totalAmountTTC, dailyStats };
-});
-
-export const useCustomerOrderStore = defineStore('customerOrder', () => {
-    const myOrders = ref<MappedOrder[]>([]);
-    const isLoading = ref<boolean>(false);
-    const error = ref<string | null>(null);
-
-    async function fetchMyOrders() {
-        await withLoading(isLoading, async () => {
-            const [rawOrders, rawStates] = await Promise.all([
-                orderService.getOrders(),
-                orderService.getOrderStates()
-            ]);
-
-            const statesMap = new Map<number, { id: number; label: string; color: string }>();
-            ensureArray(rawStates).forEach((state: OrderState) => {
-                statesMap.set(Number(state.id), {
-                    id: Number(state.id),
-                    label: state.name || 'Unknown',
-                    color: state.color || '#000000'
-                });
-            });
-
-            myOrders.value = rawOrders.map((order: Order) => {
-                const currentStateId = Number(order.current_state);
-                const state = statesMap.get(currentStateId) || { id: currentStateId, label: 'Unknown', color: '#000000' };
-                return {
-                    id: Number(order.id),
-                    reference: order.reference || '',
-                    customerName: '',
-                    totalPaid: parseFloat(order.total_paid_tax_incl || order.total_paid || '0').toFixed(2),
-                    payment: order.payment || 'Bank wire',
-                    dateAdd: formatForDisplay(order.date_add),
-                    currentState: state
-                };
-            });
-        }, error, 'Erreur lors de la recuperation des commandes.');
-    }
-
-    return { myOrders, isLoading, error, fetchMyOrders };
-});
-
-export const useCheckoutStore = defineStore('checkout', () => {
-    const isProcessing = ref(false);
-    const error = ref<string | null>(null);
-    const orderSuccess = ref(false);
-
-    const customerId = 1;
-
-    async function placeOrder() {
-        if (isProcessing.value) return false;
-        const cartStore = useCartStore();
-        if (cartStore.items.length === 0) return false;
-
-        isProcessing.value = true;
-        error.value = null;
-        orderSuccess.value = false;
-
-        try {
-            const itemsForApi = cartStore.items.map(item => ({
-                id_product: Number(item.product.id_product),
-                id_product_attribute: Number(item.id_product_attribute || 0),
-                quantity: item.quantity
-            }));
-
-            const cartId = await cartService.createCart(customerId, itemsForApi);
-            await orderService.createOrder(customerId, cartId, itemsForApi, cartStore.totalAmount);
-
-            cartStore.clearCart();
-            orderSuccess.value = true;
-            return true;
-        } catch (err) {
-            console.error(err);
-            error.value = 'Erreur lors de la validation de la commande.';
-            return false;
-        } finally {
-            isProcessing.value = false;
-        }
-    }
-
-    function reset() {
-        isProcessing.value = false;
-        error.value = null;
-        orderSuccess.value = false;
-    }
-
-    return { isProcessing, error, orderSuccess, placeOrder, reset };
 });
 
 export default orderService;

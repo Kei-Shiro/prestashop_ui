@@ -5,6 +5,7 @@ import type { Cart, CartRow, CartCreatePayload, CartUpdatePayload } from '@share
 import apiService from '@shared/api/api-service';
 import { extractIdValue } from '@shared/utils/extractIdValue';
 import { ensureArray } from '@shared/utils/arrayUtils';
+import { toPrestashopDate } from '@shared/utils/dateUtils';
 
 // Re-export canonical types for consumers
 export type { Cart, CartRow } from '@shared/types/cart';
@@ -107,7 +108,7 @@ export const cartService = {
         addressId = 0
     ): Promise<number> {
         const carrierId = await this.detectCarrierId();
-        const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const now = toPrestashopDate(new Date());
 
         const payload: { cart: CartCreatePayload } = {
             cart: {
@@ -149,7 +150,7 @@ export const cartService = {
         addressId = 0
     ): Promise<number> {
         const carrierId = await this.detectCarrierId();
-        const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const now = toPrestashopDate(new Date());
 
         const payload: { cart: CartUpdatePayload } = {
             cart: {
@@ -187,6 +188,13 @@ export const cartService = {
 export const useCartStore = defineStore('cart', () => {
     const currentUserKey = ref<string>('anonymous');
     const items = ref<CartItem[]>([]);
+
+    function findItem(productId: string | number, id_product_attribute = '0') {
+        return items.value.find(
+            i => String(i.product.id_product) === String(productId) &&
+                 String(i.id_product_attribute || '0') === String(id_product_attribute || '0')
+        );
+    }
 
     function _saveToStorage() {
         try {
@@ -241,10 +249,7 @@ export const useCartStore = defineStore('cart', () => {
         if (mergeAnonymous && anonymousItems.length > 0) {
             let hasChanges = false;
             anonymousItems.forEach(anonItem => {
-                const existing = items.value.find(
-                    i => String(i.product.id_product) === String(anonItem.product.id_product) &&
-                         String(i.id_product_attribute || '0') === String(anonItem.id_product_attribute || '0')
-                );
+                const existing = findItem(anonItem.product.id_product, anonItem.id_product_attribute || '0');
                 const anonPrice = anonItem.unit_price || (typeof anonItem.product.price === 'string' ? parseFloat(anonItem.product.price) : Number(anonItem.product.price || 0));
                 if (existing) {
                     existing.quantity += anonItem.quantity;
@@ -270,10 +275,7 @@ export const useCartStore = defineStore('cart', () => {
     function mergeServerItems(serverItems: CartItem[]) {
         if (serverItems.length === 0) return;
         serverItems.forEach(serverItem => {
-            const existing = items.value.find(
-                i => String(i.product.id_product) === String(serverItem.product.id_product) &&
-                     String(i.id_product_attribute || '0') === String(serverItem.id_product_attribute || '0')
-            );
+            const existing = findItem(serverItem.product.id_product, serverItem.id_product_attribute || '0');
             if (existing) {
                 existing.quantity = serverItem.quantity;
                 existing.unit_price = serverItem.unit_price;
@@ -298,10 +300,7 @@ export const useCartStore = defineStore('cart', () => {
     function closeCartDrawer()  { isCartDrawerOpen.value = false; }
 
     async function addProduct(product: Product, quantity = 1, id_product_attribute = '0', unitPrice?: number) {
-        const existing = items.value.find(
-            i => String(i.product.id_product) === String(product.id_product) &&
-                 String(i.id_product_attribute || '0') === String(id_product_attribute || '0')
-        );
+        const existing = findItem(product.id_product, id_product_attribute);
         const finalPrice = unitPrice !== undefined
             ? unitPrice
             : (typeof product.price === 'string' ? parseFloat(product.price) : product.price as number);
@@ -319,10 +318,7 @@ export const useCartStore = defineStore('cart', () => {
     }
 
     async function updateQuantity(productId: string | number, quantity: number, id_product_attribute = '0') {
-        const existing = items.value.find(
-            i => String(i.product.id_product) === String(productId) &&
-                 String(i.id_product_attribute || '0') === String(id_product_attribute || '0')
-        );
+        const existing = findItem(productId, id_product_attribute);
         if (existing) {
             if (quantity <= 0) { await removeProduct(productId, id_product_attribute); return; }
             existing.quantity = quantity;

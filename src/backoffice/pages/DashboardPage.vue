@@ -30,7 +30,7 @@
         </div>
         <div class="card card--accent">
           <h3 class="card-title">Paniers actifs (En cours)</h3>
-          <p class="card-value">{{ (orderStore as any).activeCartsCount }}</p>
+          <p class="card-value">{{ orderStore.activeCartsCount }}</p>
         </div>
       </div>
 

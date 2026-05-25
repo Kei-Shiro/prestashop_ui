@@ -1,3 +1,5 @@
+import type { LangField } from '@shared/types/common';
+
 export function extractLanguageValue(field: any): string {
     if (!field) return '';
     if (typeof field === 'string') return field;
@@ -17,3 +19,8 @@ export function extractLanguageValue(field: any): string {
 
     return '';
 }
+
+/** Helper to build a single-language LangField for API payloads. */
+export const toLValue = (text: string): LangField => ({
+    language: { '@_id': 1, '#text': text }
+});

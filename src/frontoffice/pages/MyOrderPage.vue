@@ -46,7 +46,7 @@ import { useCustomerAuthStore as useAuthStore } from '@shared/models/auth';
 import BasePagination from '@shared/ui/components/BasePagination.vue';
 import { useRouter } from 'vue-router';
 
-const { orders, isLoading, error, loadOrdersAndMetadata } = useOrders();
+const { orders: allOrders, isLoading, error, loadOrdersAndMetadata } = useOrders();
 const authStore = useAuthStore();
 const router = useRouter();
 
@@ -64,6 +64,14 @@ const reorder = (orderId: number, multipli: number) => {
 const currentPage = ref(1);
 const itemsPerPage = 10;
 
+const orders = computed(() => {
+  if (authStore.isAnonymous || !authStore.user) {
+    return [];
+  }
+  const userId = Number(authStore.user.id);
+  return allOrders.value.filter(o => Number(o.customerId) === userId);
+});
+
 const paginatedOrders = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
   return orders.value.slice(start, start + itemsPerPage);
@@ -73,16 +81,9 @@ const commander = {
 
 }
 
-
-
-
 onMounted(async () => {
   if (!authStore.isAnonymous && authStore.user) {
     await loadOrdersAndMetadata();
-    const userId = Number(authStore.user.id);
-    orders.value = orders.value.filter(o => Number(o.customerId) === userId);
-  } else {
-    orders.value = [];
   }
 });
 </script>

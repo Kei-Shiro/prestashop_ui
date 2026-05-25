@@ -2,10 +2,10 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import apiService from '@shared/api/api-service';
 import { extractIdValue } from '@shared/utils/extractIdValue';
-import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
 import { ensureArray } from '@shared/utils/arrayUtils';
 import { withLoading } from '@shared/utils/asyncUtils';
 import { toPrestashopDate } from '@shared/utils/dateUtils';
+import { DomainCatalogHelper } from '@shared/utils/catalogUtils';
 import type { StockMovement, StockMovementDisplay } from '@shared/types/stock-movement';
 import type { StockAvailable } from '@shared/types/stock-available';
 
@@ -75,19 +75,14 @@ export const useStockStore = defineStore('stock', () => {
                         apiService.get<any>('/product_option_values?display=full'),
                     ]);
 
-                    const optionValueNames: Record<string, string> = {};
-                    ensureArray(ovResponse?.prestashop?.product_option_values?.product_option_value).forEach((ov: any) => {
-                        const ovId = extractIdValue(ov.id);
-                        if (ovId) optionValueNames[ovId] = extractLanguageValue(ov.name);
-                    });
+                    const optionValueNames = DomainCatalogHelper.buildOptionValueNamesMap(
+                        ensureArray(ovResponse?.prestashop?.product_option_values?.product_option_value)
+                    );
 
                     ensureArray(combiResponse?.prestashop?.combinations?.combination).forEach((c: any) => {
                         const cId = extractIdValue(c.id);
                         const cProductId = extractIdValue(c.id_product);
-                        const ovAssoc = c.associations?.product_option_values?.product_option_value;
-                        const ovIds = ovAssoc ? ensureArray(ovAssoc).map((o: any) => extractIdValue(o)) : [];
-                        const names = ovIds.map((id: string) => optionValueNames[id]).filter(Boolean);
-                        const label = names.length > 0 ? names.join(', ') : extractIdValue(c.reference);
+                        const label = DomainCatalogHelper.buildCombinationLabel(c, optionValueNames);
                         if (cId) {
                             combinationMap[cId] = label;
                             if (cProductId) {
