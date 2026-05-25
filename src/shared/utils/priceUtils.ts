@@ -37,5 +37,23 @@ export const DomainPriceService = {
         const prodTtc = typeof productTTC === 'string' ? parseFloat(productTTC || '0') : productTTC;
         const rate = typeof taxRatePercent === 'string' ? parseFloat(taxRatePercent || '0') : taxRatePercent;
         return (comboTtc - prodTtc) / (1 + rate / 100);
+    },
+
+    /**
+     * Calcule le prix TTC final d'un produit en y incluant l'éventuel impact HT d'une déclinaison.
+     */
+    calculateFinalPrice(
+        basePriceTTC: number | string,
+        taxRatePercent: number | string,
+        combinationImpactHT?: number | string
+    ): number {
+        const baseTTC = typeof basePriceTTC === 'string' ? parseFloat(basePriceTTC || '0') : basePriceTTC;
+        if (combinationImpactHT === undefined || combinationImpactHT === null || String(combinationImpactHT).trim() === '') {
+            return baseTTC;
+        }
+        const impactHT = typeof combinationImpactHT === 'string' ? parseFloat(combinationImpactHT || '0') : combinationImpactHT;
+        const rate = typeof taxRatePercent === 'string' ? parseFloat(taxRatePercent || '0') : taxRatePercent;
+        const impactTTC = impactHT * (1 + rate / 100);
+        return baseTTC + impactTTC;
     }
 };

@@ -226,7 +226,7 @@ export const useCartStore = defineStore('cart', () => {
         }
     }
 
-    function loadForUser(userKey: string, mergeAnonymous = false) {
+    async function loadForUser(userKey: string, mergeAnonymous = false) {
         const anonymousItems = (mergeAnonymous && currentUserKey.value === 'anonymous') ? [...items.value] : [];
         _saveToStorage();
         currentUserKey.value = userKey;
@@ -261,7 +261,7 @@ export const useCartStore = defineStore('cart', () => {
                 hasChanges = true;
             });
             _saveToStorage();
-            if (hasChanges) syncToServer();
+            if (hasChanges) await syncToServer();
             localStorage.removeItem(STORAGE_PREFIX + 'anonymous');
         }
     }

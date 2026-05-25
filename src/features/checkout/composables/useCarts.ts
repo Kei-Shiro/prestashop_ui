@@ -4,8 +4,9 @@ import { productService } from '@shared/models/product';
 import { customerService } from '@shared/models/customer';
 import { cartService } from '@shared/models/cart';
 import { ensureArray } from '@shared/utils/arrayUtils';
-import { extractIdNumber } from '@shared/utils/extractIdValue';
+import { extractIdValue, extractIdNumber } from '@shared/utils/extractIdValue';
 import { formatDateTimeForDisplay } from '@shared/utils/dateUtils';
+import { DomainPriceService } from '@shared/utils/priceUtils';
 
 export interface MappedCart {
     id: number;
@@ -37,7 +38,7 @@ export function useCarts() {
             const cartsArray = ensureArray(rawCarts);
 
             const usedCartIds = new Set(ordersArray.map(o => extractIdNumber(o.id_cart)).filter(id => id > 0));
-            const activeCarts = cartsArray.filter(cart => !usedCartIds.has(Number(cart.id)));
+            const activeCarts = cartsArray.filter(cart => !usedCartIds.has(extractIdNumber(cart.id)));
 
             const customerIds = [...new Set(activeCarts.map(cart => extractIdNumber(cart.id_customer)).filter(id => id > 0))];
             const rawCustomers = await customerService.getCustomersByIds(customerIds);
@@ -93,14 +94,24 @@ export function useCarts() {
             const productMap = new Map(productsList.map(p => [p.id_product, p]));
 
             let totalAmount = 0;
-            const items = rowsArr.map((row: any) => {
+            const items = await Promise.all(rowsArr.map(async (row: any) => {
                 const idProd = String(extractIdNumber(row.id_product));
                 const idAttr = String(extractIdNumber(row.id_product_attribute) || 0);
                 const qty = extractIdNumber(row.quantity);
                 const product = productMap.get(idProd);
                 
                 if (product) {
-                    totalAmount += parseFloat(product.price) * qty;
+                    let price = parseFloat(product.price);
+                    if (idAttr !== '0') {
+                        try {
+                            const combinations = await productService.getCombinations(Number(idProd));
+                            const combination = combinations.find(c => extractIdValue(c.id) === idAttr);
+                            price = DomainPriceService.calculateFinalPrice(product.price, product.tax_rate || 0, combination?.price);
+                        } catch (e) {
+                            console.warn(`Could not get combination ${idAttr} for product ${idProd}`, e);
+                        }
+                    }
+                    totalAmount += price * qty;
                 }
 
                 return {
@@ -108,7 +119,7 @@ export function useCarts() {
                     id_product_attribute: idAttr,
                     quantity: qty
                 };
-            });
+            }));
 
             const customerId = extractIdNumber(cart.rawCart.id_customer);
             const addressId = extractIdNumber(cart.rawCart.id_address_delivery) || 1;

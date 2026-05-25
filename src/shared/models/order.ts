@@ -213,11 +213,7 @@ export const orderService = {
                 if (item.id_product_attribute !== '0') {
                     const combinations = await productService.getCombinations(Number(item.id_product));
                     const combo = combinations.find(c => String(c.id) === item.id_product_attribute);
-                    if (combo && combo.price) {
-                        const taxRate = p.tax_rate || 0;
-                        const impactTTC = DomainPriceService.calculateTTC(combo.price, taxRate);
-                        unitPriceTTC += impactTTC;
-                    }
+                    unitPriceTTC = DomainPriceService.calculateFinalPrice(p.price, p.tax_rate || 0, combo?.price);
                 }
 
                 enrichedItems.push({

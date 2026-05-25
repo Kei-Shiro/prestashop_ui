@@ -51,7 +51,7 @@ export const statsService = {
         const products = ensureArray(productsRes?.prestashop?.products?.product);
         const combinations = ensureArray(combinationsRes?.prestashop?.combinations?.combination);
         const categories = ensureArray(categoriesRes?.prestashop?.categories?.category);
-        const movements = ensureArray(movementsRes?.prestashop?.stock_mvts?.stock_mvt);
+        const movements = ensureArray(movementsRes?.prestashop?.stock_mvts?.stock_mvt || movementsRes?.prestashop?.stock_movements?.stock_movement);
         const stockAvailables = ensureArray(stockAvailablesRes?.prestashop?.stock_availables?.stock_available);
 
         // Map des catégories pour associer rapidement un ID à son nom lisible

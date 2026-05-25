@@ -6,8 +6,9 @@ import { customerService } from './customer';
 import { productService } from './product';
 import { orderService } from './order';
 import { useCartStore, cartService } from './cart';
-import { extractIdValue } from '@shared/utils/extractIdValue';
+import { extractIdValue, extractIdNumber } from '@shared/utils/extractIdValue';
 import { ensureArray } from '@shared/utils/arrayUtils';
+import { DomainPriceService } from '@shared/utils/priceUtils';
 
 export interface User {
     id: number;
@@ -100,10 +101,7 @@ export const useCustomerAuthStore = defineStore('auth', () => {
                             try {
                                 const combinations = await productService.getCombinations(Number(cleanId));
                                 const combination = combinations.find(c => extractIdValue(c.id) === cleanIdAttr);
-                                if (combination && combination.price) {
-                                    const impact = typeof combination.price === 'string' ? parseFloat(combination.price) : Number(combination.price);
-                                    price += impact;
-                                }
+                                price = DomainPriceService.calculateFinalPrice(product.price, product.tax_rate || 0, combination?.price);
                             } catch (e) {
                                 console.warn(`Could not get combination ${cleanIdAttr} for product ${cleanId}`);
                             }
@@ -140,9 +138,11 @@ export const useCustomerAuthStore = defineStore('auth', () => {
                 isAnonymous.value = false;
                 localStorage.setItem('user', JSON.stringify(customer));
                 
+                const customerIdStr = extractIdValue(customer.id);
+                const customerIdNum = extractIdNumber(customer.id);
                 const cartStore = useCartStore();
-                cartStore.loadForUser(String(customer.id), true);
-                await syncServerCarts(Number(customer.id));
+                await cartStore.loadForUser(customerIdStr, true);
+                await syncServerCarts(customerIdNum);
                 return true;
             }
         }
@@ -155,9 +155,11 @@ export const useCustomerAuthStore = defineStore('auth', () => {
         isAnonymous.value = false;
         localStorage.setItem('user', JSON.stringify(customer));
         
+        const customerIdStr = extractIdValue(customer.id);
+        const customerIdNum = extractIdNumber(customer.id);
         const cartStore = useCartStore();
-        cartStore.loadForUser(String(customer.id), true);
-        await syncServerCarts(Number(customer.id));
+        await cartStore.loadForUser(customerIdStr, true);
+        await syncServerCarts(customerIdNum);
     };
 
     const loginAnonymous = () => {
@@ -195,10 +197,12 @@ export const useCustomerAuthStore = defineStore('auth', () => {
                 user.value = parsed;
                 isAuthenticated.value = true;
                 isAnonymous.value = false;
+                const parsedIdStr = extractIdValue(parsed.id);
+                const parsedIdNum = extractIdNumber(parsed.id);
                 const cartStore = useCartStore();
-                if (cartStore.currentUserKey !== String(parsed.id)) {
-                    cartStore.loadForUser(String(parsed.id));
-                    await syncServerCarts(Number(parsed.id));
+                if (cartStore.currentUserKey !== parsedIdStr) {
+                    await cartStore.loadForUser(parsedIdStr);
+                    await syncServerCarts(parsedIdNum);
                 }
             } catch (e) {
                 console.error('Failed to restore session:', e);

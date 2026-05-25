@@ -1,18 +1,19 @@
 import Papa from "papaparse";
 import apiService from "@shared/api/api-service";
-import { productMap } from "./productImportService";
+import { productMap, getProductInfo } from "./productImportService";
 import type { StockCSVRow, CombinationMapEntry } from "@shared/types/import";
 import type { LangField } from "@shared/types/common";
 import type { ProductOptionCreatePayload } from "@shared/types/product-option";
 import type { ProductOptionValueCreatePayload } from "@shared/types/product-option-value";
-import type { CombinationCreatePayload } from "@shared/types/combination";
+import type { CombinationCreatePayload, Combination } from "@shared/types/combination";
 import type { StockAvailableUpdatePayload, StockAvailable } from "@shared/types/stock-available";
 import type { StockMovement } from "@shared/types/stock-movement";
-import { extractIdValue } from "@shared/utils/extractIdValue";
+import { extractIdValue, extractIdNumber } from "@shared/utils/extractIdValue";
 import { ImportValidator } from "@shared/utils/import-validator";
 import { ensureArray } from '@shared/utils/arrayUtils';
-import { toLValue } from '@shared/utils/extractLanguageValue';
+import { toLValue, extractLanguageValue } from '@shared/utils/extractLanguageValue';
 import { DomainPriceService } from '@shared/utils/priceUtils';
+import { catalogLoader } from "@shared/services/catalog-loader";
 import { toPrestashopDate } from '@shared/utils/dateUtils';
 
 export const attributeMap = new Map<string, number>();
@@ -24,6 +25,8 @@ export const importCombinationsAndStocks = async (csvFile: File): Promise<void> 
   attributeMap.clear();
   attributeValueMap.clear();
   combinationMap.clear();
+  catalogLoader.clearCombinationCache();
+  await catalogLoader.preloadStockCache();
   const text = await csvFile.text();
 
   return new Promise((resolve, reject) => {
@@ -74,7 +77,10 @@ export const importCombinationsAndStocks = async (csvFile: File): Promise<void> 
           });
 
           console.log("Parsed combinations:", cleanRows);
-          await processCombinationsAndStocks(cleanRows);
+          const stats = await processCombinationsAndStocks(cleanRows);
+          if (stats.failed > 0) {
+            throw new Error(`Import de déclinaisons terminé avec ${stats.failed} erreur(s) sur ${cleanRows.length} ligne(s).`);
+          }
           resolve();
         } catch (err) {
           console.error("Combination import failed validation:", err);
@@ -86,18 +92,26 @@ export const importCombinationsAndStocks = async (csvFile: File): Promise<void> 
   });
 };
 
-const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
+const processCombinationsAndStocks = async (rows: StockCSVRow[]): Promise<{ success: number; failed: number }> => {
+  let success = 0;
+  let failed = 0;
+  
+  // Cache en mémoire pour les déclinaisons d'un même produit
+  const productCombosCache = new Map<number, any[]>();
+
   for (const row of rows) {
     const { reference, specificite, valeur, stock_initial } = row;
 
     if (!reference) {
       console.warn(`Skipping row due to missing reference: ${JSON.stringify(row)}`);
+      failed++;
       continue;
     }
 
-    const productData = productMap.get(reference);
+    const productData = await getProductInfo(reference);
     if (!productData) {
       console.warn(`Product not found for reference ${reference}. Skipping combination/stock.`);
+      failed++;
       continue;
     }
     const productId = productData.id_product;
@@ -105,61 +119,71 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
     // ========== PRODUIT SIMPLE (sans déclinaison) ==========
     if (!specificite) {
       try {
-        const stockGetRes = await apiService.get<any>(
-            `/stock_availables?filter[id_product]=${productId}&display=full`,
-        );
+        const cachedStock = catalogLoader.getCachedStock(productId, 0);
+        let stockId = cachedStock ? String(cachedStock.id) : null;
+        let currentQty = cachedStock ? cachedStock.quantity : 0;
 
-        const rawSimple = stockGetRes?.prestashop?.stock_availables?.stock_available;
-        const allSimpleStocks: StockAvailable[] = ensureArray(rawSimple);
-        const simpleStock = allSimpleStocks.find(
-            (s: any) => !s.id_product_attribute || extractIdValue(s.id_product_attribute) === '0'
-        ) ?? allSimpleStocks[0];
-
-        const stockId = simpleStock?.id ?? null;
-        console.log(`Stock simple product ${productId}: stockId=${stockId}, entries=${allSimpleStocks.length}`);
+        if (!stockId) {
+          const stockGetRes = await apiService.get<any>(
+              `/stock_availables?filter[id_product]=${productId}&filter[id_product_attribute]=0&display=full`,
+          );
+          const rawSimple = stockGetRes?.prestashop?.stock_availables?.stock_available;
+          const simpleStock = ensureArray(rawSimple)[0];
+          stockId = simpleStock?.id ? extractIdValue(simpleStock.id) : null;
+          currentQty = parseInt(extractIdValue(simpleStock?.quantity) || '0', 10);
+        }
 
         if (stockId) {
           const quantity = ImportValidator.validatePositiveAmount(stock_initial, 'stock_initial', true);
-          const patchData = { id: Number(extractIdValue(stockId)), quantity: quantity };
-          await apiService.patch(`/stock_availables/${extractIdValue(stockId)}`, { stock_available: patchData });
+          const delta = quantity - currentQty;
+
+          const patchData = { id: Number(stockId), quantity: quantity };
+          await apiService.patch(`/stock_availables/${stockId}`, { stock_available: patchData });
           console.log(`Stock updated for simple product ${productId}: qty=${quantity}`);
 
-          try {
-            let movementDate = row.date_add ? (row.date_add + ' 00:00:00') : "";
-            if (!movementDate) {
-              movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
-                ? productData.available_date + ' 00:00:00'
-                : toPrestashopDate(new Date());
-            }
-            const stockMovementPayload: StockMovement = {
-              id_employee: 1,
-              id_stock: Number(extractIdValue(stockId)),
-              physical_quantity: quantity,
-              sign: 1,
-              id_stock_mvt_reason: 1,
-              price_te: 0,
-              date_add: movementDate,
-            };
+          if (delta !== 0) {
+            try {
+              let movementDate = row.date_add ? (row.date_add + ' 00:00:00') : "";
+              if (!movementDate) {
+                movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
+                  ? productData.available_date + ' 00:00:00'
+                  : toPrestashopDate(new Date());
+              }
+              const stockMovementPayload: StockMovement = {
+                id_employee: 1,
+                id_stock: Number(stockId),
+                physical_quantity: Math.abs(delta),
+                sign: delta > 0 ? 1 : -1,
+                id_stock_mvt_reason: 1,
+                price_te: 0,
+                date_add: movementDate,
+              };
 
-            const mvtRes = await apiService.post<any>('/stock_movements', {
-              stock_mvt: stockMovementPayload
-            });
-
-            // PrestaShop écrase date_add en "now" au POST, on fait un PATCH direct pour forcer la date
-            if (mvtRes?.prestashop?.stock_mvt?.id) {
-              const mvtId = Number(extractIdValue(mvtRes.prestashop.stock_mvt.id));
-              await apiService.patch(`/stock_movements/${mvtId}`, {
-                stock_mvt: { id: mvtId, date_add: movementDate }
+              const mvtRes = await apiService.post<any>('/stock_movements', {
+                stock_mvt: stockMovementPayload
               });
+
+              // PrestaShop écrase date_add en "now" au POST, on fait un PATCH direct pour forcer la date
+              const newMvtId = extractIdValue(mvtRes?.prestashop?.stock_mvt?.id);
+              if (newMvtId) {
+                const mvtId = Number(newMvtId);
+                await apiService.patch(`/stock_movements/${mvtId}`, {
+                  stock_mvt: { id: mvtId, date_add: movementDate }
+                });
+              }
+              console.log(`Created and updated stock movement date for simple product ${productId}`);
+            } catch (mvtError) {
+              console.error(`Failed to create stock movement for simple product ${productId}`, mvtError);
             }
-            console.log(`Created and updated stock movement date for simple product ${productId}`);
-          } catch (mvtError) {
-            console.error(`Failed to create stock movement for simple product ${productId}`, mvtError);
           }
+          success++;
           continue;
+        } else {
+          throw new Error(`Simple stock ID not found for product ${productId}`);
         }
       } catch (err) {
         console.error(`Error processing simple product stock for ${productId}`, err);
+        failed++;
       }
       continue;
     }
@@ -167,6 +191,7 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
     // ========== DÉCLINAISONS ==========
     if (!valeur) {
       console.warn(`Skipping row due to missing valeur for spécificité ${specificite}: ${JSON.stringify(row)}`);
+      failed++;
       continue;
     }
 
@@ -178,8 +203,9 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         );
         const existingOption = existing?.prestashop?.product_options?.product_option;
         const found = ensureArray(existingOption)[0];
-        if (found?.id) {
-          const id = Number(extractIdValue(found.id));
+        const extractedOptionId = extractIdValue(found?.id);
+        if (extractedOptionId) {
+          const id = Number(extractedOptionId);
           attributeMap.set(specificite, id);
           if (!attributeValueMap.has(specificite)) attributeValueMap.set(specificite, new Map());
           console.log(`Attribute already exists: ${specificite} → ${id}`);
@@ -200,17 +226,22 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
             attributeValueMap.set(specificite, new Map<string, number>());
             console.log(`Attribute created: ${specificite} → ${id}`);
           } else {
+            failed++;
             continue;
           }
         } catch (err) {
           console.error(`Error creating product_option ${specificite}`, err);
+          failed++;
           continue;
         }
       }
     }
 
     const attributeId = attributeMap.get(specificite);
-    if (!attributeId) continue;
+    if (!attributeId) {
+      failed++;
+      continue;
+    }
 
     // ── Valeur d'attribut (product_option_value) ──
     if (!attributeValueMap.has(specificite)) {
@@ -225,8 +256,9 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
         );
         const existingVal = existing?.prestashop?.product_option_values?.product_option_value;
         const found = ensureArray(existingVal)[0];
-        if (found?.id) {
-          const id = Number(extractIdValue(found.id));
+        const extractedValueId = extractIdValue(found?.id);
+        if (extractedValueId) {
+          const id = Number(extractedValueId);
           valMap.set(valeur, id);
           console.log(`Attribute value already exists: ${valeur} → ${id}`);
         }
@@ -244,17 +276,22 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
             valMap.set(valeur, id);
             console.log(`Attribute value created: ${valeur} → ${id}`);
           } else {
+            failed++;
             continue;
           }
         } catch (err) {
           console.error(`Error creating product_option_value ${valeur}`, err);
+          failed++;
           continue;
         }
       }
     }
 
     const attributeValueId = valMap.get(valeur);
-    if (!attributeValueId) continue;
+    if (!attributeValueId) {
+      failed++;
+      continue;
+    }
 
     // ── Combinaison ──
     const comboKey = `${reference}_${specificite}_${valeur}`;
@@ -262,18 +299,33 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
 
     if (!combinationId) {
       try {
-        const existing = await apiService.get<any>(
-            `/combinations?filter[id_product]=${productId}&display=full`
-        );
-        const combosRaw = existing?.prestashop?.combinations?.combination;
-        const combosArr = ensureArray(combosRaw);
+        // Utiliser le cache des combinaisons du produit
+        let combosArr = productCombosCache.get(productId);
+        if (!combosArr) {
+          const existing = await apiService.get<any>(
+              `/combinations?filter[id_product]=${productId}&display=full`
+          );
+          combosArr = ensureArray(existing?.prestashop?.combinations?.combination);
+          productCombosCache.set(productId, combosArr);
+        }
         
         for (const combo of combosArr) {
             const associations = combo.associations?.product_option_values?.product_option_value;
             const assocArr = ensureArray(associations);
             if (assocArr.some((a: any) => Number(extractIdValue(a.id)) === attributeValueId)) {
                 combinationId = Number(extractIdValue(combo.id));
-                combinationMap.set(comboKey, { id: combinationId, prix_ttc: productData.prix_ttc });
+                const comboPrice = parseFloat(extractIdValue(combo.price) || '0');
+                const prixVenteTtc = productData.prix_ttc + DomainPriceService.calculateTTC(comboPrice, productData.rate);
+                combinationMap.set(comboKey, { id: combinationId, prix_ttc: prixVenteTtc });
+                const mappedCombo: Combination = {
+                  id: extractIdValue(combo.id),
+                  id_product: String(productId),
+                  reference: combo.reference || undefined,
+                  price: combo.price || undefined,
+                  wholesale_price: combo.wholesale_price || undefined,
+                  associations: combo.associations
+                };
+                catalogLoader.registerCombination(productId, valeur, mappedCombo);
                 console.log(`Combination already exists for ${comboKey} → ${combinationId}`);
                 break;
             }
@@ -307,78 +359,137 @@ const processCombinationsAndStocks = async (rows: StockCSVRow[]) => {
           if (id) {
             combinationId = id;
             combinationMap.set(comboKey, { id: combinationId, prix_ttc: prixVenteTtc });
+            const newCombo: Combination = {
+              id: String(combinationId),
+              id_product: String(productId),
+              reference: combinationData.reference,
+              price: String(combinationData.price),
+              associations: combinationData.associations
+            };
+            catalogLoader.registerCombination(productId, valeur, newCombo);
             console.log(`Combination created: ${comboKey} → ${combinationId}`);
+            
+            // Invalider le cache des déclinaisons de ce produit pour le recharger si nécessaire
+            productCombosCache.delete(productId);
           }
         } catch (err) {
           console.error(`Error creating combination for ${comboKey}`, err);
+          failed++;
           continue;
         }
       }
     }
 
-    if (!combinationId) continue;
+    if (!combinationId) {
+      failed++;
+      continue;
+    }
 
     // ── Stock déclinaison ──
     try {
-      const stockGetRes = await apiService.get<any>(
-          `/stock_availables?filter[id_product]=${productId}&filter[id_product_attribute]=${combinationId}&display=full`,
-      );
+      const cachedStock = catalogLoader.getCachedStock(productId, combinationId);
+      let stockId = cachedStock ? String(cachedStock.id) : null;
+      let currentQty = cachedStock ? cachedStock.quantity : 0;
+      let hasStockRecord = !!stockId;
 
-      const rawCombo = stockGetRes?.prestashop?.stock_availables?.stock_available;
-      const allComboStocks: StockAvailable[] = ensureArray(rawCombo);
+      if (!stockId) {
+        const stockGetRes = await apiService.get<any>(
+            `/stock_availables?filter[id_product]=${productId}&filter[id_product_attribute]=${combinationId}&display=full`,
+        );
+        const rawCombo = stockGetRes?.prestashop?.stock_availables?.stock_available;
+        const allComboStocks = ensureArray(rawCombo);
+        if (allComboStocks.length > 0) {
+          stockId = extractIdValue(allComboStocks[0].id);
+          currentQty = parseInt(extractIdValue(allComboStocks[0].quantity) || '0', 10);
+          hasStockRecord = true;
+        }
+      }
+
       const quantity = ImportValidator.validatePositiveAmount(stock_initial, 'stock_initial', true);
 
-      if (allComboStocks.length > 0) {
-        for (const stockRecord of allComboStocks) {
-          const stockId = extractIdValue(stockRecord.id);
-          const patchData = { id: Number(stockId), quantity: quantity };
-          await apiService.patch(`/stock_availables/${stockId}`, { stock_available: patchData });
-          console.log(`[combinationImport] Stock updated for combo ${combinationId} (ID Stock: ${stockId}) : qty=${quantity}`);
-        }
+      if (hasStockRecord && stockId) {
+        const delta = quantity - currentQty;
 
+        const patchData = { id: Number(stockId), quantity: quantity };
+        await apiService.patch(`/stock_availables/${stockId}`, { stock_available: patchData });
+        console.log(`[combinationImport] Stock updated for combo ${combinationId} (ID Stock: ${stockId}) : qty=${quantity}`);
 
-        try {
-          let movementDate = row.date_add ? (row.date_add + ' 00:00:00') : "";
-          if (!movementDate) {
-            movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
-                ? productData.available_date + ' 00:00:00'
-                : toPrestashopDate(new Date());
-          }
+        if (delta !== 0) {
+          try {
+            let movementDate = row.date_add ? (row.date_add + ' 00:00:00') : "";
+            if (!movementDate) {
+              movementDate = (productData.available_date && productData.available_date !== '0000-00-00')
+                  ? productData.available_date + ' 00:00:00'
+                  : toPrestashopDate(new Date());
+            }
 
-          // Use the stockId from the current stockRecord in the loop
-          const currentStockId = Number(extractIdValue(allComboStocks[0].id));
+            const stockMovementPayload: StockMovement = {
+              id_employee: 1,
+              id_stock: Number(stockId),
+              physical_quantity: Math.abs(delta),
+              sign: delta > 0 ? 1 : -1,
+              id_stock_mvt_reason: 1,
+              price_te: 0,
+              date_add: movementDate,
+            };
 
-          const stockMovementPayload: StockMovement = {
-            id_employee: 1,
-            id_stock: currentStockId,
-            physical_quantity: quantity,
-            sign: 1,
-            id_stock_mvt_reason: 1,
-            price_te: 0,
-            date_add: movementDate,
-          };
-
-          const mvtRes = await apiService.post<any>('/stock_movements', {
-            stock_mvt: stockMovementPayload
-          });
-          
-          // PrestaShop écrase date_add en "now" au POST, on fait un PATCH direct pour forcer la date
-          if (mvtRes?.prestashop?.stock_mvt?.id) {
-            const mvtId = Number(extractIdValue(mvtRes.prestashop.stock_mvt.id));
-            await apiService.patch(`/stock_movements/${mvtId}`, {
-              stock_mvt: { id: mvtId, date_add: movementDate }
+            const mvtRes = await apiService.post<any>('/stock_movements', {
+              stock_mvt: stockMovementPayload
             });
+            
+            const newMvtId = extractIdValue(mvtRes?.prestashop?.stock_mvt?.id);
+            if (newMvtId) {
+              const mvtId = Number(newMvtId);
+              await apiService.patch(`/stock_movements/${mvtId}`, {
+                stock_mvt: { id: mvtId, date_add: movementDate }
+              });
+            }
+            
+            console.log(`[combinationImport] Stock movement created and date forced via PATCH for combo ${combinationId}`);
+          } catch (mvtError) {
+            console.error(`[combinationImport] Failed stock movement for combo ${combinationId}`, mvtError);
           }
-          
-          console.log(`[combinationImport] Stock movement created and date forced via PUT for combo ${combinationId}`);
-        } catch (mvtError) {
-          console.error(`[combinationImport] Failed stock movement for combo ${combinationId}`, mvtError);
         }
+        success++;
       } else {
         console.error(`[combinationImport] NO stock row found for combo ${combinationId}.`);
+        failed++;
       }
     } catch (err) {
       console.error(`[combinationImport] Error processing stock for combo ${combinationId}`, err);
+      failed++;
     }
   }
+
+  return { success, failed };
 };
+
+export async function getCombinationInfo(
+  productId: number,
+  reference: string,
+  valeur: string,
+  rate: number,
+  basePriceTtc: number
+): Promise<CombinationMapEntry | null> {
+  const prefix = `${reference}_`;
+  const suffix = `_${valeur}`;
+  
+  // 1. Check map first
+  for (const [key, value] of combinationMap.entries()) {
+    if (key.startsWith(prefix) && key.endsWith(suffix)) {
+      return value;
+    }
+  }
+
+  // 2. Fallback to catalogLoader
+  const info = await catalogLoader.getCombinationInfo(productId, valeur);
+  if (info) {
+    const priceHt = parseFloat(info.price || '0');
+    const prixTtc = basePriceTtc + DomainPriceService.calculateTTC(priceHt, rate);
+    const entry: CombinationMapEntry = { id: Number(info.id), prix_ttc: prixTtc };
+    const comboKey = `${reference}_unknown_${valeur}`;
+    combinationMap.set(comboKey, entry);
+    return entry;
+  }
+  return null;
+}

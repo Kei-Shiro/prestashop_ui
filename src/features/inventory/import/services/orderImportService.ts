@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import apiService from "@shared/api/api-service";
-import { productMap } from "./productImportService";
-import { combinationMap } from "./combinationImportService";
+import { productMap, getProductInfo } from "./productImportService";
+import { combinationMap, getCombinationInfo } from "./combinationImportService";
 import type { OrderCSVRow, AchatTuple, ResolvedTuple } from "@shared/types/import";
 import type { LangField } from "@shared/types/common";
 import type { CustomerCreatePayload } from "@shared/types/customer";
@@ -10,12 +10,13 @@ import type { CartCreatePayload, CartRow } from "@shared/types/cart";
 import type { OrderCreatePayload } from "@shared/types/order";
 import type { CarrierCreatePayload } from "@shared/types/carrier";
 import type { StockMovement } from "@shared/types/stock-movement";
+import { extractIdValue, extractIdNumber } from "@shared/utils/extractIdValue";
 import { ImportValidator } from "@shared/utils/import-validator";
-import { extractIdValue } from "@shared/utils/extractIdValue";
 import { ensureArray } from '@shared/utils/arrayUtils';
 import { toLValue } from '@shared/utils/extractLanguageValue';
 import { DomainPriceService } from '@shared/utils/priceUtils';
 import { DomainCartHelper } from '@shared/utils/cartUtils';
+import { catalogLoader } from "@shared/services/catalog-loader";
 
 export const customerMap = new Map<string, number>();
 export const addressMap = new Map<string, number>();
@@ -66,7 +67,7 @@ async function getDefaultCarrierId(): Promise<number> {
         const res = await apiService.get<any>("/carriers?display=full&filter[active]=1&filter[deleted]=0");
         const carrier = res?.prestashop?.carriers?.carrier;
         const first = ensureArray(carrier)[0];
-        const id = parseInt(first?.id, 10);
+        const id = parseInt(extractIdValue(first?.id), 10);
         if (!isNaN(id) && id > 0) {
             console.log(`Default carrier id: ${id}`);
             return id;
@@ -93,7 +94,7 @@ async function getDefaultCarrierId(): Promise<number> {
             delay: toLValue('Delivery within 3-5 days'),
         };
         const res = await apiService.post<any>("/carriers", { carrier: carrierData });
-        const newId = res?.prestashop?.carrier?.id;
+        const newId = extractIdValue(res?.prestashop?.carrier?.id);
         if (newId) return parseInt(newId, 10);
     } catch (err) {
         console.error("Cannot create fallback carrier:", err);
@@ -105,6 +106,8 @@ export async function importOrders(csvFile: File): Promise<void> {
     customerMap.clear();
     addressMap.clear();
     orderCountMap.clear();
+    catalogLoader.clearAll();
+    await catalogLoader.preloadProductCache();
     const text = await csvFile.text();
     return new Promise((resolve, reject) => {
         Papa.parse<any>(text, {
@@ -137,8 +140,23 @@ export async function importOrders(csvFile: File): Promise<void> {
 
                     console.log("Parsed orders:", rows);
                     const id_carrier = await getDefaultCarrierId();
+                    let success = 0;
+                    let failed = 0;
+                    const errors: string[] = [];
+
                     for (const row of rows) {
-                        await processOrderRow(row, id_carrier);
+                        try {
+                            await processOrderRow(row, id_carrier);
+                            success++;
+                        } catch (err: any) {
+                            console.error(`Order import error for ${row.email}:`, err);
+                            failed++;
+                            errors.push(`${row.email}: ${err.message || err}`);
+                        }
+                    }
+
+                    if (failed > 0) {
+                        throw new Error(`Import de commandes terminé avec ${failed} échec(s) sur ${rows.length} commande(s). Détails: ${errors.join(', ')}`);
                     }
                     resolve();
                 } catch (err) {
@@ -155,13 +173,12 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     const { date, nom, email, pwd, adresse, achat, etat } = row;
     const tuples = parseAchat(achat);
     if (tuples.length === 0) {
-        console.warn(`Cannot parse achat for ${email}`);
-        return;
+        throw new Error(`Impossible d'analyser le champ achat pour ${email}`);
     }
     for (const t of tuples) {
-        if (!productMap.has(t.ref)) {
-            console.warn(`Missing product ref "${t.ref}"`);
-            return;
+        const productData = await getProductInfo(t.ref);
+        if (!productData) {
+            throw new Error(`Référence produit "${t.ref}" absente du catalogue PrestaShop pour la commande de ${email}`);
         }
     }
 
@@ -178,7 +195,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
                 id_default_group: 3
             };
             const res = await apiService.post<any>("/customers", { customer: customerData });
-            const id = res?.prestashop?.customer?.id;
+            const id = extractIdValue(res?.prestashop?.customer?.id);
             if (!id) throw new Error("No customer id");
             id_customer = parseInt(id, 10);
             customerMap.set(email, id_customer);
@@ -204,7 +221,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
                 alias: 'Adresse principale'
             };
             const res = await apiService.post<any>("/addresses", { address: addressData });
-            const id = res?.prestashop?.address?.id;
+            const id = extractIdValue(res?.prestashop?.address?.id);
             if (!id) throw new Error("No address id");
             id_address = parseInt(id, 10);
             addressMap.set(addressKey, id_address);
@@ -232,10 +249,10 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             date_add: formatDate(date),
         };
         const res = await apiService.post<any>("/carts", { cart: cartData });
-        const id = res?.prestashop?.cart?.id;
+        const id = extractIdValue(res?.prestashop?.cart?.id);
         if (!id) throw new Error("No cart id");
         id_cart = parseInt(id, 10);
-        secureKey = res?.prestashop?.cart?.secure_key || "";
+        secureKey = extractIdValue(res?.prestashop?.cart?.secure_key) || "";
         console.log(`Cart created: ${id_cart}`);
     } catch (err) {
         console.error(`Cart creation error:`, err);
@@ -245,7 +262,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     if (!secureKey) {
         try {
             const res = await apiService.get<any>(`/carts/${id_cart}?display=full`);
-            secureKey = res?.prestashop?.cart?.secure_key;
+            secureKey = extractIdValue(res?.prestashop?.cart?.secure_key);
             if (!secureKey) throw new Error("Missing secure key");
         } catch (err) {
             console.error(`Cannot get secure key:`, err);
@@ -256,7 +273,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
     // ========== RESOLVE PRODUCTS ==========
     const rawResolved: Array<{ id_product: number; id_product_attribute: number; quantity: number; unit_price_ttc: number; rate: number }> = [];
     for (const tuple of tuples) {
-        const productData = productMap.get(tuple.ref);
+        const productData = await getProductInfo(tuple.ref);
         if (!productData) {
             console.warn(`[orderImport] Product not found for ref: ${tuple.ref}.`);
             continue;
@@ -267,16 +284,13 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
         let rate = productData.rate;
 
         if (tuple.valeur) {
-            const prefix = `${tuple.ref}_`;
-            const suffix = `_${tuple.valeur}`;
-
-            let foundEntry = null;
-            for (const [key, value] of combinationMap.entries()) {
-                if (key.startsWith(prefix) && key.endsWith(suffix)) {
-                    foundEntry = value;
-                    break;
-                }
-            }
+            const foundEntry = await getCombinationInfo(
+                productData.id_product,
+                tuple.ref,
+                tuple.valeur,
+                rate,
+                productData.prix_ttc
+            );
 
             if (foundEntry) {
                 id_product_attribute = foundEntry.id;
@@ -417,7 +431,7 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             throw new Error(`PrestaShop order creation errors: ${JSON.stringify(res.prestashop.errors)}`);
         }
 
-        const id = res?.prestashop?.order?.id;
+        const id = extractIdValue(res?.prestashop?.order?.id);
 
         if (!id) {
             console.error("PrestaShop order creation response without order id:", JSON.stringify(res, null, 2));

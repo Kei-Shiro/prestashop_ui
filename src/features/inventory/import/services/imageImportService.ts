@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import apiService from '@shared/api/api-service';
-import { productMap } from './productImportService';
+import { productMap, getProductInfo } from './productImportService';
+import { catalogLoader } from '@shared/services/catalog-loader';
 
 export const importImages = async (zipFile: File): Promise<void> => {
   let zip: JSZip;
@@ -25,17 +26,32 @@ export const importImages = async (zipFile: File): Promise<void> => {
   let successCount = 0;
   let skippedCount = 0;
 
-  for (const entry of imageEntries) {
+  await catalogLoader.runWithConcurrency(imageEntries, 5, async (entry) => {
     const fileName = entry.name.split('/').pop() || entry.name;
     // Extraire la référence: ex: "T_01.png" -> "T_01"
     const lastDotIndex = fileName.lastIndexOf('.');
     const reference = lastDotIndex !== -1 ? fileName.substring(0, lastDotIndex) : fileName;
 
-    const productData = productMap.get(reference);
+    const normalizedReference = reference;
+
+    // Recherche insensible à la casse
+    let productData = productMap.get(normalizedReference);
     if (!productData) {
-      console.warn(`[Images] MISSING_DEPENDENCY: Référence ${reference} absente de productMap. On passe ${fileName}.`);
+      const matchingKey = Array.from(productMap.keys()).find(k => k.toLowerCase() === normalizedReference.toLowerCase());
+      if (matchingKey) {
+        productData = productMap.get(matchingKey);
+      }
+    }
+
+    // Lookup dynamique si absent de la map
+    if (!productData) {
+      productData = (await getProductInfo(normalizedReference)) || undefined;
+    }
+
+    if (!productData) {
+      console.warn(`[Images] MISSING_DEPENDENCY: Référence ${normalizedReference} (fichier ${fileName}) absente du catalogue PrestaShop. On passe.`);
       skippedCount++;
-      continue;
+      return;
     }
 
     const id_product = productData.id_product;
@@ -46,13 +62,13 @@ export const importImages = async (zipFile: File): Promise<void> => {
       formData.append('image', blob, fileName);
 
       await apiService.postFormData(`/images/products/${id_product}`, formData);
-      console.log(`✓ Image uploadée pour ${reference} (id_product: ${id_product})`);
+      console.log(`✓ Image uploadée pour ${normalizedReference} (id_product: ${id_product})`);
       successCount++;
     } catch (err) {
-      console.error(`[Images] API_ERROR: Impossible d'uploader l'image ${fileName} pour la référence ${reference}:`, err);
+      console.error(`[Images] API_ERROR: Impossible d'uploader l'image ${fileName} pour la référence ${normalizedReference}:`, err);
       skippedCount++;
     }
-  }
+  });
 
   console.log(`[Images] Import terminé. ${successCount} succès, ${skippedCount} ignorées.`);
 };

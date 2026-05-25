@@ -10,7 +10,8 @@
     "dev:front": "vite --config vite.config.front.ts",
     "build:back": "vite build --config vite.config.back.ts",
     "build:front": "vite build --config vite.config.front.ts",
-    "build": "npm run build:back && npm run build:front"
+    "build": "npm run build:back && npm run build:front",
+    "test:unit": "vitest run src/ --exclude \"**/.worktrees/**\""
   },
   "dependencies": {
     "axios": "^1.16.0",
@@ -30,6 +31,7 @@
     "tailwindcss": "^3.4.19",
     "typescript": "^6.0.3",
     "vite": "^8.0.10",
+    "vitest": "^4.1.7",
     "vue-tsc": "^3.2.8"
   }
 }

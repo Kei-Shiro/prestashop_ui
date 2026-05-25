@@ -3,7 +3,7 @@ import { orderService, CheckoutForm } from '@shared/models/order';
 import { customerService } from '@shared/models/customer';
 import { useCartStore, cartService } from '@shared/models/cart';
 import { useCustomerAuthStore as useAuthStore } from '@shared/models/auth';
-import { extractIdValue } from '@shared/utils/extractIdValue';
+import { extractIdValue, extractIdNumber } from '@shared/utils/extractIdValue';
 
 export function useCheckout() {
     const loading = ref(false);
@@ -44,7 +44,7 @@ export function useCheckout() {
                     id_customer: customerId
                 });
             } else {
-                customerId = Number(authStore.user.id);
+                customerId = extractIdNumber(authStore.user.id);
                 const addresses = await customerService.getAllAddressesByCustomerId(customerId);
                 if (addresses.length > 0) {
                     addressId = Number(extractIdValue(addresses[0].id));

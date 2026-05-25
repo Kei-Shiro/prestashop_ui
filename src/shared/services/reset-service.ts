@@ -2,6 +2,7 @@ import apiService from '@shared/api/api-service';
 import { extractIdValue, extractIdNumber } from '@shared/utils/extractIdValue';
 import { ensureArray } from '@shared/utils/arrayUtils';
 import { erasableEndpoints } from '@shared/utils/endpoints';
+import { catalogLoader } from '@shared/services/catalog-loader';
 
 function extractList(res: any, endpoint: string): any[] {
     const container = res?.prestashop?.[endpoint.slice(1)];
@@ -42,7 +43,7 @@ async function deleteAll(endpoint: string): Promise<string[]> {
             
             console.log(`[resetService] ${items.length} mouvements de stock à supprimer via module API`);
             
-            for (const item of items) {
+            await catalogLoader.runWithConcurrency(items, 10, async (item) => {
                 const id = extractIdValue(item?.id);
                 if (id) {
                     try {
@@ -51,7 +52,7 @@ async function deleteAll(endpoint: string): Promise<string[]> {
                         console.warn(`[resetService] Échec suppression mouvement ${id}`, err);
                     }
                 }
-            }
+            });
             return [];
         } catch (error) {
             console.warn(`[resetService] Initialisation reset ${endpoint} échouée`, error);
@@ -67,9 +68,9 @@ async function deleteAll(endpoint: string): Promise<string[]> {
     }
     items.sort((a: any, b: any) => Number(extractIdValue(a?.id)) - Number(extractIdValue(b?.id)));
     const failedIds: string[] = [];
-    for (const item of items) {
+    await catalogLoader.runWithConcurrency(items, 10, async (item) => {
         const id = extractIdValue(item?.id);
-        if (!id) continue;
+        if (!id) return;
 
         try {
             await apiService.delete(`${endpoint}/${id}`);
@@ -77,7 +78,7 @@ async function deleteAll(endpoint: string): Promise<string[]> {
             console.warn(`Failed to delete ${endpoint}/${id}`, error);
             failedIds.push(id);
         }
-    }
+    });
     return failedIds;
 }
 
@@ -101,15 +102,15 @@ async function deleteFiltered(endpoint: string, filterStr: string): Promise<stri
     }
     items.sort((a: any, b: any) => Number(extractIdValue(a?.id)) - Number(extractIdValue(b?.id)));
     const failedIds: string[] = [];
-    for (const item of items) {
+    await catalogLoader.runWithConcurrency(items, 10, async (item) => {
         const id = extractIdValue(item?.id);
-        if (!id) continue;
+        if (!id) return;
 
         const fieldValue = extractIdValue(item?.[field]);
 
         if (excludedIds.has(fieldValue)) {
             console.log(`Gardé (exclu) : ${endpoint}/${id} (car ${field}=${fieldValue})`);
-            continue;
+            return;
         }
         try {
             await apiService.delete(`${endpoint}/${id}`);
@@ -117,7 +118,7 @@ async function deleteFiltered(endpoint: string, filterStr: string): Promise<stri
             console.warn(`Failed to delete ${endpoint}/${id}`, error);
             failedIds.push(id);
         }
-    }
+    });
     return failedIds;
 }
 
@@ -132,8 +133,8 @@ async function putQuantityZero(endpoint: string): Promise<string[]> {
     }
     const failedIds: string[] = [];
 
-    for (const item of items) {
-        if (!item.id) continue;
+    await catalogLoader.runWithConcurrency(items, 10, async (item) => {
+        if (!item.id) return;
         try {
             const patchData = { id: extractIdNumber(item.id), quantity: 0 };
             await apiService.patch(`${endpoint}/${patchData.id}`, { stock_available: patchData });
@@ -142,7 +143,7 @@ async function putQuantityZero(endpoint: string): Promise<string[]> {
             console.warn(`Failed to set quantity=0 for ${endpoint}/${item.id}`, error);
             failedIds.push(item.id);
         }
-    }
+    });
     return failedIds;
 }
 
