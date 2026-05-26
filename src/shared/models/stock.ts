@@ -130,17 +130,25 @@ export const useStockStore = defineStore('stock', () => {
     const addStock = async (id_product: string, delta: number, id_product_attribute = '0') => {
         await withLoading(loading, async () => {
             const stockGetRes = await apiService.get<any>(
-                `/stock_availables?filter[id_product]=${id_product}&filter[id_product_attribute]=${id_product_attribute}&display=[id]`
+                `/stock_availables?filter[id_product]=${id_product}&filter[id_product_attribute]=${id_product_attribute}&display=[id,quantity]`
             );
-            const stockAvailable = stockGetRes?.prestashop?.stock_availables?.stock_available;
-            const idStockAvailable = ensureArray(stockAvailable)[0]?.id;
+            const stockAvailable = ensureArray(stockGetRes?.prestashop?.stock_availables?.stock_available)[0];
 
-            if (!idStockAvailable) throw new Error('ID Stock non trouvé');
+            if (!stockAvailable || !stockAvailable.id) throw new Error('ID Stock non trouvé');
 
+            const idStockAvailable = extractIdValue(stockAvailable.id);
+            const currentQty = parseInt(extractIdValue(stockAvailable.quantity) || '0', 10);
+            const newQty = currentQty + delta;
+
+            // 1. Mettre à jour la quantité physique dans stock_availables
+            const patchData = { id: Number(idStockAvailable), quantity: newQty };
+            await apiService.patch(`/stock_availables/${idStockAvailable}`, { stock_available: patchData });
+
+            // 2. Créer le mouvement de stock historique
             const payload: { stock_mvt: StockMovement } = {
                 stock_mvt: {
                     id_employee: 1,
-                    id_stock: Number(extractIdValue(idStockAvailable)),
+                    id_stock: Number(idStockAvailable),
                     physical_quantity: Math.abs(delta),
                     sign: delta > 0 ? 1 : -1,
                     id_stock_mvt_reason: 1,
@@ -150,7 +158,7 @@ export const useStockStore = defineStore('stock', () => {
             };
 
             await apiService.post('/stock_movements', payload);
-            console.log(`[stockStore] Stock mis à jour : ${delta > 0 ? '+' : ''}${delta} pour produit ${id_product} (déclinaison ${id_product_attribute})`);
+            console.log(`[stockStore] Stock mis à jour : ${delta > 0 ? '+' : ''}${delta} (nouvelle qté: ${newQty}) pour produit ${id_product} (déclinaison ${id_product_attribute})`);
             await fetchStockMovements();
         });
     };

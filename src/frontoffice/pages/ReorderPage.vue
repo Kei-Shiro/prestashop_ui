@@ -6,6 +6,7 @@
       </router-link>
     </div>
 
+
     <h1 class="page-title">Renouveler la commande #{{ orderId }}</h1>
     <p class="page-subtitle" v-if="multiplier > 1">Multiplicateur de quantité appliqué : x{{ multiplier }}</p>
 
@@ -94,7 +95,6 @@ const router = useRouter();
 
 const orderId = Number(route.query.orderId);
 const multiplier = Number(route.query.multiplier) || 1;
-
 const items = ref<any[]>([]);
 const isStockSufficient = ref(false);
 const isLoading = ref(true);
