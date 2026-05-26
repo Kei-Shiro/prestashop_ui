@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import apiService from '@shared/api/api-service';
 import { extractIdValue } from '@shared/utils/extractIdValue';
+import { extractLanguageValue } from '@shared/utils/extractLanguageValue';
 import { ensureArray } from '@shared/utils/arrayUtils';
 import { withLoading } from '@shared/utils/asyncUtils';
 import { toPrestashopDate } from '@shared/utils/dateUtils';
@@ -163,7 +164,188 @@ export const useStockStore = defineStore('stock', () => {
         });
     };
 
-    return { stockMovements, loading, fetchStockMovements, addStock };
+    const lastRemovalReport = ref<any>(null);
+
+    const removeStockForCategory = async (categoryId: string, categoryName: string, quantityToRemove: number) => {
+        await withLoading(loading, async () => {
+            // 1. Fetch all products (limit 200 to cover all)
+            const productsRes = await apiService.get<any>('/products?display=full&limit=200');
+            const productsList = ensureArray(productsRes?.prestashop?.products?.product);
+
+            // 2. Filter products that belong to the category
+            const matchingProducts = productsList.filter((p: any) => {
+                const defaultCat = extractIdValue(p.id_category_default);
+                const categoriesAssoc = p.associations?.categories?.category;
+                const productCats = ensureArray(categoriesAssoc).map((c: any) => extractIdValue(c));
+                
+                return defaultCat === categoryId || productCats.includes(categoryId);
+            });
+
+            if (matchingProducts.length === 0) {
+                lastRemovalReport.value = {
+                    categoryName,
+                    requestedQty: quantityToRemove,
+                    totalRequested: 0,
+                    totalActuallyRemoved: 0,
+                    items: []
+                };
+                return;
+            }
+
+            // 3. For each matching product, process stock_availables
+            const reportItems: any[] = [];
+            let totalRequested = 0;
+            let totalActuallyRemoved = 0;
+
+            // Fetch option values map first so we can format combinations labels
+            const ovResponse = await apiService.get<any>('/product_option_values?display=full');
+            const optionValueNames = DomainCatalogHelper.buildOptionValueNamesMap(
+                ensureArray(ovResponse?.prestashop?.product_option_values?.product_option_value)
+            );
+
+            for (const p of matchingProducts) {
+                const pid = extractIdValue(p.id);
+                const pName = extractLanguageValue(p.name);
+                const pRef = p.reference || '';
+
+                // Fetch combinations for this product to map combinations labels later
+                const combiResponse = await apiService.get<any>(`/combinations?filter[id_product]=${pid}&display=full`);
+                const combinationList = ensureArray(combiResponse?.prestashop?.combinations?.combination);
+                const combinationMap: Record<string, string> = {};
+                combinationList.forEach((c: any) => {
+                    const cId = extractIdValue(c.id);
+                    const label = DomainCatalogHelper.buildCombinationLabel(c, optionValueNames);
+                    if (cId) combinationMap[cId] = label;
+                });
+
+                // Fetch all stock_availables for this product
+                const stockGetRes = await apiService.get<any>(
+                    `/stock_availables?filter[id_product]=${pid}&display=[id,id_product_attribute,quantity]`
+                );
+                const stockAvailables = ensureArray(stockGetRes?.prestashop?.stock_availables?.stock_available);
+
+                // Check if this product has combinations
+                const combinationStocks = stockAvailables.filter(sa => {
+                    const attrId = extractIdValue(sa.id_product_attribute);
+                    return attrId && attrId !== '0';
+                });
+
+                const mainStockRow = stockAvailables.find(sa => {
+                    const attrId = extractIdValue(sa.id_product_attribute);
+                    return !attrId || attrId === '0';
+                });
+
+                if (combinationStocks.length > 0) {
+                    // Has combinations: update each combination separately
+                    let newTotalQty = 0;
+                    for (const sa of combinationStocks) {
+                        const saId = extractIdValue(sa.id);
+                        const attrId = extractIdValue(sa.id_product_attribute);
+                        const currentQty = parseInt(extractIdValue(sa.quantity) || '0', 10);
+                        
+                        const requested = quantityToRemove;
+                        const removed = Math.min(requested, currentQty);
+                        const finalQty = currentQty - removed;
+
+                        totalRequested += requested;
+                        totalActuallyRemoved += removed;
+                        newTotalQty += finalQty;
+
+                        if (removed > 0) {
+                            // Update this combination's stock_available
+                            const patchData = { id: Number(saId), quantity: finalQty };
+                            await apiService.patch(`/stock_availables/${saId}`, { stock_available: patchData });
+
+                            // Create stock movement
+                            const payload = {
+                                stock_mvt: {
+                                    id_employee: 1,
+                                    id_stock: Number(saId),
+                                    physical_quantity: removed,
+                                    sign: -1,
+                                    id_stock_mvt_reason: 1,
+                                    price_te: 0,
+                                    date_add: toPrestashopDate(new Date()),
+                                }
+                            };
+                            await apiService.post('/stock_movements', payload);
+                        }
+
+                        reportItems.push({
+                            productName: pName,
+                            reference: pRef,
+                            combinationName: combinationMap[attrId] || `#${attrId}`,
+                            initialStock: currentQty,
+                            requestedToRemove: requested,
+                            actuallyRemoved: removed,
+                            finalStock: finalQty
+                        });
+                    }
+
+                    // Update main stock row (id_product_attribute = 0) with sum of combinations
+                    if (mainStockRow) {
+                        const mainSaId = extractIdValue(mainStockRow.id);
+                        const patchData = { id: Number(mainSaId), quantity: newTotalQty };
+                        await apiService.patch(`/stock_availables/${mainSaId}`, { stock_available: patchData });
+                    }
+                } else if (mainStockRow) {
+                    // No combinations: update main product stock row directly
+                    const saId = extractIdValue(mainStockRow.id);
+                    const currentQty = parseInt(extractIdValue(mainStockRow.quantity) || '0', 10);
+
+                    const requested = quantityToRemove;
+                    const removed = Math.min(requested, currentQty);
+                    const finalQty = currentQty - removed;
+
+                    totalRequested += requested;
+                    totalActuallyRemoved += removed;
+
+                    if (removed > 0) {
+                        // Update stock_available
+                        const patchData = { id: Number(saId), quantity: finalQty };
+                        await apiService.patch(`/stock_availables/${saId}`, { stock_available: patchData });
+
+                        // Create stock movement
+                        const payload = {
+                            stock_mvt: {
+                                id_employee: 1,
+                                id_stock: Number(saId),
+                                physical_quantity: removed,
+                                sign: -1,
+                                id_stock_mvt_reason: 1,
+                                price_te: 0,
+                                date_add: toPrestashopDate(new Date()),
+                            }
+                        };
+                        await apiService.post('/stock_movements', payload);
+                    }
+
+                    reportItems.push({
+                        productName: pName,
+                        reference: pRef,
+                        combinationName: '',
+                        initialStock: currentQty,
+                        requestedToRemove: requested,
+                        actuallyRemoved: removed,
+                        finalStock: finalQty
+                    });
+                }
+            }
+
+            // Save report
+            lastRemovalReport.value = {
+                categoryName,
+                requestedQty: quantityToRemove,
+                totalRequested,
+                totalActuallyRemoved,
+                items: reportItems
+            };
+
+            await fetchStockMovements();
+        });
+    };
+
+    return { stockMovements, loading, fetchStockMovements, addStock, lastRemovalReport, removeStockForCategory };
 });
 
 export default useStockStore;

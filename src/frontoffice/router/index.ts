@@ -7,6 +7,7 @@ import CheckoutPage from '../pages/CheckoutPage.vue';
 import OrderConfirmationPage from '../pages/OrderConfirmationPage.vue';
 import MyOrdersPage from '../pages/MyOrderPage.vue';
 import ReorderPage from '../pages/ReorderPage.vue';
+import StockRemovalReportPage from '../pages/StockRemovalReportPage.vue';
 import DefaultLayout from '../layouts/DefaultLayout.vue';
 import { useCustomerAuthStore as useAuthStore } from '@shared/models/auth';
 
@@ -23,7 +24,8 @@ const routes = [
       { path: 'checkout', component: CheckoutPage, meta: { requiresAuth: true } },
       { path: 'order-confirmation/:orderId', component: OrderConfirmationPage, meta: { requiresAuth: true } },
       { path: 'orders', component: MyOrdersPage, meta: { requiresAuth: true } },
-      { path: 'reorder', component: ReorderPage, meta: { requiresAuth: true } }
+      { path: 'reorder', component: ReorderPage, meta: { requiresAuth: true } },
+      { path: 'stock-removal-report', component: StockRemovalReportPage }
     ]
   },
   // Catch-all route to redirect /index.front.html to root

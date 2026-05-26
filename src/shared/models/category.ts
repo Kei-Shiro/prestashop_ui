@@ -31,6 +31,7 @@ export const categoryService = {
     }
 };
 
+
 /** @deprecated use categoryService */
 export const categorieService = categoryService;
 export default categoryService;

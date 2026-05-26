@@ -453,11 +453,44 @@ async function processOrderRow(row: OrderCSVRow, id_carrier: number): Promise<vo
             // ========== STOCK MOVEMENT ==========
             for (const t of resolvedTuples) {
                 try {
-                    const stockGetRes: any = await apiService.get(`/stock_availables?filter[id_product]=${t.id_product}&filter[id_product_attribute]=${t.id_product_attribute}&display=[id]`);
-                    const stockAvailable = stockGetRes?.prestashop?.stock_availables?.stock_available;
-                    const idStockAvailable = ensureArray(stockAvailable)[0]?.id;
+                    const stockGetRes: any = await apiService.get(`/stock_availables?filter[id_product]=${t.id_product}&filter[id_product_attribute]=${t.id_product_attribute}&display=[id,quantity]`);
+                    const stockAvailable = ensureArray(stockGetRes?.prestashop?.stock_availables?.stock_available)[0];
+                    const idStockAvailable = stockAvailable?.id;
 
                     if (idStockAvailable) {
+                        const currentQty = parseInt(extractIdValue(stockAvailable.quantity) || '0', 10);
+
+                        // Prevent negative stock: if current available quantity is less than order quantity,
+                        // pre-adjust stock by adding the deficit.
+                        if (currentQty < t.quantity) {
+                            const deficit = t.quantity - currentQty;
+                            const newQty = t.quantity;
+                            const saId = extractIdValue(idStockAvailable);
+
+                            // Adjust available quantity to match the order quantity
+                            await apiService.patch(`/stock_availables/${saId}`, {
+                                stock_available: {
+                                    id: Number(saId),
+                                    quantity: newQty
+                                }
+                            });
+
+                            // Log incoming stock adjustment to audit trail
+                            const adjustPayload = {
+                                stock_mvt: {
+                                    id_employee: 1,
+                                    id_stock: Number(saId),
+                                    physical_quantity: deficit,
+                                    sign: 1,
+                                    id_stock_mvt_reason: 1, // Correction
+                                    price_te: 0,
+                                    date_add: dateFormatted,
+                                }
+                            };
+                            await apiService.post('/stock_movements', adjustPayload);
+                            console.log(`[orderImport] Adjusted stock for product ${t.id_product} combo ${t.id_product_attribute} by +${deficit} to prevent negative stock`);
+                        }
+
                         const stockMovementPayload: StockMovement = {
                             id_employee: 1,
                             id_stock: Number(extractIdValue(idStockAvailable)),
